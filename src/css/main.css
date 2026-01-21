@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-homtune-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    @apply text-homtune-primary;
+    /* iOS Safariのバウンススクロールを無効化 */
+    overscroll-behavior: none;
+    /* モバイルでのテキスト選択最適化 */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* 入力フィールドは選択可能に */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* モバイルでのタッチ操作を最適化 */
+  button, a {
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .device-card {
+    @apply bg-white border border-homtune-border rounded-sm p-4 lg:p-6 transition-all active:bg-homtune-surface;
+  }
+  
+  .alert-badge {
+    @apply inline-flex items-center px-2 py-1 rounded text-xs font-medium;
+  }
+  
+  .alert-badge.warning {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+  
+  .alert-badge.info {
+    @apply bg-blue-50 text-blue-700 border border-blue-200;
+  }
+  
+  .alert-badge.low {
+    @apply bg-gray-50 text-gray-700 border border-gray-200;
+  }
+  
+  /* モバイル向けのタッチターゲットサイズ */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Thin line design - custom styles */
+.device-card {
+  border-width: 0.5px;
+}
+
+.room-rect {
+  stroke-width: 0.5px;
+  fill-opacity: 0.05;
+}
+
+.room-clickable {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.room-clickable:active {
+  opacity: 0.8;
+}
+
+.device-icon {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.05));
+  pointer-events: none; /* デバイスアイコンはクリックイベントをブロックしない */
+}
+
+/* モバイル向けの最適化 */
+@media (max-width: 768px) {
+  /* スクロールのスムーズ化 */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* カードのタッチフィードバック */
+  .device-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s;
+  }
+  
+  /* 間取り図のタッチ操作 */
+  #floor-plan {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+}
+
+/* セーフエリア対応（ノッチ付きデバイス） */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  
+  header {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}

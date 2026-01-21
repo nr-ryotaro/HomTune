@@ -1,0 +1,130 @@
+{
+  "id": "floor-plan-001",
+  "name": "1階平面図",
+  "scale": 1.0,
+  "width": 800,
+  "height": 700,
+  "rooms": [
+    {
+      "id": "living-room",
+      "name": "リビング",
+      "type": "living",
+      "coordinates": {
+        "x": 100,
+        "y": 100,
+        "width": 400,
+        "height": 300
+      },
+      "color": "#F5F5F5",
+      "borderColor": "#E0E0E0",
+      "devices": [
+        {
+          "deviceId": "device-001",
+          "x": 250,
+          "y": 200,
+          "icon": "air-conditioner"
+        }
+      ]
+    },
+    {
+      "id": "study",
+      "name": "書斎",
+      "type": "study",
+      "coordinates": {
+        "x": 500,
+        "y": 100,
+        "width": 300,
+        "height": 300
+      },
+      "color": "#FAFAFA",
+      "borderColor": "#E0E0E0",
+      "devices": [
+        {
+          "deviceId": "device-002",
+          "x": 600,
+          "y": 200,
+          "icon": "laptop"
+        }
+      ]
+    },
+    {
+      "id": "bedroom",
+      "name": "寝室",
+      "type": "bedroom",
+      "coordinates": {
+        "x": 100,
+        "y": 400,
+        "width": 300,
+        "height": 300
+      },
+      "color": "#F9F9F9",
+      "borderColor": "#E0E0E0",
+      "devices": [
+        {
+          "deviceId": "device-003",
+          "x": 200,
+          "y": 500,
+          "icon": "audio"
+        }
+      ]
+    },
+    {
+      "id": "kitchen",
+      "name": "キッチン",
+      "type": "kitchen",
+      "coordinates": {
+        "x": 500,
+        "y": 400,
+        "width": 300,
+        "height": 300
+      },
+      "color": "#F5F5F5",
+      "borderColor": "#E0E0E0",
+      "devices": []
+    }
+  ],
+  "walls": [
+    {
+      "x1": 100,
+      "y1": 100,
+      "x2": 500,
+      "y2": 100
+    },
+    {
+      "x1": 500,
+      "y1": 100,
+      "x2": 800,
+      "y2": 100
+    },
+    {
+      "x1": 800,
+      "y1": 100,
+      "x2": 800,
+      "y2": 700
+    },
+    {
+      "x1": 800,
+      "y1": 700,
+      "x2": 100,
+      "y2": 700
+    },
+    {
+      "x1": 100,
+      "y1": 700,
+      "x2": 100,
+      "y2": 100
+    },
+    {
+      "x1": 500,
+      "y1": 100,
+      "x2": 500,
+      "y2": 400
+    },
+    {
+      "x1": 100,
+      "y1": 400,
+      "x2": 500,
+      "y2": 400
+    }
+  ]
+}

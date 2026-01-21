@@ -1,0 +1,42 @@
+name: homtune
+description: 家庭内の家電や機材を最適に管理・調律するためのアプリ
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  # 状態管理
+  provider: ^6.1.1
+  # データ永続化
+  shared_preferences: ^2.2.2
+  # JSON処理
+  # (dart:convert を使用するため追加不要)
+  # カメラ機能
+  image_picker: ^1.0.5
+  # ファイル管理
+  path_provider: ^2.1.1
+  # HTTP通信（将来のAPI連携用）
+  http: ^1.1.0
+  # URL起動（説明書リンク用）
+  url_launcher: ^6.2.2
+  # PDF表示
+  pdfx: ^2.9.2
+  # ファイル操作
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/data/mock-data.json
+    - assets/data/floor-plan.json

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HomTune">
+    <meta name="theme-color" content="#ffffff">
+    <title>HomTune - ホームチューン</title>
+    <link rel="stylesheet" href="./css/main.css">
+</head>
+<body class="bg-homtune-background text-homtune-primary font-sans antialiased">
+    <!-- Header -->
+    <header class="border-b border-homtune-border bg-white">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <h1 class="text-2xl font-light tracking-tight">HomTune</h1>
+                    <span class="text-xs text-homtune-secondary font-light">ホームチューン</span>
+                </div>
+                <nav class="hidden md:flex items-center space-x-6 text-sm">
+                    <a href="#" class="text-homtune-primary hover:text-homtune-accent transition-colors">デバイス</a>
+                    <a href="#" class="text-homtune-secondary hover:text-homtune-accent transition-colors">間取り</a>
+                    <a href="#" class="text-homtune-secondary hover:text-homtune-accent transition-colors">資産価値</a>
+                    <a href="#" class="text-homtune-secondary hover:text-homtune-accent transition-colors">設定</a>
+                </nav>
+                <!-- モバイル用メニューボタン -->
+                <button id="mobile-menu-btn" class="md:hidden text-homtune-primary">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Alert Summary -->
+        <section class="mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white border border-homtune-border rounded-sm p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-homtune-secondary mb-1">警告</p>
+                            <p class="text-2xl font-light" id="alert-count">1</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white border border-homtune-border rounded-sm p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-homtune-secondary mb-1">メンテナンス予定</p>
+                            <p class="text-2xl font-light" id="maintenance-count">2</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white border border-homtune-border rounded-sm p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-homtune-secondary mb-1">登録デバイス</p>
+                            <p class="text-2xl font-light" id="device-count">3</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Device List and Floor Plan -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+            <!-- Device List -->
+            <div class="lg:col-span-2 space-y-4 lg:space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg lg:text-xl font-light">デバイス一覧</h2>
+                    <button id="add-device-btn" class="text-sm text-homtune-secondary active:bg-homtune-surface border border-homtune-border px-3 lg:px-4 py-2 rounded-sm transition-colors touch-manipulation">
+                        + 新規登録
+                    </button>
+                </div>
+
+                <!-- Device Cards -->
+                <div id="device-list" class="space-y-3 lg:space-y-4">
+                    <!-- Device cards will be rendered here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Floor Plan -->
+            <div class="lg:col-span-1">
+                <h2 class="text-lg lg:text-xl font-light mb-4 lg:mb-6">間取り図</h2>
+                <div class="bg-white border border-homtune-border rounded-sm p-4 lg:p-6">
+                    <div id="floor-plan" class="relative" style="width: 100%; height: 300px; min-height: 300px;">
+                        <!-- Floor plan will be rendered here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-homtune-border mt-16 py-8">
+        <div class="max-w-7xl mx-auto px-6">
+            <p class="text-xs text-homtune-secondary text-center">HomTune © 2024</p>
+        </div>
+    </footer>
+
+    <script type="module" src="./js/app.js"></script>
+</body>
+</html>
