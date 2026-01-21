@@ -1,0 +1,30 @@
+{
+  "recalls": [
+    {
+      "modelNumber": "CS-ZX2811",
+      "manufacturer": "ダイキン",
+      "date": "2023-05-15T00:00:00Z",
+      "description": "エアコン内部の配線不良による発火の恐れ",
+      "reason": "製造工程での配線接続不良",
+      "manufacturerContactUrl": "https://www.daikin.co.jp/contact"
+    },
+    {
+      "modelNumber": "MBP-2021-16",
+      "manufacturer": "Apple",
+      "date": "2024-01-20T00:00:00Z",
+      "description": "バッテリー膨張による発火の恐れ",
+      "reason": "バッテリーセルの製造不良",
+      "manufacturerContactUrl": "https://support.apple.com/contact"
+    }
+  ],
+  "standardLifespans": {
+    "エアコン": 10,
+    "冷蔵庫": 12,
+    "洗濯機": 10,
+    "テレビ": 8,
+    "PC": 5,
+    "スマートフォン": 3,
+    "掃除機": 8,
+    "電子レンジ": 8
+  }
+}

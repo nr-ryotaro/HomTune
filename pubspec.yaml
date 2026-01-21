@@ -26,6 +26,12 @@ dependencies:
   url_launcher: ^6.2.2
   # PDF表示
   pdfx: ^2.9.2
+  # PDF生成
+  pdf: ^3.11.3
+  # ファイル選択
+  file_picker: ^8.1.2
+  # 画像処理
+  image: ^4.3.0
   # ファイル操作
   path: ^1.9.0
 
@@ -40,3 +46,5 @@ flutter:
   assets:
     - assets/data/mock-data.json
     - assets/data/floor-plan.json
+    - assets/data/safety-mock-data.json
+    - assets/data/category-defaults.json

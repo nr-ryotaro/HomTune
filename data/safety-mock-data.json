@@ -1,0 +1,47 @@
+{
+  "recalls": [
+    {
+      "modelNumber": "CS-ZX2811",
+      "manufacturer": "ダイキン",
+      "date": "2023-05-15T00:00:00Z",
+      "description": "エアコン内部の配線不良による発火の恐れ",
+      "reason": "製造工程での配線接続不良",
+      "manufacturerContactUrl": "https://www.daikin.co.jp/contact"
+    },
+    {
+      "modelNumber": "MBP-2021-16",
+      "manufacturer": "Apple",
+      "date": "2024-01-20T00:00:00Z",
+      "description": "バッテリー膨張による発火の恐れ",
+      "reason": "バッテリーセルの製造不良",
+      "manufacturerContactUrl": "https://support.apple.com/contact"
+    },
+    {
+      "modelNumber": "AC-2022-X",
+      "manufacturer": "ダイキン",
+      "date": "2024-02-01T00:00:00Z",
+      "description": "エアコン内部の基板不良による発火の恐れ",
+      "reason": "発火の恐れ（基板不良）",
+      "manufacturerContactUrl": "https://www.daikin.co.jp/contact"
+    },
+    {
+      "modelNumber": "AMP-VINTAGE-01",
+      "manufacturer": "オーディオテクニカ",
+      "date": "2024-01-15T00:00:00Z",
+      "description": "過熱による部品損傷の恐れ",
+      "reason": "過熱による部品損傷",
+      "manufacturerContactUrl": "https://www.audio-technica.co.jp/contact"
+    }
+  ],
+  "standardLifespans": {
+    "エアコン": 10,
+    "冷蔵庫": 12,
+    "洗濯機": 10,
+    "テレビ": 8,
+    "PC": 5,
+    "パソコン": 4,
+    "スマートフォン": 3,
+    "掃除機": 8,
+    "電子レンジ": 8
+  }
+}

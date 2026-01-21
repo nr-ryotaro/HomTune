@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../models/device.dart';
 import '../services/manual_service.dart';
+import '../services/valuation_service.dart';
 import '../screens/manual_viewer_screen.dart';
+import '../screens/manual_registration_screen.dart';
+import 'asset_value_chart.dart';
 
 class DeviceDetailCard extends StatelessWidget {
   final Device device;
@@ -12,6 +16,18 @@ class DeviceDetailCard extends StatelessWidget {
   });
 
   Future<void> _openManual(BuildContext context) async {
+    // マニュアルが未登録の場合は登録画面へ
+    if (device.manual == null || device.manual!.url.isEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ManualRegistrationScreen(
+            device: device,
+          ),
+        ),
+      );
+      return;
+    }
+
     if (device.modelNumber.isEmpty || device.manufacturer.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -33,10 +49,19 @@ class DeviceDetailCard extends StatelessWidget {
       );
 
       final manualService = ManualService();
-      final pdfFile = await manualService.getManual(
-        device.modelNumber,
-        device.manufacturer,
-      );
+      File? pdfFile;
+
+      // ローカルファイルの場合
+      if (device.manual!.isLocalFile) {
+        pdfFile = await manualService.getManualFile(device.manual!.url);
+      } else {
+        // 外部URLまたは型番から検索
+        pdfFile = await manualService.getManual(
+          device.modelNumber,
+          device.manufacturer,
+          manualUrl: device.manual!.url,
+        );
+      }
 
       if (!context.mounted) return;
       Navigator.of(context).pop(); // ローディングを閉じる
@@ -45,17 +70,19 @@ class DeviceDetailCard extends StatelessWidget {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => ManualViewerScreen(
-              pdfFile: pdfFile,
+              pdfFile: pdfFile!,
               deviceName: device.name,
               modelNumber: device.modelNumber,
             ),
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('説明書の取得に失敗しました'),
-            backgroundColor: Colors.red,
+        // マニュアルが見つからない場合は登録画面へ
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ManualRegistrationScreen(
+              device: device,
+            ),
           ),
         );
       }
@@ -238,6 +265,14 @@ class DeviceDetailCard extends StatelessWidget {
                         ),
                       ],
                     ],
+                    // 安全診断ステータスセクション（safetyInfoがnullでない場合のみ表示）
+                    if (device.safetyInfo != null) ...[
+                      const SizedBox(height: 24),
+                      _buildSafetySection(device),
+                    ],
+                    // 資産価値セクション
+                    const SizedBox(height: 24),
+                    _buildAssetValueSection(device),
                   ],
                 ),
               ),
@@ -245,6 +280,527 @@ class DeviceDetailCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 安全診断セクションを構築
+  Widget _buildSafetySection(Device device) {
+    final safetyInfo = device.safetyInfo!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '安全診断ステータス',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // リコール情報
+        if (safetyInfo.isRecallActive && safetyInfo.recallDetails != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red[50],
+              border: Border.all(
+                color: Colors.red[200]!,
+                width: 0.5,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 24,
+                      color: Color(0xFFef4444),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'リコール対象',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFef4444),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'この子が危ないかもしれないので、一度メーカーの窓口に相談してあげましょう',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.red[900],
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  safetyInfo.recallDetails!.description,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.red[800],
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                if (safetyInfo.recallDetails!.manufacturerContactUrl != null) ...[
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () {
+                      // URL起動（url_launcherを使用）
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('メーカー連絡先を開く'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFef4444),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // 安全性スコア
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: const Color(0xFFE5E5E5),
+              width: 0.5,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '安全性スコア',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  // 円形プログレスバー
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // 背景円
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: CircularProgressIndicator(
+                            value: 1.0,
+                            strokeWidth: 8,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.grey[200]!,
+                            ),
+                          ),
+                        ),
+                        // プログレス円
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: CircularProgressIndicator(
+                            value: safetyInfo.safetyScore / 100,
+                            strokeWidth: 8,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _getSafetyScoreColor(safetyInfo.safetyScore),
+                            ),
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                        // スコアテキスト
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              safetyInfo.safetyScore.toStringAsFixed(0),
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: _getSafetyScoreColor(safetyInfo.safetyScore),
+                              ),
+                            ),
+                            Text(
+                              '/100',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSafetyScoreLabel(safetyInfo.safetyScore),
+                        const SizedBox(height: 8),
+                        Text(
+                          _getSafetyScoreDescription(safetyInfo.safetyScore),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // パーツ交換アラート
+        if (safetyInfo.safetyAdvice.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...safetyInfo.safetyAdvice.map(
+            (advice) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                border: Border.all(
+                  color: Colors.amber[200]!,
+                  width: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: Colors.amber[700],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      advice,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.amber[900],
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 安全性スコアの色を取得
+  Color _getSafetyScoreColor(double score) {
+    if (score >= 80) {
+      return const Color(0xFF3b82f6); // 青
+    } else if (score >= 60) {
+      return const Color(0xFFf59e0b); // オレンジ
+    } else {
+      return const Color(0xFFef4444); // 赤
+    }
+  }
+
+  /// 安全性スコアのラベルを取得
+  Widget _buildSafetyScoreLabel(double score) {
+    String label;
+    Color color;
+    if (score >= 80) {
+      label = '良好';
+      color = const Color(0xFF3b82f6);
+    } else if (score >= 60) {
+      label = '注意';
+      color = const Color(0xFFf59e0b);
+    } else {
+      label = '要確認';
+      color = const Color(0xFFef4444);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: color,
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  /// 安全性スコアの説明を取得
+  String _getSafetyScoreDescription(double score) {
+    if (score >= 80) {
+      return '安全性に問題はありません';
+    } else if (score >= 60) {
+      return '定期的な点検を推奨します';
+    } else {
+      return '早急な点検または交換を検討してください';
+    }
+  }
+
+  /// 資産価値セクションを構築
+  Widget _buildAssetValueSection(Device device) {
+    final valuationService = ValuationService();
+    final assetValue = device.assetValue;
+
+    return FutureBuilder<AssetValue>(
+      future: assetValue != null 
+          ? Future.value(assetValue)
+          : valuationService.calculateAssetValue(device).catchError((e) {
+              print('Error calculating asset value: $e');
+              // エラー時はデフォルト値を返す
+              return AssetValue(
+                purchasePrice: device.purchasePrice,
+                currentUsedPrice: device.purchasePrice,
+                depreciationRate: 0.0,
+                lastPriceCheck: DateTime.now().toIso8601String(),
+                priceHistory: [],
+              );
+            }),
+      builder: (context, snapshot) {
+        // エラーが発生した場合は何も表示しない
+        if (snapshot.hasError) {
+          print('Error in asset value section: ${snapshot.error}');
+          return const SizedBox.shrink();
+        }
+
+        // データがない場合は何も表示しない
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        try {
+          final calculatedAssetValue = snapshot.data!;
+          final bookValue = calculatedAssetValue.bookValue ?? 0;
+          final marketValue = calculatedAssetValue.marketValue ?? 0;
+          final currentValue = calculatedAssetValue.currentUsedPrice;
+          final hasSellOpp = calculatedAssetValue.hasSellOpportunity ?? false;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '資産価値',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // 売却チャンス通知
+            if (hasSellOpp) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  border: Border.all(
+                    color: Colors.amber[200]!,
+                    width: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up,
+                      size: 24,
+                      color: Colors.amber[700],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '今が売り時です：市場価値が帳簿価値を上回っています',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.amber[900],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // 資産価値の二段構え表示
+            Row(
+              children: [
+                Expanded(
+                  child: _buildValueCard(
+                    '帳簿上の価値',
+                    '減価償却残高',
+                    bookValue,
+                    Colors.blue[50]!,
+                    Colors.blue[200]!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildValueCard(
+                    '市場価値',
+                    '中古相場',
+                    marketValue,
+                    Colors.green[50]!,
+                    Colors.green[200]!,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // 現在の資産価値
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                border: Border.all(
+                  color: const Color(0xFFE5E5E5),
+                  width: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '現在の資産価値',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    '¥${_formatCurrency(currentValue)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // 資産推移グラフ
+            _buildAssetChart(device),
+          ],
+        );
+        } catch (e) {
+          print('Error in asset value section UI: $e');
+          return const SizedBox.shrink();
+        }
+      },
+    );
+  }
+
+  /// 資産推移グラフを構築（エラーハンドリング付き）
+  Widget _buildAssetChart(Device device) {
+    try {
+      return AssetValueChart(device: device);
+    } catch (e) {
+      print('Error building asset chart: $e');
+      return const SizedBox.shrink();
+    }
+  }
+
+  /// 価値カードを構築
+  Widget _buildValueCard(
+    String title,
+    String subtitle,
+    int value,
+    Color backgroundColor,
+    Color borderColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border.all(
+          color: borderColor,
+          width: 0.5,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w300,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w300,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '¥${_formatCurrency(value)}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[900],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 通貨フォーマット
+  String _formatCurrency(int value) {
+    return value.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
     );
   }
 
@@ -337,10 +893,11 @@ class DeviceDetailCard extends StatelessWidget {
   }
 
   Widget _buildManualButton(BuildContext context) {
+    final hasManual = device.manual != null && device.manual!.url.isNotEmpty;
     final hasModelNumber = device.modelNumber.isNotEmpty && device.manufacturer.isNotEmpty;
     
     return InkWell(
-      onTap: hasModelNumber
+      onTap: hasModelNumber || hasManual
           ? () => _openManual(context)
           : null,
       borderRadius: BorderRadius.circular(20),
@@ -348,21 +905,21 @@ class DeviceDetailCard extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: hasModelNumber
+          color: (hasModelNumber || hasManual)
               ? const Color(0xFF3b82f6).withValues(alpha: 0.1)
               : Colors.grey[100],
           shape: BoxShape.circle,
           border: Border.all(
-            color: hasModelNumber
+            color: (hasModelNumber || hasManual)
                 ? const Color(0xFF3b82f6)
                 : Colors.grey[300]!,
             width: 1,
           ),
         ),
         child: Icon(
-          Icons.menu_book_outlined,
+          hasManual ? Icons.menu_book_outlined : Icons.add,
           size: 20,
-          color: hasModelNumber
+          color: (hasModelNumber || hasManual)
               ? const Color(0xFF3b82f6)
               : Colors.grey[400],
         ),

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/device.dart';
 import '../models/room.dart';
 import '../models/room.dart' as room_models;
+import 'valuation_service.dart';
 
 class DeviceService extends ChangeNotifier {
   List<Device> _devices = [];
@@ -21,8 +22,35 @@ class DeviceService extends ChangeNotifier {
   /// デバイスを追加（モック実装）
   Future<void> addDevice(Device device) async {
     try {
+      // 資産価値を計算
+      final valuationService = ValuationService();
+      final calculatedAssetValue = await valuationService.calculateAssetValue(device);
+      
+      // 資産価値を更新したデバイスを作成
+      final deviceWithAssetValue = Device(
+        id: device.id,
+        name: device.name,
+        modelNumber: device.modelNumber,
+        category: device.category,
+        manufacturer: device.manufacturer,
+        purchaseDate: device.purchaseDate,
+        purchasePrice: device.purchasePrice,
+        yearsOwned: device.yearsOwned,
+        room: device.room,
+        location: device.location,
+        status: device.status,
+        maintenance: device.maintenance,
+        manual: device.manual,
+        consumables: device.consumables,
+        warranty: device.warranty,
+        assetValue: calculatedAssetValue,
+        safetyInfo: device.safetyInfo,
+        photos: device.photos,
+        documents: device.documents,
+      );
+      
       // モック実装: 実際の実装では、ローカルストレージまたはAPIに保存
-      _devices.add(device);
+      _devices.add(deviceWithAssetValue);
       notifyListeners();
       
       // 実際の実装では、以下を実行:

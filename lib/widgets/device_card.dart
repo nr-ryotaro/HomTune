@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
+import 'anthropomorphic_device_icon.dart';
 
 class DeviceCard extends StatelessWidget {
   final Device device;
@@ -32,44 +33,55 @@ class DeviceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            device.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w300,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                    // デバイスアイコン
+                    AnthropomorphicDeviceIcon(
+                      device: device,
+                      size: 24.0,
+                      showAnimation: true,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                device.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (maintenanceStatus != null)
+                                _buildAlertBadge(maintenanceStatus),
+                              if (warrantyStatus != null)
+                                _buildAlertBadge(warrantyStatus),
+                            ],
                           ),
-                        ),
-                        if (maintenanceStatus != null)
-                          _buildAlertBadge(maintenanceStatus),
-                        if (warrantyStatus != null)
-                          _buildAlertBadge(warrantyStatus),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${device.manufacturer} ${device.modelNumber}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF666666),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_getRoomName()} · 購入から $yearsOwned年',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF666666),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${device.manufacturer} ${device.modelNumber}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF666666),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_getRoomName()} · 購入から $yearsOwned年',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF666666),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

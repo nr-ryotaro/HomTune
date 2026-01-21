@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../models/room.dart' as room_models;
+import 'anthropomorphic_device_icon.dart';
 
 class FloorPlanWidget extends StatelessWidget {
   final room_models.FloorPlan? floorPlan;
@@ -41,22 +42,91 @@ class FloorPlanWidget extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // スケールを計算
+        final scaleX = constraints.maxWidth / floorPlan!.width;
+        final scaleY = constraints.maxHeight / floorPlan!.height;
+        final scale = scaleX < scaleY ? scaleX : scaleY;
+
         return GestureDetector(
           onTapDown: (details) {
             _handleTap(details.localPosition, constraints);
           },
-          child: CustomPaint(
-            size: Size(constraints.maxWidth, constraints.maxHeight),
-            painter: FloorPlanPainter(
-              floorPlan: floorPlan!,
-              devices: devices,
-              selectedRoomId: selectedRoomId,
-              getDeviceCount: _getDeviceCountForRoom,
-            ),
+          child: Stack(
+            children: [
+              // 間取り図の背景（部屋、壁など）
+              CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: FloorPlanPainter(
+                  floorPlan: floorPlan!,
+                  devices: devices,
+                  selectedRoomId: selectedRoomId,
+                  getDeviceCount: _getDeviceCountForRoom,
+                  showDevices: false, // デバイスは別途描画
+                ),
+              ),
+              // デバイスアイコン（アニメーション付き）
+              ..._buildDeviceIcons(constraints, scale),
+            ],
           ),
         );
       },
     );
+  }
+
+  List<Widget> _buildDeviceIcons(BoxConstraints constraints, double scale) {
+    if (floorPlan == null) return [];
+
+    final List<Widget> deviceIcons = [];
+
+    for (var room in floorPlan!.rooms) {
+      for (var devicePlacement in room.devices) {
+        try {
+          final device = devices.firstWhere(
+            (d) => d.id == devicePlacement.deviceId,
+            orElse: () => Device(
+              id: '',
+              name: '',
+              modelNumber: '',
+              category: '',
+              manufacturer: '',
+              purchaseDate: '',
+              purchasePrice: 0,
+              yearsOwned: 0,
+              room: '',
+              location: '',
+              status: '',
+              consumables: [],
+              photos: [],
+              documents: [],
+            ),
+          );
+
+          if (device.id.isNotEmpty) {
+            final x = devicePlacement.x * scale;
+            final y = devicePlacement.y * scale;
+
+            // 座標の検証
+            if (!x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite) {
+              deviceIcons.add(
+                Positioned(
+                  left: x - 9, // アイコンサイズの半分をオフセット
+                  top: y - 9,
+                  child: AnthropomorphicDeviceIcon(
+                    device: device,
+                    size: 18.0,
+                    showAnimation: true,
+                  ),
+                ),
+              );
+            }
+          }
+        } catch (e) {
+          print('Error building device icon ${devicePlacement.deviceId}: $e');
+        }
+      }
+    }
+
+    return deviceIcons;
   }
 
   void _handleTap(Offset localPosition, BoxConstraints constraints) {
@@ -95,12 +165,14 @@ class FloorPlanPainter extends CustomPainter {
   final List<Device> devices;
   final String? selectedRoomId;
   final int Function(String) getDeviceCount;
+  final bool showDevices;
 
   FloorPlanPainter({
     required this.floorPlan,
     required this.devices,
     this.selectedRoomId,
     required this.getDeviceCount,
+    this.showDevices = true,
   });
 
   @override
@@ -280,35 +352,37 @@ class FloorPlanPainter extends CustomPainter {
         );
       }
 
-      // デバイスアイコンを描画
-      for (var devicePlacement in room.devices) {
-        try {
-          final device = devices.firstWhere(
-            (d) => d.id == devicePlacement.deviceId,
-            orElse: () => Device(
-              id: '',
-              name: '',
-              modelNumber: '',
-              category: '',
-              manufacturer: '',
-              purchaseDate: '',
-              purchasePrice: 0,
-              yearsOwned: 0,
-              room: '',
-              location: '',
-              status: '',
-              consumables: [],
-              photos: [],
-              documents: [],
-            ),
-          );
+      // デバイスアイコンを描画（showDevicesがtrueの場合のみ）
+      if (showDevices) {
+        for (var devicePlacement in room.devices) {
+          try {
+            final device = devices.firstWhere(
+              (d) => d.id == devicePlacement.deviceId,
+              orElse: () => Device(
+                id: '',
+                name: '',
+                modelNumber: '',
+                category: '',
+                manufacturer: '',
+                purchaseDate: '',
+                purchasePrice: 0,
+                yearsOwned: 0,
+                room: '',
+                location: '',
+                status: '',
+                consumables: [],
+                photos: [],
+                documents: [],
+              ),
+            );
 
-          if (device.id.isNotEmpty) {
-            _drawDevice(canvas, devicePlacement, device);
+            if (device.id.isNotEmpty) {
+              _drawDevice(canvas, devicePlacement, device);
+            }
+          } catch (e) {
+            print('Error drawing device ${devicePlacement.deviceId}: $e');
+            // 個別のデバイスの描画エラーは無視して続行
           }
-        } catch (e) {
-          print('Error drawing device ${devicePlacement.deviceId}: $e');
-          // 個別のデバイスの描画エラーは無視して続行
         }
       }
     } catch (e) {
@@ -402,6 +476,7 @@ class FloorPlanPainter extends CustomPainter {
   @override
   bool shouldRepaint(FloorPlanPainter oldDelegate) {
     return oldDelegate.selectedRoomId != selectedRoomId ||
-        oldDelegate.devices.length != devices.length;
+        oldDelegate.devices.length != devices.length ||
+        oldDelegate.showDevices != showDevices;
   }
 }

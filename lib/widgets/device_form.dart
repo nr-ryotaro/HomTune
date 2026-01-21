@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/device_service.dart';
 import '../models/room.dart';
+import '../screens/manual_registration_screen.dart';
+import '../models/device.dart';
 
 class DeviceForm extends StatelessWidget {
   final String modelNumber;
@@ -19,6 +21,7 @@ class DeviceForm extends StatelessWidget {
   final String notes;
   final File? selectedImage;
   final Map<String, String>? scannedData;
+  final Device? existingDevice; // 既存デバイス（編集時）
   
   final ValueChanged<String> onModelNumberChanged;
   final ValueChanged<String> onNameChanged;
@@ -50,6 +53,7 @@ class DeviceForm extends StatelessWidget {
     required this.notes,
     this.selectedImage,
     this.scannedData,
+    this.existingDevice,
     required this.onModelNumberChanged,
     required this.onNameChanged,
     required this.onCategoryChanged,
@@ -76,6 +80,10 @@ class DeviceForm extends StatelessWidget {
       children: [
         // 画像アップロードセクション
         _buildImageSection(context),
+        const SizedBox(height: 32),
+
+        // マニュアル設定セクション
+        _buildManualSection(context),
         const SizedBox(height: 32),
 
         // 必須項目
@@ -602,7 +610,7 @@ class DeviceForm extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          value: warrantyYears > 0 ? warrantyYears : null,
+          initialValue: warrantyYears > 0 ? warrantyYears : null,
           decoration: InputDecoration(
             hintText: '選択してください',
             hintStyle: TextStyle(
@@ -674,7 +682,7 @@ class DeviceForm extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: room.isNotEmpty ? room : null,
+          initialValue: room.isNotEmpty ? room : null,
           decoration: InputDecoration(
             hintText: '選択してください',
             hintStyle: TextStyle(
@@ -728,6 +736,131 @@ class DeviceForm extends StatelessWidget {
             }
           },
         ),
+      ],
+    );
+  }
+
+  /// マニュアル設定セクション
+  Widget _buildManualSection(BuildContext context) {
+    final hasManual = existingDevice?.manual != null &&
+        existingDevice!.manual!.url.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('マニュアル設定'),
+        const SizedBox(height: 16),
+        if (hasManual)
+          // 登録済みマニュアルの表示
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(
+                color: const Color(0xFFE5E5E5),
+                width: 0.5,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.picture_as_pdf,
+                  color: Color(0xFFef4444),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'マニュアルが登録されています',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        existingDevice!.manual!.source == 'scanned'
+                            ? 'スキャン生成'
+                            : existingDevice!.manual!.source == 'uploaded'
+                                ? 'アップロード'
+                                : '公式サイト',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ManualRegistrationScreen(
+                          device: existingDevice!,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    '変更',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          // マニュアル未登録の場合
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    // 一時的なデバイスオブジェクトを作成（登録前）
+                    final tempDevice = Device(
+                      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+                      name: name.isNotEmpty ? name : '新規デバイス',
+                      modelNumber: modelNumber,
+                      category: category,
+                      manufacturer: manufacturer,
+                      purchaseDate: purchaseDate,
+                      purchasePrice: purchasePrice,
+                      yearsOwned: 0,
+                      room: room,
+                      location: location,
+                      status: 'active',
+                      consumables: [],
+                      photos: [],
+                      documents: [],
+                    );
+
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ManualRegistrationScreen(
+                          device: tempDevice,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('マニュアルを登録'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(
+                      color: Color(0xFF3b82f6),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
