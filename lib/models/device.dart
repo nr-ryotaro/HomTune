@@ -14,6 +14,10 @@ class Device {
   final String status;
   final Maintenance? maintenance;
   final Manual? manual;
+  /// 説明書PDFのURL（Manual.url と同じ。Smart Ingester で自動検索した場合に保存）
+  String? get manualUrl => manual?.url;
+  /// JANコード（バーコードスキャンで取得。Smart Ingester 用）
+  final String? janCode;
   final List<Consumable> consumables;
   final Warranty? warranty;
   final AssetValue? assetValue;
@@ -35,6 +39,7 @@ class Device {
     required this.status,
     this.maintenance,
     this.manual,
+    this.janCode,
     required this.consumables,
     this.warranty,
     this.assetValue,
@@ -77,6 +82,7 @@ class Device {
                 }
               })()
             : null,
+        janCode: json['janCode']?.toString(),
         consumables: (json['consumables'] as List<dynamic>?)
                 ?.map((e) => Consumable.fromJson(e as Map<String, dynamic>))
                 .toList() ??
@@ -141,6 +147,7 @@ class Device {
       'status': status,
       'maintenance': maintenance?.toJson(),
       'manual': manual?.toJson(),
+      'janCode': janCode,
       'consumables': consumables.map((e) => e.toJson()).toList(),
       'warranty': warranty?.toJson(),
       'assetValue': assetValue?.toJson(),
@@ -148,6 +155,52 @@ class Device {
       'photos': photos,
       'documents': documents,
     };
+  }
+
+  Device copyWith({
+    String? id,
+    String? name,
+    String? modelNumber,
+    String? category,
+    String? manufacturer,
+    String? purchaseDate,
+    int? purchasePrice,
+    double? yearsOwned,
+    String? room,
+    String? location,
+    String? status,
+    Maintenance? maintenance,
+    Manual? manual,
+    String? janCode,
+    List<Consumable>? consumables,
+    Warranty? warranty,
+    AssetValue? assetValue,
+    SafetyInfo? safetyInfo,
+    List<String>? photos,
+    List<String>? documents,
+  }) {
+    return Device(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      modelNumber: modelNumber ?? this.modelNumber,
+      category: category ?? this.category,
+      manufacturer: manufacturer ?? this.manufacturer,
+      purchaseDate: purchaseDate ?? this.purchaseDate,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      yearsOwned: yearsOwned ?? this.yearsOwned,
+      room: room ?? this.room,
+      location: location ?? this.location,
+      status: status ?? this.status,
+      maintenance: maintenance ?? this.maintenance,
+      manual: manual ?? this.manual,
+      janCode: janCode ?? this.janCode,
+      consumables: consumables ?? this.consumables,
+      warranty: warranty ?? this.warranty,
+      assetValue: assetValue ?? this.assetValue,
+      safetyInfo: safetyInfo ?? this.safetyInfo,
+      photos: photos ?? this.photos,
+      documents: documents ?? this.documents,
+    );
   }
 }
 

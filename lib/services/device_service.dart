@@ -41,6 +41,7 @@ class DeviceService extends ChangeNotifier {
         status: device.status,
         maintenance: device.maintenance,
         manual: device.manual,
+        janCode: device.janCode,
         consumables: device.consumables,
         warranty: device.warranty,
         assetValue: calculatedAssetValue,
@@ -241,6 +242,15 @@ class DeviceService extends ChangeNotifier {
       }
     }
     return count;
+  }
+
+  /// デバイスの説明書URLを更新（Smart Ingester バックグラウンド検索完了時）
+  Future<void> updateDeviceManual(String deviceId, Manual manual) async {
+    final i = _devices.indexWhere((d) => d.id == deviceId);
+    if (i < 0) return;
+    final prev = _devices[i];
+    _devices[i] = prev.copyWith(manual: manual);
+    notifyListeners();
   }
 
   int getMaintenanceCount() {

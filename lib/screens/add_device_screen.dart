@@ -10,10 +10,21 @@ import '../widgets/device_form.dart';
 
 class AddDeviceScreen extends StatefulWidget {
   final String? initialRoomId;
+  /// Smart Ingester からの初期値
+  final String? initialJanCode;
+  final String? initialManufacturer;
+  final String? initialModelNumber;
+  final String? initialCategory;
+  final String? initialName;
 
   const AddDeviceScreen({
     super.key,
     this.initialRoomId,
+    this.initialJanCode,
+    this.initialManufacturer,
+    this.initialModelNumber,
+    this.initialCategory,
+    this.initialName,
   });
 
   @override
@@ -46,10 +57,11 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialRoomId != null) {
-      _room = widget.initialRoomId!;
-    }
-    // デフォルト購入日を今日に設定
+    if (widget.initialRoomId != null) _room = widget.initialRoomId!;
+    if (widget.initialManufacturer != null) _manufacturer = widget.initialManufacturer!;
+    if (widget.initialModelNumber != null) _modelNumber = widget.initialModelNumber!;
+    if (widget.initialCategory != null) _category = widget.initialCategory!;
+    if (widget.initialName != null) _name = widget.initialName!;
     final now = DateTime.now();
     _purchaseDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
@@ -131,7 +143,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       final now = DateTime.now();
       final yearsOwned = now.difference(purchaseDateTime).inDays / 365.0;
 
-      // デバイスオブジェクトを作成
+      // デバイスオブジェクトを作成（Smart Ingester 由来の JAN があれば付与）
       final device = Device(
         id: 'device-${DateTime.now().millisecondsSinceEpoch}',
         name: _name,
@@ -146,6 +158,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         status: 'active',
         maintenance: null,
         manual: null,
+        janCode: widget.initialJanCode,
         consumables: [],
         warranty: null,
         assetValue: null,

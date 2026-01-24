@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/device_service.dart';
@@ -9,6 +10,8 @@ import '../widgets/chat_widget.dart';
 import 'room_devices_screen.dart';
 import 'add_device_screen.dart';
 import 'all_devices_screen.dart';
+import 'scan_screen.dart';
+import 'dev_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -121,6 +124,18 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'すべての家電を見る',
           ),
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.settings, color: Color(0xFF333333)),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const DevSettingsScreen(),
+                  ),
+                );
+              },
+              tooltip: '開発者設定',
+            ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
@@ -350,29 +365,59 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.w300,
               ),
             ),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AddDeviceScreen(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ScanScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.document_scanner, size: 16),
+                  label: const Text(
+                    'スマート登録',
+                    style: TextStyle(fontSize: 12),
                   ),
-                );
-              },
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text(
-                '家電を追加',
-                style: TextStyle(fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    side: const BorderSide(
+                      color: Color(0xFF3b82f6),
+                      width: 1,
+                    ),
+                  ),
                 ),
-                side: const BorderSide(
-                  color: Color(0xFF3b82f6),
-                  width: 1,
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AddDeviceScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text(
+                    '家電を追加',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    side: const BorderSide(
+                      color: Color(0xFF3b82f6),
+                      width: 1,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

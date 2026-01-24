@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
+import 'services/config_service.dart';
 import 'services/device_service.dart';
 
-void main() {
-  // アプリを実行（エラーが発生してもクラッシュしないように）
-  // WidgetsFlutterBinding.ensureInitialized()はrunZonedGuardedの中に配置
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final configService = ConfigService();
+  await configService.load();
+
   runZonedGuarded(
     () {
-      WidgetsFlutterBinding.ensureInitialized();
-      
-      // エラーハンドリング（開発環境）
       FlutterError.onError = (FlutterErrorDetails details) {
         if (kDebugMode) {
           FlutterError.presentError(details);
@@ -21,15 +21,12 @@ void main() {
         print('Flutter Error: ${details.exception}');
         print('Stack trace: ${details.stack}');
       };
-      
-      // プラットフォームエラーハンドリング
       PlatformDispatcher.instance.onError = (error, stack) {
         print('Platform Error: $error');
         print('Stack trace: $stack');
-        return true; // エラーを処理したことを示す
+        return true;
       };
-      
-      runApp(const HomTuneApp());
+      runApp(HomTuneApp(configService: configService));
     },
     (error, stack) {
       print('Uncaught error: $error');
@@ -39,12 +36,16 @@ void main() {
 }
 
 class HomTuneApp extends StatelessWidget {
-  const HomTuneApp({super.key});
+  const HomTuneApp({super.key, required this.configService});
+  final ConfigService configService;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => DeviceService(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ConfigService>.value(value: configService),
+        ChangeNotifierProvider(create: (_) => DeviceService()),
+      ],
       child: MaterialApp(
         title: 'HomTune',
         debugShowCheckedModeBanner: false,
