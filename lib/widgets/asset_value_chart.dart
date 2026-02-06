@@ -19,7 +19,7 @@ class AssetValueChart extends StatelessWidget {
     final assetValue = device.assetValue;
 
     return FutureBuilder<AssetValue>(
-      future: assetValue != null 
+      future: assetValue != null
           ? Future.value(assetValue)
           : valuationService.calculateAssetValue(device).catchError((e) {
               print('Error calculating asset value for chart: $e');
@@ -57,194 +57,176 @@ class AssetValueChart extends StatelessWidget {
   }
 
   Widget _buildChart(Device device, AssetValue assetValue) {
-    try {
-      // 購入日のパース（エラーハンドリング）
-      DateTime purchaseDate;
-      try {
-        purchaseDate = DateTime.parse(device.purchaseDate);
-      } catch (e) {
-        print('Error parsing purchase date: $e');
-        // デフォルト値として現在日時を使用
-        purchaseDate = DateTime.now();
-      }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 利用可能な幅を取得（デフォルトは300）
+        final availableWidth =
+            constraints.maxWidth > 0 ? constraints.maxWidth : 300.0;
 
-      final now = DateTime.now();
-      final elapsedMonths = _calculateElapsedMonths(purchaseDate, now);
-    
-    // グラフの期間（購入日から現在まで、最大60ヶ月）
-    final chartMonths = math.min(elapsedMonths, 60);
-    const chartWidth = 300.0;
-    const chartHeight = 150.0;
-    const padding = 20.0;
+        try {
+          // 購入日のパース（エラーハンドリング）
+          DateTime purchaseDate;
+          try {
+            purchaseDate = DateTime.parse(device.purchaseDate);
+          } catch (e) {
+            print('Error parsing purchase date: $e');
+            // デフォルト値として現在日時を使用
+            purchaseDate = DateTime.now();
+          }
 
-    // 帳簿価値の推移を計算
-    final bookValuePoints = <Offset>[];
-    final marketValuePoints = <Offset>[];
-    
-    final usefulLife = assetValue.usefulLife ?? 10.0;
-    final purchasePrice = device.purchasePrice;
-    
-    // chartMonthsが0以下の場合は処理をスキップ
-    if (chartMonths <= 0) {
-      return Container(
-        height: chartHeight + 40,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(
-            color: const Color(0xFFE5E5E5),
-            width: 0.5,
-          ),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: const Center(
-          child: Text(
-            'データ不足のためグラフを表示できません',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
-        ),
-      );
-    }
+          final now = DateTime.now();
+          final elapsedMonths = _calculateElapsedMonths(purchaseDate, now);
 
-    for (int i = 0; i <= chartMonths; i += 3) {
-      try {
-        final months = i.toDouble();
-        final years = months / 12.0;
-        
-        // 帳簿価値
-        final depreciationPerYear = usefulLife > 0 ? purchasePrice / usefulLife : 0.0;
-        final totalDepreciation = depreciationPerYear * years;
-        final bookValue = math.max(0, purchasePrice - totalDepreciation);
-        
-        // 市場価値（priceHistoryから補間、または簡易計算）
-        int marketValue;
-        if (assetValue.priceHistory.isNotEmpty && i < elapsedMonths) {
-          // priceHistoryから補間
-          marketValue = _interpolateMarketValue(
-            assetValue.priceHistory,
-            purchaseDate,
-            months,
-          );
-        } else {
-          // 簡易計算（購入価格の50%から線形減少）
-          final ratio = usefulLife > 0 ? (years / usefulLife) * 0.5 : 0.0;
-          marketValue = (purchasePrice * (1.0 - ratio)).round();
-        }
-        
-        final x = padding + (i / chartMonths) * (chartWidth - padding * 2);
-        final maxValue = purchasePrice > 0 ? purchasePrice.toDouble() : 1.0;
-        final yBook = chartHeight - padding - (bookValue / maxValue) * (chartHeight - padding * 2);
-        final yMarket = chartHeight - padding - (marketValue / maxValue) * (chartHeight - padding * 2);
-        
-        // 有効な座標のみ追加
-        if (x.isFinite && yBook.isFinite && yMarket.isFinite) {
-          bookValuePoints.add(Offset(x, yBook));
-          marketValuePoints.add(Offset(x, yMarket));
-        }
-      } catch (e) {
-        print('Error calculating chart point at $i: $e');
-        // エラーが発生したポイントはスキップ
-        continue;
-      }
-    }
+          // グラフの期間（購入日から現在まで、最大60ヶ月）
+          final chartMonths = math.min(elapsedMonths, 60);
 
-      // データポイントが不足している場合は簡易表示
-      if (bookValuePoints.isEmpty || marketValuePoints.isEmpty) {
-        return Container(
-          height: chartHeight + 40,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(
-              color: const Color(0xFFE5E5E5),
-              width: 0.5,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const Center(
-            child: Text(
-              'データ不足のためグラフを表示できません',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
+          // チャートのサイズ設定
+          final chartWidth = availableWidth;
+          const chartHeight = 150.0; // 高さは固定のまま（スクロールさせるため）
+          const padding = 20.0;
+
+          // 帳簿価値の推移を計算
+          final bookValuePoints = <Offset>[];
+          final marketValuePoints = <Offset>[];
+
+          final usefulLife = assetValue.usefulLife ?? 10.0;
+          final purchasePrice = device.purchasePrice;
+
+          // chartMonthsが0以下の場合は処理をスキップ
+          if (chartMonths <= 0) {
+            return _buildErrorState('データ不足のためグラフを表示できません', chartHeight);
+          }
+
+          for (int i = 0; i <= chartMonths; i += 3) {
+            try {
+              final months = i.toDouble();
+              final years = months / 12.0;
+
+              // 帳簿価値
+              final depreciationPerYear =
+                  usefulLife > 0 ? purchasePrice / usefulLife : 0.0;
+              final totalDepreciation = depreciationPerYear * years;
+              final bookValue = math.max(0, purchasePrice - totalDepreciation);
+
+              // 市場価値（priceHistoryから補間、または簡易計算）
+              int marketValue;
+              if (assetValue.priceHistory.isNotEmpty && i < elapsedMonths) {
+                // priceHistoryから補間
+                marketValue = _interpolateMarketValue(
+                  assetValue.priceHistory,
+                  purchaseDate,
+                  months,
+                );
+              } else {
+                // 簡易計算（購入価格の50%から線形減少）
+                final ratio = usefulLife > 0 ? (years / usefulLife) * 0.5 : 0.0;
+                marketValue = (purchasePrice * (1.0 - ratio)).round();
+              }
+
+              final x =
+                  padding + (i / chartMonths) * (chartWidth - padding * 2);
+              final maxValue =
+                  purchasePrice > 0 ? purchasePrice.toDouble() : 1.0;
+              final yBook = chartHeight -
+                  padding -
+                  (bookValue / maxValue) * (chartHeight - padding * 2);
+              final yMarket = chartHeight -
+                  padding -
+                  (marketValue / maxValue) * (chartHeight - padding * 2);
+
+              // 有効な座標のみ追加
+              if (x.isFinite && yBook.isFinite && yMarket.isFinite) {
+                bookValuePoints.add(Offset(x, yBook));
+                marketValuePoints.add(Offset(x, yMarket));
+              }
+            } catch (e) {
+              print('Error calculating chart point at $i: $e');
+              // エラーが発生したポイントはスキップ
+              continue;
+            }
+          }
+
+          // データポイントが不足している場合は簡易表示
+          if (bookValuePoints.isEmpty || marketValuePoints.isEmpty) {
+            return _buildErrorState('データ不足のためグラフを表示できません', chartHeight);
+          }
+
+          return Container(
+            height: chartHeight + 40,
+            width: chartWidth, // 幅を指定
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(
+                color: const Color(0xFFE5E5E5),
+                width: 0.5,
               ),
+              borderRadius: BorderRadius.circular(4),
             ),
-          ),
-        );
-      }
-
-      return Container(
-        height: chartHeight + 40,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(
-            color: const Color(0xFFE5E5E5),
-            width: 0.5,
-          ),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '資産価値推移',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: chartWidth,
-              height: chartHeight,
-              child: CustomPaint(
-                painter: _AssetChartPainter(
-                  bookValuePoints: bookValuePoints,
-                  marketValuePoints: marketValuePoints,
-                  maxValue: purchasePrice.toDouble(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildLegendItem('帳簿価値', Colors.blue),
-                const SizedBox(width: 16),
-                _buildLegendItem('市場価値', Colors.green),
+                const Text(
+                  '資産価値推移',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: chartWidth - 32, // Padding分引く
+                  height: chartHeight - 50, // テキストなどを考慮して調整
+                  child: CustomPaint(
+                    painter: _AssetChartPainter(
+                      bookValuePoints: bookValuePoints,
+                      marketValuePoints: marketValuePoints,
+                      maxValue: purchasePrice.toDouble(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildLegendItem('帳簿価値', Colors.blue),
+                    const SizedBox(width: 16),
+                    _buildLegendItem('市場価値', Colors.green),
+                  ],
+                ),
               ],
             ),
-          ],
+          );
+        } catch (e) {
+          print('Error building chart: $e');
+          return _buildErrorState('グラフの表示中にエラーが発生しました', 150.0);
+        }
+      },
+    );
+  }
+
+  Widget _buildErrorState(String message, double height) {
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: const Color(0xFFE5E5E5),
+          width: 0.5,
         ),
-      );
-    } catch (e) {
-      print('Error building chart: $e');
-      return Container(
-        height: 150,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(
-            color: const Color(0xFFE5E5E5),
-            width: 0.5,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Center(
+        child: Text(
+          message,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
           ),
-          borderRadius: BorderRadius.circular(4),
         ),
-        child: const Center(
-          child: Text(
-            'グラフの表示中にエラーが発生しました',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 
   Widget _buildLegendItem(String label, Color color) {
@@ -305,7 +287,8 @@ class AssetValueChart extends StatelessWidget {
       }
 
       // 指定月数に対応する日付
-      final targetDate = purchaseDate.add(Duration(days: (months * 30.44).round()));
+      final targetDate =
+          purchaseDate.add(Duration(days: (months * 30.44).round()));
 
       // 最も近い価格履歴を見つける
       PriceHistory? before;
@@ -314,7 +297,8 @@ class AssetValueChart extends StatelessWidget {
       for (var history in sortedHistory) {
         try {
           final historyDate = DateTime.parse(history.date);
-          if (historyDate.isBefore(targetDate) || historyDate.isAtSameMomentAs(targetDate)) {
+          if (historyDate.isBefore(targetDate) ||
+              historyDate.isAtSameMomentAs(targetDate)) {
             before = history;
           } else {
             after = history;
@@ -342,13 +326,14 @@ class AssetValueChart extends StatelessWidget {
         final afterDate = DateTime.parse(after.date);
         final totalDays = afterDate.difference(beforeDate).inDays;
         final targetDays = targetDate.difference(beforeDate).inDays;
-        
+
         if (totalDays == 0) {
           return before.price;
         }
 
         final ratio = targetDays / totalDays;
-        final interpolatedPrice = before.price + ((after.price - before.price) * ratio).round();
+        final interpolatedPrice =
+            before.price + ((after.price - before.price) * ratio).round();
         return math.max(0, interpolatedPrice);
       } catch (e) {
         print('Error in linear interpolation: $e');
@@ -381,7 +366,7 @@ class _AssetChartPainter extends CustomPainter {
         ..color = Colors.blue
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
-      
+
       final bookPath = Path();
       bookPath.moveTo(bookValuePoints[0].dx, bookValuePoints[0].dy);
       for (int i = 1; i < bookValuePoints.length; i++) {
@@ -396,7 +381,7 @@ class _AssetChartPainter extends CustomPainter {
         ..color = Colors.green
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
-      
+
       final marketPath = Path();
       marketPath.moveTo(marketValuePoints[0].dx, marketValuePoints[0].dy);
       for (int i = 1; i < marketValuePoints.length; i++) {

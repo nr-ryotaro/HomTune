@@ -19,10 +19,14 @@ class ValuationService {
     }
 
     try {
-      final String jsonString = await rootBundle.loadString('assets/data/category-defaults.json');
+      final String jsonString =
+          await rootBundle.loadString('assets/data/category-defaults.json');
       final Map<String, dynamic> jsonData = json.decode(jsonString);
-      final Map<String, dynamic>? usefulLifes = jsonData['usefulLife'] as Map<String, dynamic>?;
-      _cachedUsefulLifes = usefulLifes?.map((key, value) => MapEntry(key, (value as num).toInt())) ?? {};
+      final Map<String, dynamic>? usefulLifes =
+          jsonData['usefulLife'] as Map<String, dynamic>?;
+      _cachedUsefulLifes = usefulLifes
+              ?.map((key, value) => MapEntry(key, (value as num).toInt())) ??
+          {};
       return _cachedUsefulLifes!;
     } catch (e) {
       print('Error loading category defaults: $e');
@@ -44,7 +48,7 @@ class ValuationService {
   }
 
   /// カテゴリごとの法定耐用年数を取得
-  /// 
+  ///
   /// [category] デバイスカテゴリ
   /// 戻り値: 法定耐用年数（年）
   Future<double> getUsefulLife(String category) async {
@@ -53,7 +57,7 @@ class ValuationService {
   }
 
   /// 購入日からの経過年数を月単位で計算
-  /// 
+  ///
   /// [purchaseDate] 購入日
   /// 戻り値: 経過年数（年単位、月単位で按分）
   double calculateElapsedTime(DateTime purchaseDate) {
@@ -73,14 +77,14 @@ class ValuationService {
   }
 
   /// 購入日文字列から経過年数を計算
-  /// 
+  ///
   /// [purchaseDateString] 購入日（ISO 8601形式またはYYYY-MM-DD形式）
   /// 戻り値: 経過年数（年単位、月単位で按分）
   double calculateElapsedTimeFromString(String purchaseDateString) {
     if (purchaseDateString.isEmpty) {
       return 0.0;
     }
-    
+
     try {
       final purchaseDate = DateTime.parse(purchaseDateString);
       return calculateElapsedTime(purchaseDate);
@@ -91,14 +95,15 @@ class ValuationService {
   }
 
   /// 帳簿上の価値（減価償却残高）を計算
-  /// 
+  ///
   /// 計算式: P_purchase - ((P_purchase / L_life) * T_elapsed)
-  /// 
+  ///
   /// [purchasePrice] 購入金額
   /// [usefulLife] 法定耐用年数
   /// [elapsedTime] 経過年数
   /// 戻り値: 帳簿上の価値（円、負の値にならない）
-  int calculateBookValue(int purchasePrice, double usefulLife, double elapsedTime) {
+  int calculateBookValue(
+      int purchasePrice, double usefulLife, double elapsedTime) {
     try {
       if (usefulLife <= 0 || purchasePrice <= 0) {
         return 0;
@@ -118,9 +123,9 @@ class ValuationService {
   }
 
   /// 市場価値を取得
-  /// 
+  ///
   /// デバイスの`assetValue.currentUsedPrice`を使用、またはモックデータから取得
-  /// 
+  ///
   /// [device] デバイス
   /// 戻り値: 市場価値（円）
   int getMarketValue(Device device) {
@@ -128,67 +133,87 @@ class ValuationService {
     if (device.assetValue != null && device.assetValue!.currentUsedPrice > 0) {
       return device.assetValue!.currentUsedPrice;
     }
-    
+
     // モックデータがない場合は、購入価格の50%を仮定
     return (device.purchasePrice * 0.5).round();
   }
 
   /// 現在の資産価値を計算
-  /// 
+  ///
   /// 計算式: V_current = max(V_market, P_purchase - ((P_purchase / L_life) * T_elapsed))
-  /// 
+  ///
   /// [device] デバイス
   /// 戻り値: 現在の資産価値（円）
   Future<int> calculateCurrentValue(Device device) async {
     final usefulLife = await getUsefulLife(device.category);
     final elapsedTime = calculateElapsedTimeFromString(device.purchaseDate);
-    final bookValue = calculateBookValue(device.purchasePrice, usefulLife, elapsedTime);
+    final bookValue =
+        calculateBookValue(device.purchasePrice, usefulLife, elapsedTime);
     final marketValue = getMarketValue(device);
-    
+
     // V_current = max(bookValue, marketValue)
     return math.max(bookValue, marketValue);
   }
 
   /// 市場価値が帳簿価値を上回っているか判定
-  /// 
+  ///
   /// [device] デバイス
   /// 戻り値: 売却チャンスがあるか
   Future<bool> hasSellOpportunity(Device device) async {
     final usefulLife = await getUsefulLife(device.category);
     final elapsedTime = calculateElapsedTimeFromString(device.purchaseDate);
-    final bookValue = calculateBookValue(device.purchasePrice, usefulLife, elapsedTime);
+    final bookValue =
+        calculateBookValue(device.purchasePrice, usefulLife, elapsedTime);
     final marketValue = getMarketValue(device);
-    
+
     return marketValue > bookValue;
   }
 
   /// デバイスの資産価値情報を計算して更新
-  /// 
+  ///
   /// [device] デバイス
+  /// [forceUpdate] 強制的に再計算・市場価格取得を行うか
   /// 戻り値: 更新されたAssetValue
-  Future<AssetValue> calculateAssetValue(Device device) async {
+  Future<AssetValue> calculateAssetValue(Device device,
+      {bool forceUpdate = false}) async {
     try {
+      // 既存のAssetValueがある場合、更新頻度をチェック
+      if (!forceUpdate && device.assetValue != null) {
+        final lastCheck = DateTime.parse(device.assetValue!.lastPriceCheck);
+        final difference = DateTime.now().difference(lastCheck);
+
+        // 30日以内の場合は既存の値を返す（再計算しない）
+        // ただし、購入後の経過時間は日々変わるため、厳密にはbookValueは変わるが、
+        // ここでは「市場価格の再取得」を抑制する意図でキャッシュを利用する
+        if (difference.inDays < 30) {
+          return device.assetValue!;
+        }
+      }
+
       final usefulLife = await getUsefulLife(device.category);
       final elapsedTime = calculateElapsedTimeFromString(device.purchaseDate);
-      final bookValue = calculateBookValue(device.purchasePrice, usefulLife, elapsedTime);
+      final bookValue =
+          calculateBookValue(device.purchasePrice, usefulLife, elapsedTime);
       final marketValue = getMarketValue(device);
       final currentValue = math.max(bookValue, marketValue);
       final hasSellOpp = marketValue > bookValue;
 
       // 既存のAssetValueがある場合は、priceHistoryを保持
       final existingPriceHistory = device.assetValue?.priceHistory ?? [];
-      final lastPriceCheck = device.assetValue?.lastPriceCheck ?? DateTime.now().toIso8601String();
+      final lastPriceCheck = DateTime.now().toIso8601String();
 
       // 減価償却率の計算（ゼロ除算を防ぐ）
       double depreciationRate = 0.0;
       if (device.purchasePrice > 0) {
-        depreciationRate = (device.purchasePrice - currentValue) / device.purchasePrice;
+        depreciationRate =
+            (device.purchasePrice - currentValue) / device.purchasePrice;
       }
 
       return AssetValue(
         purchasePrice: device.purchasePrice,
         currentUsedPrice: currentValue,
-        depreciationRate: device.assetValue?.depreciationRate ?? depreciationRate,
+        depreciationRate:
+            device.assetValue?.depreciationRate ?? depreciationRate,
         lastPriceCheck: lastPriceCheck,
         priceHistory: existingPriceHistory,
         bookValue: bookValue,

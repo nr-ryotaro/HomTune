@@ -80,21 +80,37 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _handleJanCode(String jan) async {
-    // JAN → 製品情報の取得は外部APIが必要。ここではモックとして
-    // 「JANを読み取りました。プレート撮影するか手入力で登録してください」と案内
     if (!mounted) return;
-    setState(() => _isProcessing = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('JANコードを読み取りました: $jan。製品プレートを撮影するか、手入力で登録してください。'),
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: '手入力',
-          onPressed: () => _navigateToManualInput(janCode: jan),
-        ),
-      ),
-    );
-    setState(() => _janCode = jan);
+    setState(() {
+      _isProcessing = true;
+      _janCode = jan;
+      _errorMessage = null;
+      _extracted = null;
+    });
+
+    try {
+      // JANコード検索実行
+      final info = await _scannerService!.getProductInfoFromJan(jan);
+      
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _extracted = info; // 結果シートを表示
+      });
+
+      if (info.isEmpty) {
+        _showFallbackSnackBar('製品情報を取得できませんでした。手入力で登録してください。');
+      } else {
+        // 成功時は自動的に結果シートが表示される
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('製品情報を取得しました')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _showFallbackSnackBar('検索中にエラーが発生しました。');
+    }
   }
 
   Future<void> _capturePlate() async {
@@ -115,7 +131,15 @@ class _ScanScreenState extends State<ScanScreen> {
         return;
       }
       final file = File(x.path);
-      final info = await _scannerService!.processPlateImage(file);
+      
+      // 1. OCR + Gemini 抽出
+      var info = await _scannerService!.processPlateImage(file);
+      
+      // 2. 抽出できた場合、Web検索で詳細を補完（より正確な製品名などを取得）
+      if (!info.isEmpty && info.modelNumber.isNotEmpty) {
+        info = await _scannerService!.refineProductInfo(info);
+      }
+
       if (!mounted) return;
       setState(() {
         _extracted = info;

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'config_service.dart';
+import 'web_search_service.dart';
 
 /// Smart Ingester: OCR（ML Kit）+ Gemini による製品プレートからの構造化データ抽出
 class ScannerService {
@@ -10,9 +11,12 @@ class ScannerService {
   static const String _apiKeyEnv = 'GEMINI_API_KEY';
 
   final ConfigService _configService;
+  late final WebSearchService _webSearchService;
   final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.japanese);
 
-  ScannerService(this._configService);
+  ScannerService(this._configService, {WebSearchService? webSearchService}) {
+    _webSearchService = webSearchService ?? WebSearchService(_configService);
+  }
 
   /// 環境変数または dart-define から API キーを取得
   static String? get _geminiApiKey {
@@ -168,6 +172,90 @@ class ScannerService {
   Future<ExtractedProductInfo> processPlateImage(File image) async {
     final raw = await extractTextFromImage(image);
     return extractProductInfo(raw);
+  }
+
+  /// 抽出された情報をWeb検索で洗練させる（OCR後の補正用）
+  Future<ExtractedProductInfo> refineProductInfo(ExtractedProductInfo info) async {
+    if (info.isEmpty || info.modelNumber.isEmpty) return info;
+
+    try {
+      final query = '${info.manufacturer} ${info.modelNumber}';
+      final searchResult = await _webSearchService.search(query);
+      return await _parseSearchResultWithGemini(searchResult, query: query);
+    } catch (e) {
+      return info;
+    }
+  }
+
+  /// JANコードから製品情報を検索・取得
+  Future<ExtractedProductInfo> getProductInfoFromJan(String janCode) async {
+    try {
+      // 1. Web検索 (JAN code)
+      final query = 'JANコード $janCode';
+      final searchResult = await _webSearchService.search(query);
+      
+      // 2. Geminiで解析
+      return await _parseSearchResultWithGemini(searchResult, query: query, janCode: janCode);
+    } catch (e) {
+      return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
+    }
+  }
+
+  /// 検索結果テキスト(HTML/Snippet)を解析して製品情報を抽出
+  Future<ExtractedProductInfo> _parseSearchResultWithGemini(String rawText, {required String query, String? janCode}) async {
+      if (!_configService.isUsingRealApi) {
+        if (janCode == '4901234567890') {
+           return ExtractedProductInfo(manufacturer: 'サンプルメーカー', modelNumber: 'SMP-001', category: 'その他');
+        }
+        return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
+      }
+
+      final apiKey = _geminiApiKey;
+      if (apiKey == null) return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
+
+      const systemPrompt = '''
+あなたは家電製品のWeb検索結果（HTMLまたはテキスト）を解析する専門家です。
+検索結果から、検索クエリに該当する「メーカー名」「製品名（型番含む）」「カテゴリ」を特定してください。
+''';
+
+      final userPrompt = '''
+【検索クエリ】
+$query
+${janCode != null ? '\n【JANコード】\n$janCode' : ''}
+
+【検索結果テキスト】
+$rawText
+
+【指示】
+上記から以下を抽出し、**必ず以下のJSON形式のみ**で回答してください。
+{
+  "manufacturer": "メーカー名",
+  "modelNumber": "製品名または型番（例: WH-1000XM5, iPhone 15 Pro）",
+  "category": "製品カテゴリ（例: エアコン, テレビ, ヘッドホン）"
+}
+情報が見つからない場合は空文字にしてください。
+''';
+
+      try {
+        final model = GenerativeModel(model: _geminiModel, apiKey: apiKey);
+        final response = await model.generateContent([Content.text('$systemPrompt\n\n$userPrompt')]);
+        
+        final text = response.text?.trim() ?? '';
+        String jsonStr = text;
+        final codeBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
+        final m = codeBlock.firstMatch(text);
+        if (m != null) jsonStr = m.group(1)?.trim() ?? text;
+
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        return ExtractedProductInfo(
+          manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',
+          modelNumber: (decoded['modelNumber'] as String?)?.trim() ?? '',
+          category: (decoded['category'] as String?)?.trim() ?? '',
+        );
+      } catch (e) {
+        print('Gemini parse failed: $e');
+        return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
+      }
   }
 
   void dispose() {

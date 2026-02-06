@@ -4,14 +4,13 @@ import 'package:provider/provider.dart';
 import '../services/device_service.dart';
 import '../models/device.dart';
 import '../widgets/device_card.dart';
-import '../widgets/floor_plan_widget.dart';
-import '../widgets/summary_card.dart';
+
 import '../widgets/chat_widget.dart';
-import 'room_devices_screen.dart';
-import 'add_device_screen.dart';
 import 'all_devices_screen.dart';
 import 'scan_screen.dart';
 import 'dev_settings_screen.dart';
+import '../models/room_card_model.dart';
+import '../widgets/room_card_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,35 +22,136 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String? _selectedRoomId;
   List<Device> _filteredDevices = [];
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(viewportFraction: 0.85);
     // フレームが構築された後にデータを読み込む
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDevices();
     });
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _loadDevices() async {
     if (!mounted) return;
-    
+
     try {
       final deviceService = Provider.of<DeviceService>(context, listen: false);
       await deviceService.loadData();
-      
+
       if (mounted) {
         setState(() {
+          // 初期表示時は最初の部屋を選択状態にする
+          // Note: deviceService is available in the outer scope of _loadDevices via Provider lookup? No, we looked it up at line 47.
+          // Re-using the deviceService instance from line 47 is tricky because we are in setState callback (anonymous function).
+          // But line 47 variable 'deviceService' is available in the closure? Yes.
+          final rooms = _getRooms(deviceService);
+          if (rooms.isNotEmpty) {
+            _selectedRoomId = rooms[0].id;
+          }
           _updateFilteredDevices();
         });
       }
     } catch (e) {
       print('Error loading devices in HomeScreen: $e');
       if (mounted) {
-        // エラーが発生してもUIを更新してエラー状態を表示
         setState(() {});
       }
     }
+  }
+
+  List<RoomCardModel> _getRooms(DeviceService deviceService) {
+    // Helper to calculate room stats
+    RoomCardModel createRoomCard({
+      required String id,
+      required String title,
+      required String styleName,
+      required String imagePath,
+      required double baseAssetValue,
+      required double maintenanceHealth,
+    }) {
+      final devices = deviceService.getDevicesByRoom(id);
+      final deviceCount = devices.length;
+
+      // Calculate dynamic asset value (base + device values)
+      // For now, we add device purchase prices to base value as a simple logic
+      double totalAssetValue = baseAssetValue;
+      for (var d in devices) {
+        totalAssetValue += d.purchasePrice;
+      }
+
+      int alertCount = 0;
+      int maintenanceCount = 0;
+
+      for (var d in devices) {
+        // Count alerts
+        if (d.maintenance?.alerts.isNotEmpty == true) {
+          // Simplified logic: count all high/medium alerts
+          alertCount += d.maintenance!.alerts
+              .where((a) => a.priority == 'high' || a.priority == 'medium')
+              .length;
+        }
+
+        // Count maintenance (upcoming within 30 days)
+        if (d.maintenance?.nextMaintenance != null) {
+          try {
+            final nextDate = DateTime.parse(d.maintenance!.nextMaintenance!);
+            final today = DateTime.now();
+            final diff = nextDate.difference(today).inDays;
+            if (diff >= 0 && diff <= 30) {
+              maintenanceCount++;
+            }
+          } catch (_) {}
+        }
+      }
+
+      return RoomCardModel(
+        id: id,
+        title: title,
+        styleName: styleName,
+        imagePath: imagePath,
+        totalAssetValue: totalAssetValue,
+        maintenanceHealth: maintenanceHealth,
+        deviceCount: deviceCount,
+        alertCount: alertCount,
+        maintenanceCount: maintenanceCount,
+      );
+    }
+
+    return [
+      createRoomCard(
+        id: 'living',
+        title: 'Living Room',
+        styleName: 'Tech Japandi',
+        imagePath: 'assets/images/Living_sample.jpg',
+        baseAssetValue: 1240000,
+        maintenanceHealth: 0.9,
+      ),
+      createRoomCard(
+        id: 'bedroom',
+        title: 'Bedroom',
+        styleName: 'Hotel-like Japandi',
+        imagePath: 'assets/images/Bedroom_sample.jpg',
+        baseAssetValue: 850000,
+        maintenanceHealth: 0.75,
+      ),
+      createRoomCard(
+        id: 'kitchen',
+        title: 'Kitchen',
+        styleName: 'Japandi Kitchen',
+        imagePath: 'assets/images/Kitchen_sample.jpg',
+        baseAssetValue: 2100000,
+        maintenanceHealth: 0.95,
+      ),
+    ];
   }
 
   void _updateFilteredDevices() {
@@ -63,33 +163,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onRoomTap(String roomId) {
+  void _onPageChanged(int index) {
+    // Need deviceService to get rooms stats
     final deviceService = Provider.of<DeviceService>(context, listen: false);
-    final roomDevices = deviceService.getDevicesByRoom(roomId);
-    
-    if (roomDevices.isEmpty) {
-      // デバイスがない場合はフィルタリングのみ
-      setState(() {
-        _selectedRoomId = roomId;
-        _updateFilteredDevices();
-      });
-    } else {
-      // デバイスがある場合は詳細画面に遷移
-      final room = deviceService.rooms.firstWhere(
-        (r) => r.id == roomId,
-        orElse: () => deviceService.rooms.first,
-      );
-      
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => RoomDevicesScreen(
-            roomId: roomId,
-            roomName: room.name,
-            devices: roomDevices,
-          ),
-        ),
-      );
-    }
+    setState(() {
+      final rooms = _getRooms(deviceService);
+      if (index < rooms.length) {
+        _selectedRoomId = rooms[index].id;
+      } else {
+        // AI Generator card selected
+        _selectedRoomId = null;
+      }
+      _updateFilteredDevices();
+    });
   }
 
   void _clearFilter() {
@@ -147,121 +233,83 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Consumer<DeviceService>(
         builder: (context, deviceService, child) {
-          // エラー状態
           if (deviceService.errorMessage != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    deviceService.errorMessage!,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.red,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      deviceService.loadData();
-                    },
-                    child: const Text('再試行'),
-                  ),
-                ],
-              ),
-            );
+            return _buildErrorState(deviceService);
           }
-
-          // ローディング状態
           if (deviceService.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
-
-          // データが空の場合（エラーではない）
-          if (deviceService.devices.isEmpty && deviceService.errorMessage == null) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.devices_other,
-                    size: 64,
-                    color: Color(0xFF999999),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'デバイスが登録されていません',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF666666),
-                    ),
-                  ),
-                ],
-              ),
-            );
+          if (deviceService.devices.isEmpty &&
+              deviceService.errorMessage == null) {
+            return _buildEmptyState();
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 間取り図（最上部）
-                _buildFloorPlan(context, deviceService),
+                // 間取り図 (Room Card Carousel)
+                _buildRoomCardsCarousel(context, deviceService),
                 const SizedBox(height: 24),
 
-                // チャットBOX
-                _buildChatBox(context, deviceService),
-                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      // チャットBOX (Reduced height)
+                      _buildChatBox(context, deviceService),
+                      const SizedBox(height: 24),
 
-                // サマリーカード（一行3列）
-                Row(
-                  children: [
-                    Expanded(
-                      child: SummaryCard(
-                        title: '警告',
-                        count: _safeGetAlertCount(deviceService),
-                        icon: Icons.warning_amber_rounded,
-                        color: Colors.red,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SummaryCard(
-                        title: 'メンテナンス予定',
-                        count: _safeGetMaintenanceCount(deviceService),
-                        icon: Icons.access_time_rounded,
-                        color: Colors.amber,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SummaryCard(
-                        title: '登録デバイス',
-                        count: deviceService.devices.length,
-                        icon: Icons.devices_rounded,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
+                      // デバイス一覧
+                      _buildDeviceList(context, deviceService),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 24),
-
-                // デバイス一覧
-                _buildDeviceList(context, deviceService),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildErrorState(DeviceService deviceService) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            deviceService.errorMessage!,
+            style: const TextStyle(fontSize: 16, color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              deviceService.loadData();
+            },
+            child: const Text('再試行'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.devices_other, size: 64, color: Color(0xFF999999)),
+          SizedBox(height: 16),
+          Text(
+            'デバイスが登録されていません',
+            style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
+          ),
+        ],
       ),
     );
   }
@@ -289,10 +337,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (_selectedRoomId != null)
                   TextButton(
                     onPressed: _clearFilter,
-                    child: const Text(
-                      'フィルタをクリア',
-                      style: TextStyle(fontSize: 12),
-                    ),
+                    child:
+                        const Text('フィルタをクリア', style: TextStyle(fontSize: 12)),
                   ),
                 const SizedBox(width: 8),
                 OutlinedButton(
@@ -304,15 +350,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
-                  child: const Text(
-                    'すべて見る',
-                    style: TextStyle(fontSize: 12),
-                  ),
+                  child: const Text('すべて見る', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -324,19 +365,13 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(
-                color: const Color(0xFFE5E5E5),
-                width: 0.5,
-              ),
+              border: Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
               borderRadius: BorderRadius.circular(2),
             ),
             child: const Center(
               child: Text(
                 'この部屋にはデバイスが登録されていません',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF666666),
-                ),
+                style: TextStyle(fontSize: 14, color: Color(0xFF666666)),
               ),
             ),
           )
@@ -351,105 +386,153 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFloorPlan(BuildContext context, DeviceService deviceService) {
+  Widget _buildRoomCardsCarousel(
+      BuildContext context, DeviceService deviceService) {
+    final rooms = _getRooms(deviceService);
+    final itemCount = rooms.length + 1; // +1 for AI Generator
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              '間取り図',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w300,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'My Rooms',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w300),
               ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ScanScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.document_scanner, size: 16),
-                  label: const Text(
-                    'スマート登録',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    side: const BorderSide(
-                      color: Color(0xFF3b82f6),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AddDeviceScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text(
-                    '家電を追加',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    side: const BorderSide(
-                      color: Color(0xFF3b82f6),
-                      width: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          height: 400,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(
-              color: const Color(0xFFE5E5E5),
-              width: 0.5,
-            ),
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+              // Updated Button Name and Icon
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const ScanScreen()),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_2, size: 20), // Barcode icon
+                label: const Text('家電を追加'), // Clearer label
+                style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF3b82f6)),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: FloorPlanWidget(
-              floorPlan: deviceService.floorPlan,
-              devices: deviceService.devices,
-              selectedRoomId: _selectedRoomId,
-              onRoomTap: _onRoomTap,
-            ),
+        ),
+        const SizedBox(height: 16),
+        // Carousel
+        SizedBox(
+          height:
+              380, // Restored to smaller height due to overflow fix + PageView behavior
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: itemCount,
+            onPageChanged: _onPageChanged,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8.0), // Padding between cards
+                child: index < rooms.length
+                    ? RoomCardWidget(
+                        room: rooms[index],
+                        onTap: () {
+                          _pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        },
+                      )
+                    : _buildAiGeneratorCard(context),
+              );
+            },
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAiGeneratorCard(BuildContext context) {
+    return Container(
+      width: 280,
+      // Removed margin here because PageView handles spacing via padding in itemBuilder
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F9F9),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
+      ),
+      child: InkWell(
+        onTap: () => _simulateAiGeneration(context),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.auto_awesome,
+                  size: 32, color: Color(0xFF333333)),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Generate My Room\nwith AI',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF333333),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Transform your photo\ninto Japandi Style',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _simulateAiGeneration(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(height: 16),
+            Text('Analyzing your room structure...',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    decoration: TextDecoration.none)),
+          ],
+        ),
+      ),
+    );
+    await Future.delayed(const Duration(seconds: 3));
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('✨ Room generated! (Demo functionality)'),
+          behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -457,44 +540,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
         SizedBox(
-          height: 400,
-          child: ChatWidget(
-            devices: deviceService.devices,
-          ),
+          height: 200, // Reduced height to fix "useless whitespace"
+          child: ChatWidget(devices: deviceService.devices),
         ),
       ],
     );
   }
 
   String _getRoomName(String roomId) {
+    if (roomId == 'living') return 'Living Room';
+    if (roomId == 'bedroom') return 'Bedroom';
+    if (roomId == 'kitchen') return 'Kitchen';
+
     final deviceService = Provider.of<DeviceService>(context, listen: false);
     try {
-      final room = deviceService.rooms.firstWhere(
-        (r) => r.id == roomId,
-      );
+      final room = deviceService.rooms.firstWhere((r) => r.id == roomId);
       return room.name;
     } catch (e) {
       return roomId;
-    }
-  }
-
-  int _safeGetAlertCount(DeviceService deviceService) {
-    try {
-      return deviceService.getAlertCount();
-    } catch (e) {
-      print('Error getting alert count: $e');
-      return 0;
-    }
-  }
-
-  int _safeGetMaintenanceCount(DeviceService deviceService) {
-    try {
-      return deviceService.getMaintenanceCount();
-    } catch (e) {
-      print('Error getting maintenance count: $e');
-      return 0;
     }
   }
 }

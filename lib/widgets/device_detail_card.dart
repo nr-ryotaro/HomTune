@@ -98,7 +98,6 @@ class DeviceDetailCard extends StatelessWidget {
     }
   }
 
-
   void _showMoreDetails(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -176,9 +175,7 @@ class DeviceDetailCard extends StatelessWidget {
                     ),
                     _buildDetailSection(
                       'カテゴリー',
-                      device.category.isNotEmpty
-                          ? device.category
-                          : '未登録',
+                      device.category.isNotEmpty ? device.category : '未登録',
                     ),
                     if (device.purchaseDate.isNotEmpty)
                       _buildDetailSection(
@@ -244,7 +241,8 @@ class DeviceDetailCard extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         alert.message,
@@ -352,7 +350,8 @@ class DeviceDetailCard extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                if (safetyInfo.recallDetails!.manufacturerContactUrl != null) ...[
+                if (safetyInfo.recallDetails!.manufacturerContactUrl !=
+                    null) ...[
                   const SizedBox(height: 12),
                   TextButton.icon(
                     onPressed: () {
@@ -436,7 +435,8 @@ class DeviceDetailCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w600,
-                                color: _getSafetyScoreColor(safetyInfo.safetyScore),
+                                color: _getSafetyScoreColor(
+                                    safetyInfo.safetyScore),
                               ),
                             ),
                             Text(
@@ -548,7 +548,7 @@ class DeviceDetailCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: color,
@@ -579,229 +579,15 @@ class DeviceDetailCard extends StatelessWidget {
 
   /// 資産価値セクションを構築
   Widget _buildAssetValueSection(Device device) {
-    final valuationService = ValuationService();
-    final assetValue = device.assetValue;
+    // Note: Use a StatefulWidget or Parent to manage state if we want to rebuild on refresh.
+    // Since DeviceDetailCard is stateless, we rely on the FutureBuilder re-executing if the future changes?
+    // No, FutureBuilder doesn't re-execute if the future is created *inside* the builder logic unless parameters change.
+    // However, here we are calling valuationService.calculateAssetValue everytime build happens because we construct a new Future.
+    // To support Manual Refresh properly, we might need a Stateful wrapper or just navigation/modal refresh.
+    // For this implementation, we'll try to rely on state update via a simple localized Stateful widget or just standard approach.
+    // Given the constraints, let's inject a specialized widget for this section that handles its own state.
 
-    return FutureBuilder<AssetValue>(
-      future: assetValue != null 
-          ? Future.value(assetValue)
-          : valuationService.calculateAssetValue(device).catchError((e) {
-              print('Error calculating asset value: $e');
-              // エラー時はデフォルト値を返す
-              return AssetValue(
-                purchasePrice: device.purchasePrice,
-                currentUsedPrice: device.purchasePrice,
-                depreciationRate: 0.0,
-                lastPriceCheck: DateTime.now().toIso8601String(),
-                priceHistory: [],
-              );
-            }),
-      builder: (context, snapshot) {
-        // エラーが発生した場合は何も表示しない
-        if (snapshot.hasError) {
-          print('Error in asset value section: ${snapshot.error}');
-          return const SizedBox.shrink();
-        }
-
-        // データがない場合は何も表示しない
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-
-        try {
-          final calculatedAssetValue = snapshot.data!;
-          final bookValue = calculatedAssetValue.bookValue ?? 0;
-          final marketValue = calculatedAssetValue.marketValue ?? 0;
-          final currentValue = calculatedAssetValue.currentUsedPrice;
-          final hasSellOpp = calculatedAssetValue.hasSellOpportunity ?? false;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '資産価値',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            // 売却チャンス通知
-            if (hasSellOpp) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.amber[50],
-                  border: Border.all(
-                    color: Colors.amber[200]!,
-                    width: 0.5,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.trending_up,
-                      size: 24,
-                      color: Colors.amber[700],
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '今が売り時です：市場価値が帳簿価値を上回っています',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.amber[900],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // 資産価値の二段構え表示
-            Row(
-              children: [
-                Expanded(
-                  child: _buildValueCard(
-                    '帳簿上の価値',
-                    '減価償却残高',
-                    bookValue,
-                    Colors.blue[50]!,
-                    Colors.blue[200]!,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildValueCard(
-                    '市場価値',
-                    '中古相場',
-                    marketValue,
-                    Colors.green[50]!,
-                    Colors.green[200]!,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // 現在の資産価値
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                border: Border.all(
-                  color: const Color(0xFFE5E5E5),
-                  width: 0.5,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '現在の資産価値',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    '¥${_formatCurrency(currentValue)}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // 資産推移グラフ
-            _buildAssetChart(device),
-          ],
-        );
-        } catch (e) {
-          print('Error in asset value section UI: $e');
-          return const SizedBox.shrink();
-        }
-      },
-    );
-  }
-
-  /// 資産推移グラフを構築（エラーハンドリング付き）
-  Widget _buildAssetChart(Device device) {
-    try {
-      return AssetValueChart(device: device);
-    } catch (e) {
-      print('Error building asset chart: $e');
-      return const SizedBox.shrink();
-    }
-  }
-
-  /// 価値カードを構築
-  Widget _buildValueCard(
-    String title,
-    String subtitle,
-    int value,
-    Color backgroundColor,
-    Color borderColor,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        border: Border.all(
-          color: borderColor,
-          width: 0.5,
-        ),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '¥${_formatCurrency(value)}',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[900],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 通貨フォーマット
-  String _formatCurrency(int value) {
-    return value.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+    return _AssetValueSection(device: device);
   }
 
   Widget _buildDetailSection(String label, String value) {
@@ -894,12 +680,11 @@ class DeviceDetailCard extends StatelessWidget {
 
   Widget _buildManualButton(BuildContext context) {
     final hasManual = device.manual != null && device.manual!.url.isNotEmpty;
-    final hasModelNumber = device.modelNumber.isNotEmpty && device.manufacturer.isNotEmpty;
-    
+    final hasModelNumber =
+        device.modelNumber.isNotEmpty && device.manufacturer.isNotEmpty;
+
     return InkWell(
-      onTap: hasModelNumber || hasManual
-          ? () => _openManual(context)
-          : null,
+      onTap: hasModelNumber || hasManual ? () => _openManual(context) : null,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         width: 40,
@@ -950,5 +735,335 @@ class DeviceDetailCard extends StatelessWidget {
       ),
     );
   }
+}
 
+class _AssetValueSection extends StatefulWidget {
+  final Device device;
+
+  const _AssetValueSection({required this.device});
+
+  @override
+  State<_AssetValueSection> createState() => _AssetValueSectionState();
+}
+
+class _AssetValueSectionState extends State<_AssetValueSection> {
+  late Future<AssetValue> _assetValueFuture;
+  final ValuationService _valuationService = ValuationService();
+  bool _isRefreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  void _loadData({bool forceUpdate = false}) {
+    if (widget.device.assetValue != null && !forceUpdate) {
+      _assetValueFuture = Future.value(widget.device.assetValue);
+    } else {
+      _assetValueFuture = _valuationService.calculateAssetValue(widget.device,
+          forceUpdate: forceUpdate);
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+    // 少し待機してUXを向上（モックでも処理感が出る）
+    await Future.delayed(const Duration(milliseconds: 800));
+    setState(() {
+      _loadData(forceUpdate: true);
+      _isRefreshing = false;
+    });
+  }
+
+  void _showHelpDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 18)),
+        content:
+            Text(content, style: const TextStyle(fontSize: 14, height: 1.5)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('了解'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AssetValue>(
+      future: _assetValueFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const SizedBox.shrink();
+        }
+
+        // データロード中は既存データがあればそれを表示しつつローディングインジケータ、なければローディング
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !_isRefreshing) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final calculatedAssetValue = snapshot.data!;
+        final bookValue = calculatedAssetValue.bookValue ?? 0;
+        final marketValue = calculatedAssetValue.marketValue ?? 0;
+        final currentValue = calculatedAssetValue.currentUsedPrice;
+        final hasSellOpp = calculatedAssetValue.hasSellOpportunity ?? false;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '資産価値',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (_isRefreshing)
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                else
+                  InkWell(
+                    onTap: _handleRefresh,
+                    borderRadius: BorderRadius.circular(16),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.refresh, size: 20, color: Colors.grey),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 売却チャンス通知
+            if (hasSellOpp) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  border: Border.all(
+                    color: Colors.amber[200]!,
+                    width: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up,
+                      size: 24,
+                      color: Colors.amber[700],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '今が売り時です：市場価値が帳簿価値を上回っています',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.amber[900],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // 資産価値の二段構え表示
+            Row(
+              children: [
+                Expanded(
+                  child: _buildValueCard(
+                    '帳簿上の価値',
+                    '減価償却残高',
+                    bookValue,
+                    Colors.blue[50]!,
+                    Colors.blue[200]!,
+                    () => _showHelpDialog(
+                      '帳簿上の価値（減価償却）',
+                      '購入価格から、法定耐用年数に基づいて計算された価値です。\n\n時間が経つにつれて一定の割合で減少します。会計上の価値を表しており、実際の市場価格とは異なる場合があります。',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildValueCard(
+                    '市場価値',
+                    '中古相場',
+                    marketValue,
+                    Colors.green[50]!,
+                    Colors.green[200]!,
+                    () => _showHelpDialog(
+                      '市場価値（中古相場）',
+                      '現在の市場データに基づいた推定価格です。\n\n同じモデルの中古品がいくらで取引されているかを参考にしています。人気モデルや状態が良い場合は、帳簿上の価値より高くなることがあります。',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 現在の資産価値
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                border: Border.all(
+                  color: const Color(0xFFE5E5E5),
+                  width: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '現在の資産価値',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (calculatedAssetValue.lastPriceCheck.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            '更新: ${_formatDate(calculatedAssetValue.lastPriceCheck)}',
+                            style: TextStyle(
+                                fontSize: 10, color: Colors.grey[500]),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Text(
+                    '¥${_formatCurrency(currentValue)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 資産推移グラフ
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return _buildAssetChart(widget.device);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAssetChart(Device device) {
+    try {
+      return AssetValueChart(device: device);
+    } catch (e) {
+      print('Error building asset chart: $e');
+      return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildValueCard(
+    String title,
+    String subtitle,
+    int value,
+    Color backgroundColor,
+    Color borderColor,
+    VoidCallback onHelpTap,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border.all(
+          color: borderColor,
+          width: 0.5,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+              InkWell(
+                onTap: onHelpTap,
+                child:
+                    Icon(Icons.help_outline, size: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w300,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '¥${_formatCurrency(value)}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[900],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCurrency(int value) {
+    final formatter = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return value
+        .toString()
+        .replaceAllMapped(formatter, (Match m) => '${m[1]},');
+  }
+
+  String _formatDate(String isoString) {
+    try {
+      final date = DateTime.parse(isoString);
+      return '${date.year}/${date.month}/${date.day}';
+    } catch (e) {
+      return '';
+    }
+  }
 }
