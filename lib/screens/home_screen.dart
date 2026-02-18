@@ -31,7 +31,32 @@ class _HomeScreenState extends State<HomeScreen> {
     // フレームが構築された後にデータを読み込む
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDevices();
+      _testFinancialInsight(); // テスト実行
     });
+  }
+
+  // 金融インサイトのテスト
+  void _testFinancialInsight() async {
+    // 少し待機してデータロードを待つ
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+
+    final deviceService = Provider.of<DeviceService>(context, listen: false);
+
+    // 対象デバイスのID
+    final targetIds = ['espresso_001', 'light_bed_001'];
+
+    print('--- [Insight Test] Start ---');
+    for (var id in targetIds) {
+      final device = deviceService.getDeviceById(id);
+      if (device != null && device.assetValue?.valuationInsight != null) {
+        print(
+            '[Insight Test] ${device.name}: ${device.assetValue!.valuationInsight}');
+      } else {
+        print('[Insight Test] ${device?.name ?? id}: No insight available');
+      }
+    }
+    print('--- [Insight Test] End ---');
   }
 
   @override
@@ -75,17 +100,20 @@ class _HomeScreenState extends State<HomeScreen> {
       required String title,
       required String styleName,
       required String imagePath,
-      required double baseAssetValue,
       required double maintenanceHealth,
     }) {
       final devices = deviceService.getDevicesByRoom(id);
       final deviceCount = devices.length;
 
       // Calculate dynamic asset value (base + device values)
-      // For now, we add device purchase prices to base value as a simple logic
-      double totalAssetValue = baseAssetValue;
+      double totalAssetValue = 0;
       for (var d in devices) {
-        totalAssetValue += d.purchasePrice;
+        // 資産価値（現在価値）を使用。未計算の場合は購入価格をフォールバックとして使用
+        if (d.assetValue != null) {
+          totalAssetValue += d.assetValue!.currentUsedPrice;
+        } else {
+          totalAssetValue += d.purchasePrice;
+        }
       }
 
       int alertCount = 0;
@@ -128,27 +156,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return [
       createRoomCard(
-        id: 'living',
+        id: 'living-room', // ID修正: living -> living-room (DeviceServiceのダミーデータと一致させる)
         title: 'Living Room',
         styleName: 'Tech Japandi',
         imagePath: 'assets/images/Living_sample.jpg',
-        baseAssetValue: 1240000,
         maintenanceHealth: 0.9,
       ),
       createRoomCard(
-        id: 'bedroom',
+        id: 'bedroom-01', // ID修正: bedroom -> bedroom-01
         title: 'Bedroom',
         styleName: 'Hotel-like Japandi',
         imagePath: 'assets/images/Bedroom_sample.jpg',
-        baseAssetValue: 850000,
         maintenanceHealth: 0.75,
       ),
       createRoomCard(
-        id: 'kitchen',
+        id: 'kitchen-01', // ID修正: kitchen -> kitchen-01
         title: 'Kitchen',
         styleName: 'Japandi Kitchen',
         imagePath: 'assets/images/Kitchen_sample.jpg',
-        baseAssetValue: 2100000,
         maintenanceHealth: 0.95,
       ),
     ];

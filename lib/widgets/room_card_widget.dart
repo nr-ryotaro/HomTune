@@ -46,16 +46,6 @@ class RoomCardWidget extends StatelessWidget {
                       color: Color(0xFF333333),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    room.styleName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.grey[500],
-                      letterSpacing: 0.5,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -112,6 +102,34 @@ class RoomCardWidget extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                  // Monetization / Regenerate Button (Magic Wand)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _showPremiumDialog(context),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.auto_fix_high,
+                              size: 18, color: Colors.purple),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -135,7 +153,8 @@ class RoomCardWidget extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        NumberFormat.currency(locale: 'ja_JP', symbol: '¥')
+                        NumberFormat.currency(
+                                locale: 'ja_JP', symbol: '¥ ', decimalDigits: 0)
                             .format(room.totalAssetValue),
                         style: const TextStyle(
                           fontSize: 16,
@@ -192,6 +211,54 @@ class RoomCardWidget extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPremiumDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Premium Feature',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('無料プランでは部屋画像の生成は初回のみです。'),
+            SizedBox(height: 16),
+            Text(
+              'HomTuneプレミアム（¥300/月）に登録して、最新の機材構成で部屋をリデザインしますか？',
+              style: TextStyle(height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('プレミアム登録画面へ遷移します（デモ）')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF333333),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('登録する'),
+          ),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

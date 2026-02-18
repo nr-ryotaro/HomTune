@@ -3,6 +3,8 @@ import '../models/device.dart';
 import '../widgets/device_detail_card.dart';
 import '../widgets/chat_widget.dart';
 import 'add_device_screen.dart';
+import '../widgets/room_card_widget.dart';
+import '../models/room_card_model.dart';
 
 class RoomDevicesScreen extends StatelessWidget {
   final String roomId;
@@ -18,6 +20,68 @@ class RoomDevicesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 統計情報の計算
+    double totalAssetValue = 0;
+    int alertCount = 0;
+    int maintenanceCount = 0;
+
+    final today = DateTime.now();
+
+    for (var device in devices) {
+      // 資産価値
+      if (device.assetValue != null) {
+        totalAssetValue += device.assetValue!.currentUsedPrice;
+      }
+
+      // アラート数
+      if (device.maintenance?.alerts != null) {
+        alertCount += device.maintenance!.alerts
+            .where((a) => a.priority == 'high' || a.priority == 'medium')
+            .length;
+      }
+
+      // メンテナンス数
+      if (device.maintenance?.nextMaintenance != null) {
+        try {
+          final nextDate = DateTime.parse(device.maintenance!.nextMaintenance!);
+          final daysUntil = nextDate.difference(today).inDays;
+          if (daysUntil >= 0 && daysUntil <= 30) {
+            maintenanceCount++;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    // ヘルススコア計算（簡易ロジック）
+    double healthScore = 1.0;
+    if (alertCount > 0) healthScore -= 0.3;
+    if (maintenanceCount > 0) healthScore -= 0.1;
+    if (healthScore < 0) healthScore = 0;
+
+    // 部屋IDや名前から画像パスを決定
+    String imagePath = 'assets/images/Living_sample.jpg'; // デフォルト
+    if (roomName.contains('寝室') || roomId.contains('bed')) {
+      imagePath = 'assets/images/Bedroom_sample.jpg';
+    } else if (roomName.contains('キッチン') || roomId.contains('kitchen')) {
+      imagePath = 'assets/images/Kitchen_sample.jpg';
+    }
+
+    // RoomCardModelの作成
+    final roomCardModel = RoomCardModel(
+      id: roomId,
+      title: roomName,
+      styleName: 'Modern Style',
+      imagePath: imagePath,
+      totalAssetValue: totalAssetValue,
+      maintenanceHealth: healthScore,
+      alertCount: alertCount,
+      maintenanceCount: maintenanceCount,
+      deviceCount: devices.length,
+      isAiGenerated: false,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -74,6 +138,19 @@ class RoomDevicesScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
+          // ルームカード（サマリー）
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Center(
+              child: RoomCardWidget(
+                room: roomCardModel,
+                onTap: () {
+                  // カードタップ時のアクション（必要であれば実装）
+                },
+              ),
+            ),
+          ),
+
           // デバイス一覧
           Expanded(
             child: devices.isEmpty
@@ -98,7 +175,7 @@ class RoomDevicesScreen extends StatelessWidget {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: devices.length,
                     itemBuilder: (context, index) {
                       return Padding(

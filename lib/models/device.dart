@@ -1,5 +1,9 @@
 import 'safety_info.dart';
 
+enum ItemCondition { newItem, usedItem }
+
+enum ManualFetchState { notFetched, fetching, found, notFound }
+
 class Device {
   final String id;
   final String name;
@@ -12,10 +16,21 @@ class Device {
   final String room;
   final String location;
   final String status;
+  // マニュアル取得状態
+  final String? manualPdfUrl;
+  final ManualFetchState manualState;
+
+  // 新規追加フィールド
+  final ItemCondition condition;
+  final DateTime? releaseDate;
+  final int? originalPrice;
+
   final Maintenance? maintenance;
   final Manual? manual;
+
   /// 説明書PDFのURL（Manual.url と同じ。Smart Ingester で自動検索した場合に保存）
-  String? get manualUrl => manual?.url;
+  // String? get manualUrl => manual?.url; // 既存のmanualUrlゲッターはmanualPdfUrlと重複するため削除または統合
+
   /// JANコード（バーコードスキャンで取得。Smart Ingester 用）
   final String? janCode;
   final List<Consumable> consumables;
@@ -46,6 +61,11 @@ class Device {
     this.safetyInfo,
     required this.photos,
     required this.documents,
+    this.condition = ItemCondition.newItem,
+    this.releaseDate,
+    this.originalPrice,
+    this.manualPdfUrl,
+    this.manualState = ManualFetchState.notFetched,
   });
 
   factory Device.fromJson(Map<String, dynamic> json) {
@@ -65,17 +85,20 @@ class Device {
         maintenance: json['maintenance'] != null
             ? (() {
                 try {
-                  return Maintenance.fromJson(json['maintenance'] as Map<String, dynamic>);
+                  return Maintenance.fromJson(
+                      json['maintenance'] as Map<String, dynamic>);
                 } catch (e) {
-                  print('Error parsing maintenance for device ${json['id']}: $e');
+                  print(
+                      'Error parsing maintenance for device ${json['id']}: $e');
                   return null;
                 }
               })()
             : null,
-        manual: json['manual'] != null 
+        manual: json['manual'] != null
             ? (() {
                 try {
-                  return Manual.fromJson(json['manual'] as Map<String, dynamic>);
+                  return Manual.fromJson(
+                      json['manual'] as Map<String, dynamic>);
                 } catch (e) {
                   print('Error parsing manual for device ${json['id']}: $e');
                   return null;
@@ -90,7 +113,8 @@ class Device {
         warranty: json['warranty'] != null
             ? (() {
                 try {
-                  return Warranty.fromJson(json['warranty'] as Map<String, dynamic>);
+                  return Warranty.fromJson(
+                      json['warranty'] as Map<String, dynamic>);
                 } catch (e) {
                   print('Error parsing warranty for device ${json['id']}: $e');
                   return null;
@@ -100,9 +124,11 @@ class Device {
         assetValue: json['assetValue'] != null
             ? (() {
                 try {
-                  return AssetValue.fromJson(json['assetValue'] as Map<String, dynamic>);
+                  return AssetValue.fromJson(
+                      json['assetValue'] as Map<String, dynamic>);
                 } catch (e) {
-                  print('Error parsing assetValue for device ${json['id']}: $e');
+                  print(
+                      'Error parsing assetValue for device ${json['id']}: $e');
                   return null;
                 }
               })()
@@ -110,9 +136,11 @@ class Device {
         safetyInfo: json['safetyInfo'] != null
             ? (() {
                 try {
-                  return SafetyInfo.fromJson(json['safetyInfo'] as Map<String, dynamic>);
+                  return SafetyInfo.fromJson(
+                      json['safetyInfo'] as Map<String, dynamic>);
                 } catch (e) {
-                  print('Error parsing safetyInfo for device ${json['id']}: $e');
+                  print(
+                      'Error parsing safetyInfo for device ${json['id']}: $e');
                   return null;
                 }
               })()
@@ -125,6 +153,19 @@ class Device {
                 ?.map((e) => e.toString())
                 .toList() ??
             [],
+        condition: json['condition'] == 'usedItem'
+            ? ItemCondition.usedItem
+            : ItemCondition.newItem,
+        releaseDate: json['releaseDate'] != null
+            ? DateTime.tryParse(json['releaseDate'].toString())
+            : null,
+        originalPrice: (json['originalPrice'] as num?)?.toInt(),
+        manualPdfUrl: json['manualPdfUrl']?.toString(),
+        manualState: json['manualState'] != null
+            ? ManualFetchState.values.firstWhere(
+                (e) => e.name == json['manualState'],
+                orElse: () => ManualFetchState.notFetched)
+            : ManualFetchState.notFetched,
       );
     } catch (e) {
       print('Error parsing Device: $e');
@@ -154,6 +195,11 @@ class Device {
       'safetyInfo': safetyInfo?.toJson(),
       'photos': photos,
       'documents': documents,
+      'condition': condition.name,
+      'releaseDate': releaseDate?.toIso8601String(),
+      'originalPrice': originalPrice,
+      'manualPdfUrl': manualPdfUrl,
+      'manualState': manualState.name,
     };
   }
 
@@ -178,6 +224,11 @@ class Device {
     SafetyInfo? safetyInfo,
     List<String>? photos,
     List<String>? documents,
+    ItemCondition? condition,
+    DateTime? releaseDate,
+    int? originalPrice,
+    String? manualPdfUrl,
+    ManualFetchState? manualState,
   }) {
     return Device(
       id: id ?? this.id,
@@ -200,6 +251,11 @@ class Device {
       safetyInfo: safetyInfo ?? this.safetyInfo,
       photos: photos ?? this.photos,
       documents: documents ?? this.documents,
+      condition: condition ?? this.condition,
+      releaseDate: releaseDate ?? this.releaseDate,
+      originalPrice: originalPrice ?? this.originalPrice,
+      manualPdfUrl: manualPdfUrl ?? this.manualPdfUrl,
+      manualState: manualState ?? this.manualState,
     );
   }
 }
@@ -240,7 +296,8 @@ class Maintenance {
         history: (json['history'] as List<dynamic>?)
                 ?.map((e) {
                   try {
-                    return MaintenanceHistory.fromJson(e as Map<String, dynamic>);
+                    return MaintenanceHistory.fromJson(
+                        e as Map<String, dynamic>);
                   } catch (e) {
                     print('Error parsing MaintenanceHistory: $e');
                     return null;
@@ -357,6 +414,7 @@ class Manual {
   final String url;
   final bool autoGenerated;
   final String lastUpdated;
+
   /// マニュアルのソース: 'official' (公式サイト), 'scanned' (スキャン生成), 'uploaded' (アップロード)
   final String source;
 
@@ -431,7 +489,8 @@ class Consumable {
         modelNumber: json['modelNumber']?.toString() ?? '',
         purchaseUrl: json['purchaseUrl']?.toString() ?? '',
         lastReplaced: json['lastReplaced']?.toString() ?? '',
-        replacementInterval: (json['replacementInterval'] as num?)?.toInt() ?? 0,
+        replacementInterval:
+            (json['replacementInterval'] as num?)?.toInt() ?? 0,
         stockLocation: json['stockLocation']?.toString() ?? '',
         inStock: json['inStock'] == true,
       );
@@ -479,7 +538,8 @@ class Warranty {
     try {
       return Warranty(
         manufacturer: json['manufacturer'] != null
-            ? WarrantyInfo.fromJson(json['manufacturer'] as Map<String, dynamic>)
+            ? WarrantyInfo.fromJson(
+                json['manufacturer'] as Map<String, dynamic>)
             : null,
         store: json['store'] != null
             ? WarrantyInfo.fromJson(json['store'] as Map<String, dynamic>)
@@ -550,6 +610,7 @@ class AssetValue {
   final int? marketValue; // 市場価値（中古相場）
   final bool? hasSellOpportunity; // 売却チャンスがあるか
   final double? usefulLife; // 法定耐用年数
+  final String? valuationInsight; // 資産価値インサイト
 
   AssetValue({
     required this.purchasePrice,
@@ -561,6 +622,7 @@ class AssetValue {
     this.marketValue,
     this.hasSellOpportunity,
     this.usefulLife,
+    this.valuationInsight,
   });
 
   factory AssetValue.fromJson(Map<String, dynamic> json) {
@@ -586,6 +648,7 @@ class AssetValue {
         marketValue: (json['marketValue'] as num?)?.toInt(),
         hasSellOpportunity: json['hasSellOpportunity'] as bool?,
         usefulLife: (json['usefulLife'] as num?)?.toDouble(),
+        valuationInsight: json['valuationInsight']?.toString(),
       );
     } catch (e) {
       print('Error parsing AssetValue: $e');
@@ -610,6 +673,7 @@ class AssetValue {
       if (marketValue != null) 'marketValue': marketValue,
       if (hasSellOpportunity != null) 'hasSellOpportunity': hasSellOpportunity,
       if (usefulLife != null) 'usefulLife': usefulLife,
+      if (valuationInsight != null) 'valuationInsight': valuationInsight,
     };
   }
 }
