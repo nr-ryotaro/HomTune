@@ -83,15 +83,34 @@ class AssetValueChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 30,
-                      interval: 3, // 3ヶ月ごと
+                      reservedSize: 32,
+                      interval: _calcXInterval(bookValueSpots.isNotEmpty
+                          ? bookValueSpots.last.x
+                          : 12),
                       getTitlesWidget: (value, meta) {
-                        // valueは月数
-                        if (value % 3 != 0) return const SizedBox.shrink();
+                        final interval = _calcXInterval(
+                            bookValueSpots.isNotEmpty
+                                ? bookValueSpots.last.x
+                                : 12);
+                        if (value % interval != 0)
+                          return const SizedBox.shrink();
+                        // 先頭と末尾端のラベルが切れるのを防止
+                        if (value == meta.min || value == meta.max) {
+                          return const SizedBox.shrink();
+                        }
+                        final months = value.toInt();
+                        String label;
+                        if (months == 0) {
+                          label = '0';
+                        } else if (months % 12 == 0) {
+                          label = '${months ~/ 12}年';
+                        } else {
+                          label = '${months}月';
+                        }
                         return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
+                          padding: const EdgeInsets.only(top: 6.0),
                           child: Text(
-                            '${value.toInt()}ヶ月',
+                            label,
                             style: const TextStyle(
                               color: Color(0xff68737d),
                               fontWeight: FontWeight.bold,
@@ -202,5 +221,13 @@ class AssetValueChart extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// X 軸ラベル間隔を自動算出（ラベル重複防止）
+  double _calcXInterval(double maxX) {
+    if (maxX <= 12) return 3; // ～1年: 3ヶ月ごと
+    if (maxX <= 24) return 6; // ～2年: 6ヶ月ごと
+    if (maxX <= 60) return 12; // ～5年: 1年ごと
+    return 24; // 5年超: 2年ごと
   }
 }

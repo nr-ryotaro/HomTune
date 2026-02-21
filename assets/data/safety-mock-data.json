@@ -3,18 +3,72 @@
     {
       "modelNumber": "CS-ZX2811",
       "manufacturer": "ダイキン",
-      "date": "2023-05-15T00:00:00Z",
+      "date": "2023-05-15",
       "description": "エアコン内部の配線不良による発火の恐れ",
       "reason": "製造工程での配線接続不良",
+      "severity": "critical",
+      "affectedUnits": 15000,
       "manufacturerContactUrl": "https://www.daikin.co.jp/contact"
     },
     {
       "modelNumber": "MBP-2021-16",
       "manufacturer": "Apple",
-      "date": "2024-01-20T00:00:00Z",
+      "date": "2024-01-20",
       "description": "バッテリー膨張による発火の恐れ",
       "reason": "バッテリーセルの製造不良",
+      "severity": "critical",
+      "affectedUnits": 30000,
       "manufacturerContactUrl": "https://support.apple.com/contact"
+    },
+    {
+      "modelNumber": "NR-F556HPX",
+      "manufacturer": "パナソニック",
+      "date": "2024-06-10",
+      "description": "冷蔵庫のコンプレッサーリレーの接点不良により、まれに発煙・発火に至る恐れ",
+      "reason": "リレー部品の製造ばらつき",
+      "severity": "critical",
+      "affectedUnits": 8200,
+      "manufacturerContactUrl": "https://www.panasonic.com/jp/support/consumer/recall.html"
+    },
+    {
+      "modelNumber": "ES-W114",
+      "manufacturer": "シャープ",
+      "date": "2024-03-01",
+      "description": "洗濯乾燥機のドアロック部品の不具合。運転中にドアが開く可能性",
+      "reason": "ドアロック機構の設計不良",
+      "severity": "warning",
+      "affectedUnits": 12000,
+      "manufacturerContactUrl": "https://corporate.jp.sharp/info/notices/"
+    },
+    {
+      "modelNumber": "VC-CLH200",
+      "manufacturer": "東芝",
+      "date": "2023-11-20",
+      "description": "コードレス掃除機のバッテリーパック過熱の恐れ",
+      "reason": "充電制御回路の不具合",
+      "severity": "critical",
+      "affectedUnits": 5600,
+      "manufacturerContactUrl": "https://www.toshiba-lifestyle.com/jp/support/"
+    },
+    {
+      "modelNumber": "RAS-X40M2",
+      "manufacturer": "日立",
+      "date": "2024-08-15",
+      "description": "エアコン室外機の圧縮機で冷媒漏れが発生する可能性",
+      "reason": "溶接部の微細亀裂",
+      "severity": "warning",
+      "affectedUnits": 9300,
+      "manufacturerContactUrl": "https://kadenfan.hitachi.co.jp/support/"
+    },
+    {
+      "modelNumber": "WH-1000XM4",
+      "manufacturer": "ソニー",
+      "date": "2023-08-01",
+      "description": "ヘッドバンド部が通常使用で破損する可能性（自主回収）",
+      "reason": "ヘッドバンド素材の強度不足",
+      "severity": "info",
+      "affectedUnits": 45000,
+      "manufacturerContactUrl": "https://www.sony.jp/support/"
     }
   ],
   "standardLifespans": {
@@ -25,6 +79,10 @@
     "PC": 5,
     "スマートフォン": 3,
     "掃除機": 8,
-    "電子レンジ": 8
+    "電子レンジ": 8,
+    "ヘッドホン": 5,
+    "オーディオ": 10,
+    "照明": 10,
+    "その他": 8
   }
 }

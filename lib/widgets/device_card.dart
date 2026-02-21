@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/device.dart';
+import '../models/safety_info.dart';
 import 'anthropomorphic_device_icon.dart';
 import '../screens/device_detail_screen.dart';
 
@@ -15,6 +16,7 @@ class DeviceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final maintenanceStatus = _getMaintenanceStatus();
     final warrantyStatus = _getWarrantyStatus();
+    final recallStatus = _getRecallStatus();
     final yearsOwned = _calculateYearsOwned();
 
     return GestureDetector(
@@ -68,6 +70,8 @@ class DeviceCard extends StatelessWidget {
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
+                                if (recallStatus != null)
+                                  _buildAlertBadge(recallStatus),
                                 if (maintenanceStatus != null)
                                   _buildAlertBadge(maintenanceStatus),
                                 if (warrantyStatus != null)
@@ -285,8 +289,19 @@ class DeviceCard extends StatelessWidget {
       };
     }
 
-    // 保証期限が近い場合のロジックなど（今回は省略）
     return null;
+  }
+
+  /// リコール状態を取得
+  Map<String, String>? _getRecallStatus() {
+    if (device.safetyInfo?.isRecallActive != true) return null;
+
+    final severity = device.safetyInfo?.recallDetails?.severity;
+    if (severity == RecallSeverity.critical) {
+      return {'type': 'warning', 'message': '⚠ RECALL'};
+    } else {
+      return {'type': 'info', 'message': 'RECALL'};
+    }
   }
 
   String _calculateYearsOwned() {

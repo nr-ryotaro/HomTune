@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/device_service.dart';
+import '../services/maintenance_calendar_service.dart';
 import '../models/device.dart';
 import '../widgets/device_card.dart';
 
@@ -11,6 +12,7 @@ import 'scan_screen.dart';
 import 'dev_settings_screen.dart';
 import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
+import 'maintenance_calendar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,32 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // フレームが構築された後にデータを読み込む
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDevices();
-      _testFinancialInsight(); // テスト実行
     });
-  }
-
-  // 金融インサイトのテスト
-  void _testFinancialInsight() async {
-    // 少し待機してデータロードを待つ
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-
-    final deviceService = Provider.of<DeviceService>(context, listen: false);
-
-    // 対象デバイスのID
-    final targetIds = ['espresso_001', 'light_bed_001'];
-
-    print('--- [Insight Test] Start ---');
-    for (var id in targetIds) {
-      final device = deviceService.getDeviceById(id);
-      if (device != null && device.assetValue?.valuationInsight != null) {
-        print(
-            '[Insight Test] ${device.name}: ${device.assetValue!.valuationInsight}');
-      } else {
-        print('[Insight Test] ${device?.name ?? id}: No insight available');
-      }
-    }
-    print('--- [Insight Test] End ---');
   }
 
   @override
@@ -98,9 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
     RoomCardModel createRoomCard({
       required String id,
       required String title,
-      required String styleName,
       required String imagePath,
-      required double maintenanceHealth,
     }) {
       final devices = deviceService.getDevicesByRoom(id);
       final deviceCount = devices.length;
@@ -108,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
       // Calculate dynamic asset value (base + device values)
       double totalAssetValue = 0;
       for (var d in devices) {
-        // 資産価値（現在価値）を使用。未計算の場合は購入価格をフォールバックとして使用
         if (d.assetValue != null) {
           totalAssetValue += d.assetValue!.currentUsedPrice;
         } else {
@@ -118,63 +92,137 @@ class _HomeScreenState extends State<HomeScreen> {
 
       int alertCount = 0;
       int maintenanceCount = 0;
+      int overdueCount = 0;
+      int dueSoonCount = 0;
+      int longerThanRecommendedCount = 0;
+
+      // 今月の達成率計算用
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+      int tasksExpectedThisMonth = 0;
+      int tasksCompletedThisMonth = 0;
 
       for (var d in devices) {
-        // Count alerts
+        // Count maintenance alerts
         if (d.maintenance?.alerts.isNotEmpty == true) {
-          // Simplified logic: count all high/medium alerts
           alertCount += d.maintenance!.alerts
               .where((a) => a.priority == 'high' || a.priority == 'medium')
               .length;
+        }
+
+        // Count recall alerts
+        if (d.safetyInfo?.isRecallActive == true) {
+          alertCount++;
         }
 
         // Count maintenance (upcoming within 30 days)
         if (d.maintenance?.nextMaintenance != null) {
           try {
             final nextDate = DateTime.parse(d.maintenance!.nextMaintenance!);
-            final today = DateTime.now();
-            final diff = nextDate.difference(today).inDays;
+            final diff = nextDate.difference(now).inDays;
             if (diff >= 0 && diff <= 30) {
               maintenanceCount++;
             }
           } catch (_) {}
+        }
+
+        // メンテナンスタスクの統計
+        for (var task in d.maintenanceTasks) {
+          if (task.isOverdue) overdueCount++;
+          if (task.isDueSoon) dueSoonCount++;
+          if (task.isIntervalLongerThanRecommended) {
+            longerThanRecommendedCount++;
+          }
+
+          // 今月の期限タスクカウント
+          if (task.nextDue != null &&
+              task.nextDue!.isAfter(monthStart) &&
+              task.nextDue!.isBefore(now.add(const Duration(days: 1)))) {
+            tasksExpectedThisMonth++;
+            // 完了済みならカウント
+            if (task.lastCompleted != null &&
+                task.lastCompleted!.isAfter(monthStart)) {
+              tasksCompletedThisMonth++;
+            }
+          }
+          // 今月完了したタスクもカウント（nextDue が来月でも今月完了したなら）
+          if (task.lastCompleted != null &&
+              task.lastCompleted!.isAfter(monthStart)) {
+            if (tasksExpectedThisMonth == 0) {
+              tasksExpectedThisMonth = 1;
+            }
+            tasksCompletedThisMonth =
+                tasksCompletedThisMonth.clamp(0, tasksExpectedThisMonth);
+          }
+        }
+      }
+
+      // ── メンテナンス健康度（動的計算） ──
+      double health = 1.0;
+      health -= overdueCount * 0.15;
+      health -= dueSoonCount * 0.05;
+      health -= longerThanRecommendedCount * 0.05;
+      health = health.clamp(0.0, 1.0);
+
+      // ── 達成率 ──
+      final achievementRate = tasksExpectedThisMonth > 0
+          ? (tasksCompletedThisMonth / tasksExpectedThisMonth).clamp(0.0, 1.0)
+          : 1.0; // タスクなし = 100%
+
+      // ── ストリーク（連続完了週数） ──
+      int streakWeeks = 0;
+      // 過去の完了履歴から連続週を計算
+      final allHistory = <DateTime>[];
+      for (var d in devices) {
+        for (var task in d.maintenanceTasks) {
+          allHistory.addAll(task.history);
+        }
+      }
+      if (allHistory.isNotEmpty) {
+        // 週単位でチェック（直近から遡る）
+        for (int w = 0; w < 52; w++) {
+          final weekStart =
+              now.subtract(Duration(days: now.weekday - 1 + (w * 7)));
+          final weekEnd = weekStart.add(const Duration(days: 7));
+          final hasCompletion = allHistory
+              .any((h) => h.isAfter(weekStart) && h.isBefore(weekEnd));
+          if (hasCompletion) {
+            streakWeeks++;
+          } else {
+            break;
+          }
         }
       }
 
       return RoomCardModel(
         id: id,
         title: title,
-        styleName: styleName,
         imagePath: imagePath,
         totalAssetValue: totalAssetValue,
-        maintenanceHealth: maintenanceHealth,
+        maintenanceHealth: health,
         deviceCount: deviceCount,
         alertCount: alertCount,
         maintenanceCount: maintenanceCount,
+        achievementRate: achievementRate,
+        streakWeeks: streakWeeks,
       );
     }
 
     return [
       createRoomCard(
-        id: 'living-room', // ID修正: living -> living-room (DeviceServiceのダミーデータと一致させる)
+        id: 'living-room',
         title: 'Living Room',
-        styleName: 'Tech Japandi',
         imagePath: 'assets/images/Living_sample.jpg',
-        maintenanceHealth: 0.9,
       ),
       createRoomCard(
-        id: 'bedroom-01', // ID修正: bedroom -> bedroom-01
+        id: 'bedroom-01',
         title: 'Bedroom',
-        styleName: 'Hotel-like Japandi',
         imagePath: 'assets/images/Bedroom_sample.jpg',
-        maintenanceHealth: 0.75,
       ),
       createRoomCard(
-        id: 'kitchen-01', // ID修正: kitchen -> kitchen-01
+        id: 'kitchen-01',
         title: 'Kitchen',
-        styleName: 'Japandi Kitchen',
         imagePath: 'assets/images/Kitchen_sample.jpg',
-        maintenanceHealth: 0.95,
       ),
     ];
   }
@@ -282,6 +330,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Column(
                     children: [
+                      // メンテナンスバナー
+                      _buildMaintenanceBanner(deviceService),
+
                       // チャットBOX (Reduced height)
                       _buildChatBox(context, deviceService),
                       const SizedBox(height: 24),
@@ -558,6 +609,92 @@ class _HomeScreenState extends State<HomeScreen> {
       const SnackBar(
           content: Text('✨ Room generated! (Demo functionality)'),
           behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  /// メンテナンスバナー（選択中の部屋のタスクのみ表示）
+  Widget _buildMaintenanceBanner(DeviceService deviceService) {
+    // 選択中の部屋のデバイスだけに絞り込む
+    final devices = _selectedRoomId != null
+        ? deviceService.getDevicesByRoom(_selectedRoomId!)
+        : deviceService.devices;
+    final overdue = MaintenanceCalendarService.getOverdueTasks(devices);
+    final upcoming = MaintenanceCalendarService.getUpcomingTasks(devices);
+    final totalCount = overdue.length + upcoming.length;
+
+    if (totalCount == 0) return const SizedBox.shrink();
+
+    // 最も重要なタスクを1件表示
+    final topTask = overdue.isNotEmpty ? overdue.first : upcoming.first;
+    final isOverdue = overdue.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MaintenanceCalendarScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isOverdue ? Colors.orange.shade50 : Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isOverdue ? Colors.orange.shade200 : Colors.blue.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Text(
+                '🧹',
+                style: TextStyle(fontSize: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isOverdue
+                          ? '$totalCount件のお手入れが期限を迎えています'
+                          : '$totalCount件のお手入れが予定されています',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isOverdue
+                            ? Colors.orange.shade800
+                            : Colors.blue.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${topTask.device.name} の${topTask.task.name}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color:
+                    isOverdue ? Colors.orange.shade400 : Colors.blue.shade400,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

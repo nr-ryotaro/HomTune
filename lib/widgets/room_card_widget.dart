@@ -34,17 +34,86 @@ class RoomCardWidget extends StatelessWidget {
             // Header
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    room.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w300, // Thin font
-                      letterSpacing: 0.5,
-                      color: Color(0xFF333333),
+                  Expanded(
+                    child: Text(
+                      room.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w300, // Thin font
+                        letterSpacing: 0.5,
+                        color: Color(0xFF333333),
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Badges
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (room.streakWeeks > 0)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.deepOrange.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '🔥${room.streakWeeks}週',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: room.maintenanceHealth >= 0.8
+                                  ? Colors.green.withValues(alpha: 0.85)
+                                  : room.maintenanceHealth >= 0.5
+                                      ? Colors.amber.withValues(alpha: 0.9)
+                                      : Colors.red.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${(room.maintenanceHealth * 100).round()}%',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (room.achievementRate < 1.0) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '今月 ${(room.achievementRate * 100).round()}%',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -72,36 +141,6 @@ class RoomCardWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // Health Status Indicator (Subtle overlay)
-                  if (room.maintenanceHealth < 0.8)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.warning_amber_rounded,
-                                color: Colors.white, size: 12),
-                            SizedBox(width: 4),
-                            Text(
-                              'Check',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
 
                   // Monetization / Regenerate Button (Magic Wand)
                   Positioned(
@@ -193,17 +232,20 @@ class RoomCardWidget extends StatelessWidget {
                   ),
 
                   // Detail Button (Minimal)
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFE5E5E5)),
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward,
-                      size: 14,
-                      color: Color(0xFF666666),
+                  GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFE5E5E5)),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: Color(0xFF666666),
+                      ),
                     ),
                   ),
                 ],

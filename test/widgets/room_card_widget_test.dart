@@ -9,7 +9,6 @@ void main() {
     const room = RoomCardModel(
       id: 'test_id',
       title: 'Test Room',
-      styleName: 'Test Style',
       imagePath: 'assets/images/test.jpg',
       totalAssetValue: 1234567,
       maintenanceHealth: 1.0,
@@ -46,7 +45,6 @@ void main() {
     const room = RoomCardModel(
       id: 'test_id_2',
       title: 'Problem Room',
-      styleName: 'Test Style',
       imagePath: 'assets/images/test.jpg',
       totalAssetValue: 1000,
       maintenanceHealth: 0.5,
@@ -66,8 +64,8 @@ void main() {
       ),
     );
 
-    // We expect 2 warning icons: one in the image overlay (health < 0.8) and one in the footer (alertCount > 0)
-    expect(find.byIcon(Icons.warning_amber_rounded), findsNWidgets(2));
+    // We expect 1 warning icon in the footer (alertCount > 0)
+    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
     expect(find.text('2'), findsOneWidget); // Alert count
 
     expect(find.byIcon(Icons.access_time_rounded), findsOneWidget);

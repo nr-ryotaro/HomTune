@@ -5,16 +5,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// リリース前に削除予定（RELEASE_CHECKLIST.md 参照）
 class ConfigService extends ChangeNotifier {
   static const String _keyUseRealApi = 'use_real_api';
+  static const String _keyUseDetailedMaintenance = 'use_detailed_maintenance';
 
   bool _useRealApi = false;
+  bool _useDetailedMaintenance = false; // デフォルトは「ずぼら」モード（シンプル）
   bool _loaded = false;
 
   bool get isUsingRealApi => _useRealApi;
+  bool get useDetailedMaintenance => _useDetailedMaintenance;
   bool get isLoaded => _loaded;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _useRealApi = prefs.getBool(_keyUseRealApi) ?? false;
+    _useDetailedMaintenance =
+        prefs.getBool(_keyUseDetailedMaintenance) ?? false;
     _loaded = true;
     notifyListeners();
   }
@@ -24,6 +29,14 @@ class ConfigService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyUseRealApi, value);
     _useRealApi = value;
+    notifyListeners();
+  }
+
+  Future<void> setUseDetailedMaintenance(bool value) async {
+    if (_useDetailedMaintenance == value) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyUseDetailedMaintenance, value);
+    _useDetailedMaintenance = value;
     notifyListeners();
   }
 }

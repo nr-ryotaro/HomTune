@@ -8,6 +8,12 @@ import '../services/config_service.dart';
 class DevSettingsScreen extends StatelessWidget {
   const DevSettingsScreen({super.key});
 
+  /// Gemini API キーが設定されているかどうか
+  static bool get _hasGeminiApiKey {
+    const key = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+    return key.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!kDebugMode) {
@@ -35,6 +41,9 @@ class DevSettingsScreen extends StatelessWidget {
       ),
       body: Consumer<ConfigService>(
         builder: (context, config, _) {
+          final isRealApi = config.isUsingRealApi;
+          final hasKey = _hasGeminiApiKey;
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -55,7 +64,10 @@ class DevSettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
+
+                // --- API / ダミーデータ切り替え ---
                 const Text(
                   'API / ダミーデータ',
                   style: TextStyle(
@@ -75,23 +87,219 @@ class DevSettingsScreen extends StatelessWidget {
                       ),
                     ),
                     Switch(
-                      value: config.isUsingRealApi,
+                      value: isRealApi,
                       onChanged: (v) => config.setUseRealApi(v),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  config.isUsingRealApi ? '実APIモード' : 'ダミーデータモード',
+                // モード表示
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isRealApi
+                        ? const Color(0xFFF0FDF4)
+                        : const Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isRealApi
+                          ? const Color(0xFF86EFAC)
+                          : const Color(0xFFE5E5E5),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            isRealApi
+                                ? Icons.cloud_done_rounded
+                                : Icons.science_rounded,
+                            size: 18,
+                            color: isRealApi
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF666666),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isRealApi ? '実APIモード' : 'ダミーデータモード',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isRealApi
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF666666),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildStatusRow(
+                        'Gemini API キー',
+                        hasKey ? '設定済み ✓' : '未設定',
+                        hasKey,
+                      ),
+                      _buildStatusRow(
+                        'AI チャット',
+                        isRealApi && hasKey
+                            ? 'Gemini API (マルチターン)'
+                            : 'ローカル応答 (テンプレート)',
+                        isRealApi && hasKey,
+                      ),
+                      _buildStatusRow(
+                        'スマートスキャン OCR',
+                        isRealApi && hasKey ? 'Gemini 構造化抽出' : 'ダミーパーサー',
+                        isRealApi && hasKey,
+                      ),
+                      _buildStatusRow(
+                        'リコールチェック',
+                        'モックデータ (safety-mock-data.json)',
+                        false,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // --- アプリの挙動設定 ---
+                const Text(
+                  'アプリの挙動設定',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '詳細メンテナンスモード',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            config.useDetailedMaintenance
+                                ? 'ON: パーツごとに個別に完了記録'
+                                : 'OFF (ずぼらモード): デバイス単位で一括記録',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF888888),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: config.useDetailedMaintenance,
+                      onChanged: (v) => config.setUseDetailedMaintenance(v),
+                    ),
+                  ],
+                ),
+
+                // API キーが未設定の場合のヒント
+                if (!hasKey) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                    ),
+                    child: const Text(
+                      '💡 Gemini API を有効にするには:\n'
+                      'flutter run --dart-define=GEMINI_API_KEY=your_key',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF92400E),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+
+                // --- テスト用操作 ---
+                const Text(
+                  'テスト用操作',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    config.setUseRealApi(!isRealApi);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          !isRealApi
+                              ? '実APIモードに切り替えました。チャットがGemini応答になります。'
+                              : 'ダミーモードに切り替えました。チャットがローカル応答になります。',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  label: Text(
+                    isRealApi ? 'ダミーモードに切り替え' : '実APIモードに切り替え',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF333333),
+                    side: const BorderSide(color: Color(0xFFE5E5E5)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildStatusRow(String label, String value, bool isActive) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF888888),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isActive
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFF666666),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

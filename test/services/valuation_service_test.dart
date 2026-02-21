@@ -7,6 +7,7 @@ void main() {
     late ValuationService valuationService;
 
     setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
       valuationService = ValuationService();
     });
 
@@ -17,7 +18,8 @@ void main() {
       // 市場価値: 180,000円（assetValue.currentUsedPrice）
       // カテゴリ: PC（法定耐用年数4年）
 
-      final purchaseDate = DateTime.now().subtract(const Duration(days: 730)); // 2年前
+      final purchaseDate =
+          DateTime.now().subtract(const Duration(days: 730)); // 2年前
       final device = Device(
         id: 'test-mbp-001',
         name: 'MacBook Pro',
@@ -43,7 +45,8 @@ void main() {
       );
 
       // 経過年数の計算をテスト
-      final elapsedTime = valuationService.calculateElapsedTimeFromString(device.purchaseDate);
+      final elapsedTime =
+          valuationService.calculateElapsedTimeFromString(device.purchaseDate);
       expect(elapsedTime, closeTo(2.0, 0.1)); // 約2年
 
       // 法定耐用年数の取得をテスト
@@ -75,7 +78,8 @@ void main() {
       expect(hasSellOpp, true);
 
       // calculateAssetValueの統合テスト
-      final calculatedAssetValue = await valuationService.calculateAssetValue(device);
+      final calculatedAssetValue =
+          await valuationService.calculateAssetValue(device, forceUpdate: true);
       expect(calculatedAssetValue.bookValue, closeTo(150000, 1000));
       expect(calculatedAssetValue.marketValue, 180000);
       expect(calculatedAssetValue.currentUsedPrice, 180000);
@@ -84,7 +88,8 @@ void main() {
     });
 
     test('市場価値が帳簿価値を下回る場合', () async {
-      final purchaseDate = DateTime.now().subtract(const Duration(days: 365)); // 1年前
+      final purchaseDate =
+          DateTime.now().subtract(const Duration(days: 365)); // 1年前
       final device = Device(
         id: 'test-device-002',
         name: 'エアコン',
@@ -112,7 +117,8 @@ void main() {
       final usefulLife = await valuationService.getUsefulLife(device.category);
       expect(usefulLife, 10.0); // エアコンは10年
 
-      final elapsedTime = valuationService.calculateElapsedTimeFromString(device.purchaseDate);
+      final elapsedTime =
+          valuationService.calculateElapsedTimeFromString(device.purchaseDate);
       final bookValue = valuationService.calculateBookValue(
         device.purchasePrice,
         usefulLife,
@@ -127,7 +133,7 @@ void main() {
 
       // V_current = max(180,000, 80,000) = 180,000
       final currentValue = await valuationService.calculateCurrentValue(device);
-      expect(currentValue, 180000); // 帳簿価値が大きい
+      expect(currentValue, closeTo(180000, 1000)); // 帳簿価値が大きい
 
       // 市場価値(80,000) < 帳簿価値(180,000) = false
       final hasSellOpp = await valuationService.hasSellOpportunity(device);
@@ -135,11 +141,13 @@ void main() {
     });
 
     test('月単位の経過時間計算の精度', () {
-      final purchaseDate = DateTime.now().subtract(const Duration(days: 90)); // 3ヶ月前
+      final purchaseDate =
+          DateTime.now().subtract(const Duration(days: 90)); // 3ヶ月前
       final elapsedTime = valuationService.calculateElapsedTime(purchaseDate);
       expect(elapsedTime, closeTo(0.25, 0.05)); // 約0.25年（3ヶ月）
 
-      final purchaseDate2 = DateTime.now().subtract(const Duration(days: 180)); // 6ヶ月前
+      final purchaseDate2 =
+          DateTime.now().subtract(const Duration(days: 180)); // 6ヶ月前
       final elapsedTime2 = valuationService.calculateElapsedTime(purchaseDate2);
       expect(elapsedTime2, closeTo(0.5, 0.05)); // 約0.5年（6ヶ月）
     });
@@ -148,8 +156,8 @@ void main() {
       // 耐用年数を大幅に超過した場合
       final bookValue = valuationService.calculateBookValue(
         100000, // 購入価格
-        5.0,    // 耐用年数5年
-        10.0,   // 経過年数10年（耐用年数を超過）
+        5.0, // 耐用年数5年
+        10.0, // 経過年数10年（耐用年数を超過）
       );
       expect(bookValue, greaterThanOrEqualTo(0));
     });

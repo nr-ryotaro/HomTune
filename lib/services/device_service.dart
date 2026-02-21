@@ -5,6 +5,8 @@ import '../models/device.dart';
 import '../models/room.dart';
 import '../models/room.dart' as room_models;
 import 'asset_valuation_service.dart';
+import 'maintenance_calendar_service.dart';
+import 'notification_service.dart';
 
 class DeviceService extends ChangeNotifier {
   List<Device> _devices = [];
@@ -569,6 +571,27 @@ class DeviceService extends ChangeNotifier {
         _floorPlan = _generateFloorPlanFromRooms();
       }
 
+      // メンテナンスタスクの自動割り当て（カテゴリデフォルトから）
+      for (int i = 0; i < _devices.length; i++) {
+        final device = _devices[i];
+        if (device.maintenanceTasks.isEmpty) {
+          try {
+            final tasks =
+                await MaintenanceCalendarService.initializeTasksForDevice(
+                    device);
+            if (tasks.isNotEmpty) {
+              _devices[i] = device.copyWith(maintenanceTasks: tasks);
+            }
+          } catch (e) {
+            print(
+                'Error initializing maintenance tasks for ${device.name}: $e');
+          }
+        }
+      }
+
+      // メンテナンス通知のスケジュール
+      NotificationService().scheduleAllMaintenanceNotifications(_devices);
+
       notifyListeners();
     } catch (e, stackTrace) {
       _isLoading = false;
@@ -663,6 +686,15 @@ class DeviceService extends ChangeNotifier {
       }
     }
     return count;
+  }
+
+  void updateDevice(Device updatedDevice) {
+    final index = _devices.indexWhere((d) => d.id == updatedDevice.id);
+    if (index >= 0) {
+      _devices[index] = updatedDevice;
+      notifyListeners();
+      MaintenanceCalendarService.saveTasks(_devices);
+    }
   }
 
   /// デバイスの説明書URLを更新（Smart Ingester バックグラウンド検索完了時）

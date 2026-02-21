@@ -6,179 +6,293 @@
 
 HomTuneは、単なる家電管理を超えて、以下の機能を提供します：
 
-- **インテリジェント・デバイス管理**: 型番から説明書への自動アクセス、AIトラブルシューティング、消耗品ナビ
-- **スペーシャル・オーガナイザー**: 間取り図連携、収納管理、配線図メモ、Digital Vault（保証書・レシート保管）
-- **アセット・オプティマイザー**: 中古価値の可視化、Eco-Tuning（ROIシミュレーション）、保証期限アラート
+- **スマートスキャン**: バーコード / 型番プレートの撮影から ML Kit OCR + Gemini AI で製品情報を自動抽出・登録
+- **資産価値ダッシュボード**: 帳簿価値・市場価値の自動計算と fl_chart による推移グラフ表示
+- **スペーシャル・オーガナイザー**: 部屋別デバイス管理、間取り図連携、AI ルームイメージ生成
+- **取扱説明書アーカイバ**: 公式マニュアルの自動検索 / PDF 表示 / 手動登録
+- **リコール & 安全アラート**: NITE 互換のリコール情報チェック、深刻度別アラート表示、安全性スコア算出
+- **AI トラブルシューティング**: Gemini API 連携のデバイスコンテキスト認識チャット（リコール情報・メンテナンス・保証を考慮した回答）
+- **売却タイミングアドバイザー**: Book Value × Market Value 交差点分析による最適売却タイミング提案
 
 ## 技術スタック
 
-- **フロントエンド**: HTML5, CSS3 (Tailwind CSS), JavaScript (ES6+)
-- **モバイルフレームワーク**: Capacitor 5.x
-- **プラットフォーム**: Android / iOS
-- **デザイン**: ミニマルデザイン（細い線をベースにした清潔感のあるUI）
-
-### なぜCapacitorを選択？
-
-- ✅ **エミュレータ対応**: Android Studio/Xcodeのエミュレータで完全にテスト可能
-- ✅ **真のアプリ**: App Store/Google Playに公開可能な本物のアプリ
-- ✅ **開発効率**: Web技術を活用し、高速な開発が可能
-- ✅ **クロスプラットフォーム**: 1つのコードベースでAndroid/iOS対応
-
-詳細は [技術スタック比較](docs/TECH_STACK_COMPARISON.md) を参照してください。
+| レイヤー | 技術 |
+|---|---|
+| **フレームワーク** | Flutter 3.x (Dart ≥ 3.0) |
+| **状態管理** | Provider |
+| **データ永続化** | SharedPreferences / sqflite |
+| **AIとOCR** | Google ML Kit Text Recognition, Gemini (google_generative_ai) |
+| **バーコードスキャン** | mobile_scanner |
+| **グラフ描画** | fl_chart |
+| **PDF** | pdfx (表示) / pdf (生成) |
+| **その他** | url_launcher, cached_network_image, intl, image_picker, file_picker |
+| **プラットフォーム** | Android / iOS |
+| **デザイン** | ミニマルデザイン（Japandi テイスト、細い線ベースの UI） |
 
 ## ディレクトリ構造
 
 ```
 HomTune/
-├── docs/                    # 設計ドキュメント
-│   ├── architecture.md      # アーキテクチャ設計
-│   ├── data-structure.md    # データ構造定義
-│   └── mobile-app-setup.md  # モバイルアプリセットアップガイド
-├── src/                     # フロントエンドソースコード
-│   ├── index.html           # メインHTML
-│   ├── css/                 # スタイルシート
-│   ├── js/                  # JavaScriptモジュール
-│   │   ├── app.js           # アプリケーションエントリーポイント
-│   │   ├── capacitor.js     # Capacitor統合
-│   │   ├── deviceManager.js # デバイス管理
-│   │   ├── ui.js            # UI制御
-│   │   └── floorPlan.js    # 間取り図レンダリング
-│   └── assets/              # 静的リソース
-├── data/                    # データファイル
-│   ├── mock-data.json       # モックデータ
-│   └── floor-plan.json      # 間取り図データ
-├── android/                 # Androidプロジェクト（生成される）
-├── ios/                     # iOSプロジェクト（生成される）
-├── capacitor.config.ts      # Capacitor設定
-├── package.json             # 依存関係管理
-└── vite.config.js           # Vite設定
+├── lib/
+│   ├── main.dart                 # アプリエントリーポイント
+│   ├── models/
+│   │   ├── device.dart           # Device モデル（家電の全情報）
+│   │   ├── room.dart             # Room モデル
+│   │   ├── room_card_model.dart  # ルームカード表示用モデル
+│   │   └── safety_info.dart      # 安全情報モデル
+│   ├── screens/
+│   │   ├── home_screen.dart              # ホーム画面（ルームカード一覧 + デバイス一覧）
+│   │   ├── device_detail_screen.dart     # デバイス詳細画面
+│   │   ├── room_devices_screen.dart      # 部屋別デバイス一覧
+│   │   ├── all_devices_screen.dart       # 全デバイス一覧
+│   │   ├── add_device_screen.dart        # デバイス追加（手動入力）
+│   │   ├── scan_screen.dart              # スマートスキャン（バーコード / 型番 OCR）
+│   │   ├── manual_registration_screen.dart # 取扱説明書の手動登録
+│   │   ├── manual_viewer_screen.dart     # PDF ビューア
+│   │   └── dev_settings_screen.dart      # 開発者設定
+│   ├── services/
+│   │   ├── device_service.dart           # デバイス CRUD + ダミーデータ
+│   │   ├── chat_service.dart             # AI チャット（Gemini API + デバイスコンテキスト注入）
+│   │   ├── sell_advisor_service.dart      # 売却タイミング分析（BV×MV交差点算出）
+│   │   ├── asset_valuation_service.dart  # 帳簿価値・市場価値の計算
+│   │   ├── valuation_service.dart        # 資産評価ロジック
+│   │   ├── scanner_service.dart          # OCR + Gemini 構造化抽出
+│   │   ├── manual_fetch_service.dart     # マニュアル自動取得（スタブ）
+│   │   ├── manual_search_service.dart    # 説明書 Web 検索
+│   │   ├── manual_service.dart           # 説明書管理
+│   │   ├── ocr_service.dart              # OCR ユーティリティ
+│   │   ├── safety_service.dart           # リコールチェック・安全性スコア算出
+│   │   ├── config_service.dart           # 設定管理
+│   │   ├── device_status_service.dart    # デバイスステータス判定
+│   │   ├── pdf_generation_service.dart   # PDF 生成
+│   │   └── web_search_service.dart       # Web 検索
+│   └── widgets/
+│       ├── room_card_widget.dart          # ルームカード（画像 + 統計情報）
+│       ├── device_card.dart               # デバイスカード
+│       ├── device_detail_card.dart        # デバイス詳細カード
+│       ├── device_detail_content.dart     # デバイス詳細コンテンツ（資産 + マニュアル）
+│       ├── asset_value_chart.dart         # 資産価値推移グラフ（fl_chart）
+│       ├── anthropomorphic_device_icon.dart # 擬人化デバイスアイコン
+│       ├── chat_widget.dart               # AI チャット UI（Gemini 統合）
+│       ├── device_form.dart               # デバイス入力フォーム
+│       ├── floor_plan_widget.dart         # 間取り図ウィジェット
+│       └── summary_card.dart              # サマリーカード
+├── assets/
+│   ├── data/                    # モックデータ JSON
+│   │   ├── mock-data.json
+│   │   ├── floor-plan.json
+│   │   ├── safety-mock-data.json
+│   │   └── category-defaults.json
+│   └── images/                  # 部屋サンプル画像
+├── test/                        # ユニットテスト / ウィジェットテスト
+├── android/                     # Android プラットフォーム
+├── docs/                        # 設計ドキュメント（23 ファイル）
+├── pubspec.yaml                 # 依存関係管理
+└── analysis_options.yaml        # Lint 設定
 ```
 
 ## セットアップ
 
 ### 必要な環境
 
-#### 共通
-- Node.js 18以上
-- npm または yarn
+- Flutter SDK 3.x 以上 (`dart sdk >=3.0.0 <4.0.0`)
+- Android Studio（Android エミュレータ / 実機デバッグ用）
+- Xcode（iOS 開発時、macOS のみ）
 
-#### Android開発
-- Java JDK 11以上
-- Android Studio
-- Android SDK
-
-#### iOS開発（macOSのみ）
-- Xcode 14以上
-- CocoaPods
-
-### インストール
+### インストール & 実行
 
 ```bash
-npm install
+# 依存関係の取得
+flutter pub get
+
+# デバッグ実行（エミュレータまたは接続デバイス）
+flutter run
+
+# Gemini API を有効化して実行する場合
+flutter run --dart-define=GEMINI_API_KEY=your_api_key_here
 ```
-
-### Web開発サーバーの起動
-
-```bash
-npm run dev
-```
-
-ブラウザで `http://localhost:5173` を開いてください。
-
-### モバイルアプリのセットアップ
-
-#### 1. Webアプリをビルド
-
-```bash
-npm run build
-```
-
-#### 2. Capacitorプラットフォームを追加（初回のみ）
-
-```bash
-# Android
-npm run cap:add android
-
-# iOS（macOSのみ）
-npm run cap:add ios
-```
-
-#### 3. ネイティブコードを同期
-
-```bash
-npm run cap:sync
-```
-
-#### 4. 開発環境で開く
-
-```bash
-# Android Studioで開く
-npm run cap:open:android
-
-# Xcodeで開く（macOSのみ）
-npm run cap:open:ios
-```
-
-### 一括コマンド
-
-```bash
-# Android: ビルド + 同期 + Android Studio起動
-npm run cap:build:android
-
-# iOS: ビルド + 同期 + Xcode起動
-npm run cap:build:ios
-```
-
-詳細なセットアップ手順は [docs/mobile-app-setup.md](docs/mobile-app-setup.md) を参照してください。
 
 ### エミュレータでのテスト
 
-エミュレータでのテスト方法は [エミュレータテストガイド](docs/EMULATOR_TESTING.md) を参照してください。
+- Android: Android Studio → AVD Manager でエミュレータを起動後、`flutter run`
+- iOS: Xcode → Simulator を起動後、`flutter run`
+
+詳細は [docs/FLUTTER_SETUP.md](docs/FLUTTER_SETUP.md) を参照。
 
 ## 主要機能
 
-### 間取り図機能
+### 🏠 ホーム画面
 
-- **部屋別デバイス数表示**: 各部屋に配置されているデバイス数をバッジで表示
-- **部屋タップ機能**: 部屋をタップすると、その部屋のデバイスのみを表示
-- **フィルタリング**: 選択した部屋のデバイスをフィルタリング表示
-- **視覚的フィードバック**: 選択された部屋がハイライト表示
+- 部屋カード（ルームイメージ + 資産合計 + アラート数）の横スクロール表示
+- カードタップで部屋別デバイス一覧へ遷移
+- AI ルーム再生成ボタン（プレミアム機能モック）
 
-詳細は [間取り図機能](docs/FLOOR_PLAN_FEATURE.md) を参照してください。
+### 📱 スマートスキャン
 
-## モックデータ
+- **バーコードモード**: リアルタイムバーコード検出 → JAN コードから製品情報を自動取得
+- **型番スキャンモード**: カメラ撮影 → ML Kit OCR → Gemini AI で構造化データ抽出
+- 検出結果を確認し、ワンタップでデバイスを登録
 
-プロジェクトには以下の3つのサンプルデバイスが含まれています：
+### 📊 資産価値ダッシュボード
 
-1. **エアコン（リビング）**: フィルター掃除が3年以上未実施の警告状態
-2. **MacBook Pro（書斎）**: 保証期限が間近（残り30日）の状態
-3. **真空管アンプ（寝室）**: 定期的な端子清掃が必要な状態
+- 帳簿価値（定率法）と市場価値（中古相場シミュレーション）の自動計算
+- fl_chart による 12 ヶ月推移グラフ（Book Value: 青 / Market Value: 緑）
+- 資産インサイト表示
 
-## ネイティブ機能
+### 📖 取扱説明書管理
 
-Capacitorを使用して以下のネイティブ機能にアクセスできます：
+- 公式マニュアルの自動検索・PDF リンク保存
+- PDF ビューア内蔵（pdfx）
+- 手動での URL / ファイル登録
 
-- **カメラ**: デバイスの写真撮影
-- **フォトライブラリ**: 画像の選択
-- **ファイルシステム**: ファイルの保存・読み込み
-- **ストレージ**: キー・バリューストレージ
-- **ステータスバー**: ステータスバーの制御
-- **スプラッシュスクリーン**: 起動画面の制御
+### 🗺️ 間取り図
+
+- 部屋別デバイス数のバッジ表示
+- 部屋タップでフィルタリング
+- 選択部屋のハイライト表示
+
+### 🛡️ リコール & 安全アラート
+
+- 型番・メーカーによるリコール自動チェック（モックデータ / 将来的に NITE API 対応）
+- 深刻度 3 段階（`critical` / `warning` / `info`）に応じた色分きアラートバナー
+- 安全性スコア（0〜100）の自動算出（経過年数・メンテナンス履歴・耐用年数・リコール状態を加味）
+- メーカー問い合わせ URL へのワンタップ連絡
+- 部屋カード・デバイスカードへのリコール対象バッジ表示
+
+### 🤖 AI トラブルシューティング
+
+- **Gemini API 連携**: `ChatService` がデバイスコンテキスト（型番・カテゴリ・リコール情報・メンテナンス履歴・保証状態）をシステムプロンプトに自動注入
+- **デュアルモード**: `ConfigService.isUsingRealApi` で Gemini API ↔ ローカル応答を即座に切り替え
+- **会話履歴保持**: `ChatSession` によるマルチターン会話
+- **開発者設定ダッシュボード**: API キー状態・AI モード・スキャン OCR モードを一覧表示
+- **フォールバック**: API エラー時は自動的にローカル応答へ切り替え
+
+### 🔄 売却タイミングアドバイザー
+
+- **交差点分析**: Book Value × Market Value の 24 ヶ月シミュレーションで最適売却タイミングを算出
+- **4 段階判定**: 🔥 今が売り時（score 70-100）→ ⏰ そろそろ売り時（60-80）→ 🔄 買い替え検討（30）→ 📉 様子見（20）
+- **デバイス詳細画面**: 色分けアドバイザーカード（推定売却価格・帳簿差額・交差点タイムライン・推奨アクション表示）
+- **ホーム画面バナー**: 売却チャンス対象デバイス数 + トップ推奨デバイスを表示
+
+### 🌐 ランディングページ (LP)
+
+- プロダクトの世界観と機能を伝える静的 HTML ページ (`lp/index.html`)
+- "Japandi" スタイルのミニマルデザインと、スクロール連動フェードインアニメーション
+- レスポンシブ対応およびローカル確認用ワークフロー (`/lp-test`) 完備
+
+### 🚀 オンボーディング
+
+- 初回起動時のみ表示される 3 ステップのゲストファーストなセットアップ UI
+- 住居タイプ選択からの自動部屋生成、直感的な部屋の追加・削除
+- 最初の 1 台のスムーズな登録（スマートスキャン連携）
+
+### 🔧 選べるメンテナンスモード
+
+- **ずぼらモード（デフォルト）**: デバイス全体のお手入れを 1 ボタンで一括完了記録。手間を最小限に抑制
+- **詳細モード**: 開発者設定から切り替え可能。パーツごと（フィルター、タンク等）のタスクに対して固有の周期や通知設定を管理
+
+## 実装ステータス
+
+### Phase 1〜3 実装検証結果
+
+| Phase | 機能 | ステータス | 検証内容 |
+|---|---|---|---|
+| **Phase 1** | 🛡️ リコール & 安全アラート | ✅ 完了 | `RecallSeverity` が 4 ファイル 21 箇所で正常に参照。バッジ・バナー・スコア算出すべて動作 |
+| **Phase 2** | 🤖 AI トラブルシューティング | ✅ 完了 | `ChatService` → `chat_widget.dart` 統合確認。デュアルモード切替・API ダッシュボード動作 |
+| **Phase 3** | 🔄 売却アドバイザー | ✅ 完了 | `sell_advisor_service.dart` が `device_detail_content.dart` + `home_screen.dart` で正常に参照 |
+| **Phase 4** | ⚡ 電気代シミュレーター | 📋 未着手 | — |
+| **Phase 5** | 👨‍👩‍👧‍👦 ファミリー共有 | 📋 未着手 | — |
+
+### flutter analyze 結果
+
+| カテゴリ | 件数 | 詳細 |
+|---|---|---|
+| **error** | 1 | `test/widget_test.dart` — `MyApp` 未定義（テストファイル / Phase 1 以前から既存） |
+| **warning** | 7 | 未使用 import・未使用変数 — すべて Phase 1 以前から既存 |
+| **info** | 10 | `withOpacity` 非推奨 + 文字列補間スタイル — すべて既存 or 意図的 |
+| **新コード由来のエラー** | **0** | Phase 1〜3 の全実装コードでエラーゼロ |
+
+### 各機能のクロスリファレンス検証
+
+```
+── Phase 1 (リコール) ──────────────────────────────
+  safety_info.dart          RecallSeverity enum 定義 + パーサー        ✅
+  safety_service.dart       バッチチェック・深刻度スコアリング           ✅
+  device_card.dart          RECALL バッジ表示                          ✅
+  device_detail_content.dart  リコールアラートバナー                    ✅
+
+── Phase 2 (AI チャット) ────────────────────────────
+  chat_service.dart         Gemini API + ローカル応答デュアルモード     ✅
+  chat_widget.dart          ChatService 統合・ライフサイクル管理         ✅
+  config_service.dart       isUsingRealApi フラグ + 永続化             ✅
+  dev_settings_screen.dart  API ダッシュボード + ワンタップ切替          ✅
+
+── Phase 3 (売却アドバイザー) ──────────────────────
+  sell_advisor_service.dart   BV×MV 交差点算出 + 4段階スコアリング      ✅
+  device_detail_content.dart  売却アドバイザーカード UI                  ✅
+  home_screen.dart            売却チャンスバナー                        ✅
+```
+
+### 未対応タスク（Phase 2-3 内）
+
+| タスク | 理由 |
+|---|---|
+| マニュアル PDF テキスト抽出 → AI コンテキスト埋め込み | PDF パーサーライブラリ選定が必要 |
+| 「今が売り時」プッシュ通知 | `flutter_local_notifications` 導入が必要 |
+
+## 次の実装ロードマップ
+
+```
+✅ E → ✅ G → ✅ A → ⏭️ C → D
+                       ↑ 次はここ
+```
+
+| 順番 | 機能 | 見積もり | 既存基盤 |
+|---|---|---|---|
+| ~~①~~ | ~~🛡️ E: リコールアラート~~ | ~~2〜3日~~ | ✅ 完了 |
+| ~~②~~ | ~~🤖 G: AI トラブルシュート~~ | ~~3〜4日~~ | ✅ 完了 |
+| ~~③~~ | ~~🔄 A: 売却アドバイザー~~ | ~~4〜5日~~ | ✅ 完了 |
+| **④** | **⚡ C: 電気代シミュレーター** | **3〜4日** | Gemini スペック抽出基盤あり |
+| ⑤ | 👨‍👩‍👧‍👦 D: ファミリー共有 | 7〜10日 | バックエンド構築必要 |
+
+## データモデル
+
+`Device` モデルの主要フィールド：
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `name`, `modelNumber`, `manufacturer` | String | 基本情報 |
+| `category`, `room`, `location` | String | 分類・設置場所 |
+| `purchasePrice`, `purchaseDate`, `yearsOwned` | int / String / double | 購入情報 |
+| `condition` | ItemCondition | 新品 / 中古 |
+| `assetValue` | AssetValue? | 資産評価（帳簿価値・市場価値・減価償却率） |
+| `maintenance` | Maintenance? | メンテナンス情報（アラート・履歴） |
+| `manual` | Manual? | 取扱説明書情報 |
+| `manualState` | ManualFetchState | マニュアル取得状態 |
+| `warranty` | Warranty? | 保証情報 |
+| `safetyInfo` | SafetyInfo? | 安全情報 |
+| `consumables` | List\<Consumable\> | 消耗品リスト |
+| `janCode` | String? | JAN コード（バーコードスキャンで取得） |
 
 ## デザイン原則
 
 - **ミニマリズム**: 不要な装飾を排除し、情報の本質に集中
-- **細い線**: 0.5pxの細いボーダーで清潔感を演出
+- **細い線**: 0.5px のボーダーと抑えたカラーパレットで清潔感を演出
 - **余白**: 贅沢な余白で視認性と高級感を確保
-- **フォトジェニック**: 家電写真が映える洗練されたUI
-- **モバイル最適化**: タッチ操作、レスポンシブデザイン、セーフエリア対応
+- **Material 3**: `useMaterial3: true` によるモダンなコンポーネント
+- **モバイル最適化**: タッチ操作、レスポンシブレイアウト
 
-## 開発ワークフロー
+## ドキュメント
 
-1. Webアプリを開発・テスト（`npm run dev`）
-2. ビルド（`npm run build`）
-3. Capacitorで同期（`npm run cap:sync`）
-4. ネイティブIDEで開いて実行（`npm run cap:open:android` / `npm run cap:open:ios`）
+`docs/` ディレクトリに詳細な設計・運用ドキュメントがあります：
+
+- [FLUTTER_SETUP.md](docs/FLUTTER_SETUP.md) — Flutter 環境セットアップ
+- [FLUTTER_EXECUTION.md](docs/FLUTTER_EXECUTION.md) — 実行手順
+- [SMART_INGESTER.md](docs/SMART_INGESTER.md) — スマートスキャン機能設計
+- [data-structure.md](docs/data-structure.md) — データ構造定義
+- [living-icons-safety.md](docs/living-icons-safety.md) — Living Icons & 安全機能
+- [feature-manual-archiver.md](docs/feature-manual-archiver.md) — 説明書アーカイバ機能
+- [feature-add-appliance.md](docs/feature-add-appliance.md) — 家電追加機能
 
 ## ライセンス
 

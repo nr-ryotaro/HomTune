@@ -49,8 +49,8 @@ class AssetValuationService {
       // フォールバック: 購入価格から年20%減価と仮定
       final purchaseDate = DateTime.tryParse(device.purchaseDate) ?? now;
       final elapsedMonths = _calculateMonthsDifference(purchaseDate, now);
-      final double value =
-          device.purchasePrice * math.pow(1.0 - 0.02, elapsedMonths); // 月2%減
+      final double value = device.purchasePrice *
+          math.pow(1.0 - 0.02, elapsedMonths).toDouble(); // 月2%減
       return math.max(0, value.round());
     }
 

@@ -40,6 +40,11 @@ class RoomDevicesScreen extends StatelessWidget {
             .length;
       }
 
+      // リコールアラート
+      if (device.safetyInfo?.isRecallActive == true) {
+        alertCount++;
+      }
+
       // メンテナンス数
       if (device.maintenance?.nextMaintenance != null) {
         try {
@@ -72,7 +77,6 @@ class RoomDevicesScreen extends StatelessWidget {
     final roomCardModel = RoomCardModel(
       id: roomId,
       title: roomName,
-      styleName: 'Modern Style',
       imagePath: imagePath,
       totalAssetValue: totalAssetValue,
       maintenanceHealth: healthScore,

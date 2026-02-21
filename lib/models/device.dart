@@ -1,4 +1,5 @@
 import 'safety_info.dart';
+import 'maintenance_task.dart';
 
 enum ItemCondition { newItem, usedItem }
 
@@ -39,6 +40,7 @@ class Device {
   final SafetyInfo? safetyInfo;
   final List<String> photos;
   final List<String> documents;
+  final List<MaintenanceTask> maintenanceTasks;
 
   Device({
     required this.id,
@@ -66,7 +68,8 @@ class Device {
     this.originalPrice,
     this.manualPdfUrl,
     this.manualState = ManualFetchState.notFetched,
-  });
+    List<MaintenanceTask>? maintenanceTasks,
+  }) : maintenanceTasks = maintenanceTasks ?? [];
 
   factory Device.fromJson(Map<String, dynamic> json) {
     try {
@@ -166,6 +169,11 @@ class Device {
                 (e) => e.name == json['manualState'],
                 orElse: () => ManualFetchState.notFetched)
             : ManualFetchState.notFetched,
+        maintenanceTasks: (json['maintenanceTasks'] as List<dynamic>?)
+                ?.map(
+                    (e) => MaintenanceTask.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
       );
     } catch (e) {
       print('Error parsing Device: $e');
@@ -200,6 +208,7 @@ class Device {
       'originalPrice': originalPrice,
       'manualPdfUrl': manualPdfUrl,
       'manualState': manualState.name,
+      'maintenanceTasks': maintenanceTasks.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -229,6 +238,7 @@ class Device {
     int? originalPrice,
     String? manualPdfUrl,
     ManualFetchState? manualState,
+    List<MaintenanceTask>? maintenanceTasks,
   }) {
     return Device(
       id: id ?? this.id,
@@ -256,6 +266,7 @@ class Device {
       originalPrice: originalPrice ?? this.originalPrice,
       manualPdfUrl: manualPdfUrl ?? this.manualPdfUrl,
       manualState: manualState ?? this.manualState,
+      maintenanceTasks: maintenanceTasks ?? this.maintenanceTasks,
     );
   }
 }
