@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
 import 'pdf_generation_service.dart';
+import 'compliance_service.dart';
 
 /// 説明書管理サービス
 /// 型番から公式サイトのPDFを検索・ダウンロード・ローカル保存・表示を管理
@@ -80,6 +82,16 @@ class ManualService {
   /// 説明書PDFをダウンロードしてローカルに保存
   Future<File?> downloadManual(String modelNumber, String manufacturer) async {
     try {
+      if (kReleaseMode) {
+        await ComplianceService.logEvent(
+          action: 'manual_download_blocked',
+          targetId: '$manufacturer:$modelNumber',
+          result: 'blocked',
+          reason: 'pdf_persistence_disabled_in_release',
+        );
+        throw Exception('商用モードでは公式PDFの自動保存は無効です。');
+      }
+
       // 既にダウンロード済みの場合はローカルファイルを返す
       final localFile = await getLocalManual(modelNumber);
       if (localFile != null) {
@@ -90,6 +102,15 @@ class ManualService {
       final pdfUrl = await _searchManualUrl(modelNumber, manufacturer);
       if (pdfUrl == null) {
         throw Exception('説明書のURLが見つかりませんでした');
+      }
+      if (!ComplianceService.isAllowedSourceUrl(pdfUrl)) {
+        await ComplianceService.logEvent(
+          action: 'manual_download_blocked',
+          targetId: '$manufacturer:$modelNumber',
+          result: 'blocked',
+          reason: 'unapproved_source',
+        );
+        throw Exception('許可されていないソースのため取得できません');
       }
 
       // PDFをダウンロード

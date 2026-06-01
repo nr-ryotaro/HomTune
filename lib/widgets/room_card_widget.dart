@@ -1,16 +1,22 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/room_card_model.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../services/room_photo_service.dart';
 
 class RoomCardWidget extends StatelessWidget {
   final RoomCardModel room;
   final VoidCallback onTap;
+  final VoidCallback? onCustomizePhoto;
 
   const RoomCardWidget({
     super.key,
     required this.room,
     required this.onTap,
+    this.onCustomizePhoto,
   });
 
   @override
@@ -28,7 +34,9 @@ class RoomCardWidget extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        child: Column(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
@@ -142,33 +150,33 @@ class RoomCardWidget extends StatelessWidget {
                     ),
                   ),
 
-                  // Monetization / Regenerate Button (Magic Wand)
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _showPremiumDialog(context),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 4,
-                              ),
-                            ],
+                  if (onCustomizePhoto != null)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: onCustomizePhoto,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.photo_camera_outlined,
+                                size: 18, color: Color(0xFF333333)),
                           ),
-                          child: const Icon(Icons.auto_fix_high,
-                              size: 18, color: Colors.purple),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -192,9 +200,7 @@ class RoomCardWidget extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        NumberFormat.currency(
-                                locale: 'ja_JP', symbol: '¥ ', decimalDigits: 0)
-                            .format(room.totalAssetValue),
+                        _formatCurrency(room.totalAssetValue),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w400, // Not too bold
@@ -253,54 +259,7 @@ class RoomCardWidget extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showPremiumDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.workspace_premium, color: Colors.amber),
-            SizedBox(width: 8),
-            Text('Premium Feature',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
         ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('無料プランでは部屋画像の生成は初回のみです。'),
-            SizedBox(height: 16),
-            Text(
-              'HomTuneプレミアム（¥300/月）に登録して、最新の機材構成で部屋をリデザインしますか？',
-              style: TextStyle(height: 1.5),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('プレミアム登録画面へ遷移します（デモ）')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF333333),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('登録する'),
-          ),
-        ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
@@ -323,6 +282,18 @@ class RoomCardWidget extends StatelessWidget {
     );
   }
 
+  static String _formatCurrency(num value) {
+    try {
+      return NumberFormat.currency(
+        locale: 'ja_JP',
+        symbol: '¥ ',
+        decimalDigits: 0,
+      ).format(value);
+    } catch (_) {
+      return '¥ ${value.toStringAsFixed(0)}';
+    }
+  }
+
   Widget _buildRoomImage(String path) {
     if (path.startsWith('http')) {
       return CachedNetworkImage(
@@ -332,13 +303,14 @@ class RoomCardWidget extends StatelessWidget {
         errorWidget: (context, url, error) => Container(
             color: Colors.grey[200], child: const Icon(Icons.broken_image)),
       );
-    } else {
+    }
+    if (RoomPhotoService.isAssetPath(path)) {
       return Image.asset(
         path,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return Container(
-            color: const Color(0xFFF5F5F0), // Japandi base color
+            color: const Color(0xFFF5F5F0),
             child: const Center(
               child: Icon(Icons.image_not_supported, color: Colors.grey),
             ),
@@ -346,5 +318,23 @@ class RoomCardWidget extends StatelessWidget {
         },
       );
     }
+    if (!kIsWeb) {
+      return Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: const Color(0xFFF5F5F0),
+            child: const Center(
+              child: Icon(Icons.image_not_supported, color: Colors.grey),
+            ),
+          );
+        },
+      );
+    }
+    return Container(
+      color: const Color(0xFFF5F5F0),
+      child: const Center(child: Icon(Icons.image, color: Colors.grey)),
+    );
   }
 }

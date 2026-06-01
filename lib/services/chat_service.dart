@@ -157,15 +157,27 @@ ${deviceSummaries.join('\n\n')}
       case 'kitchen':
       case 'kitchen-01':
         return 'キッチン';
+      case 'entrance':
+        return '玄関';
       default:
         return roomId;
     }
   }
 
+  Device? get _firstContextDevice =>
+      _contextDevices.isEmpty ? null : _contextDevices.first;
+
+  String _noDevicesResponse() =>
+      'まだ家電が登録されていません。スキャンまたは手入力でデバイスを追加してください。';
+
   /// ローカル応答生成（ダミーモード or API フォールバック）
   ///
   /// デバイスコンテキストを活用した高品質なローカル応答
   String _generateLocalResponse(String userMessage) {
+    if (_contextDevices.isEmpty) {
+      return _noDevicesResponse();
+    }
+
     final lowerMessage = userMessage.toLowerCase();
 
     // デバイスコンテキストからの応答
@@ -211,7 +223,8 @@ ${deviceSummaries.join('\n\n')}
     // 電源がつかない問題
     if (lowerMessage.contains('電源') &&
         (lowerMessage.contains('つかない') || lowerMessage.contains('起動'))) {
-      final device = matchedDevice ?? _contextDevices.first;
+      final device = matchedDevice ?? _firstContextDevice;
+      if (device == null) return _noDevicesResponse();
       return '''${device.name}の電源がつかない場合の対処法：
 
 **【基本的な確認】**
@@ -232,10 +245,15 @@ ${device.manual?.url != null ? '\nマニュアル：${device.manual!.url}' : ''}
     if (lowerMessage.contains('エアコン') ||
         lowerMessage.contains('冷房') ||
         lowerMessage.contains('暖房')) {
-      final acDevice = _contextDevices.firstWhere(
-        (d) => d.category == 'エアコン',
-        orElse: () => _contextDevices.first,
-      );
+      Device? acDevice;
+      try {
+        acDevice = _contextDevices.firstWhere(
+          (d) => d.category == 'エアコン' || d.category == 'AC',
+        );
+      } catch (_) {
+        acDevice = _firstContextDevice;
+      }
+      if (acDevice == null) return _noDevicesResponse();
 
       if (lowerMessage.contains('フィルター') ||
           lowerMessage.contains('掃除') ||
@@ -286,7 +304,8 @@ ${acDevice.manual?.url != null ? '\n詳細はマニュアルをご確認くだ�
     if (lowerMessage.contains('メンテナンス') ||
         lowerMessage.contains('点検') ||
         lowerMessage.contains('お手入れ')) {
-      final device = matchedDevice ?? _contextDevices.first;
+      final device = matchedDevice ?? _firstContextDevice;
+      if (device == null) return _noDevicesResponse();
       final buffer = StringBuffer('${device.name}のメンテナンス情報：\n\n');
       if (device.maintenance?.lastMaintenance != null) {
         buffer.writeln('最終メンテナンス：${device.maintenance!.lastMaintenance}');
@@ -303,7 +322,8 @@ ${acDevice.manual?.url != null ? '\n詳細はマニュアルをご確認くだ�
 
     // 保証関連
     if (lowerMessage.contains('保証') || lowerMessage.contains('修理')) {
-      final device = matchedDevice ?? _contextDevices.first;
+      final device = matchedDevice ?? _firstContextDevice;
+      if (device == null) return _noDevicesResponse();
       final buffer = StringBuffer('${device.name}の保証情報：\n\n');
       if (device.warranty?.manufacturer != null) {
         final warranty = device.warranty!.manufacturer!;
@@ -369,11 +389,11 @@ ${acDevice.manual?.url != null ? '\n詳細はマニュアルをご確認くだ�
 
     for (final entry in categoryKeywords.entries) {
       if (entry.value.any((kw) => lowerMessage.contains(kw))) {
-        final device = _contextDevices.firstWhere(
-          (d) => d.category == entry.key,
-          orElse: () => _contextDevices.first,
-        );
-        return device;
+        try {
+          return _contextDevices.firstWhere((d) => d.category == entry.key);
+        } catch (_) {
+          return _firstContextDevice;
+        }
       }
     }
 
@@ -383,15 +403,18 @@ ${acDevice.manual?.url != null ? '\n詳細はマニュアルをご確認くだ�
       'study': ['書斎', 'study', '仕事部屋'],
       'bedroom': ['寝室', 'bedroom', 'bed'],
       'kitchen': ['キッチン', 'kitchen', '台所'],
+      'entrance': ['玄関', 'entrance', 'genkan'],
     };
 
     for (final entry in roomKeywords.entries) {
       if (entry.value.any((kw) => lowerMessage.contains(kw))) {
-        final device = _contextDevices.firstWhere(
-          (d) => d.room == entry.key || d.room == '${entry.key}-01',
-          orElse: () => _contextDevices.first,
-        );
-        return device;
+        try {
+          return _contextDevices.firstWhere(
+            (d) => d.room == entry.key || d.room == '${entry.key}-01',
+          );
+        } catch (_) {
+          return _firstContextDevice;
+        }
       }
     }
 

@@ -1,35 +1,45 @@
-import 'dart:math';
 import '../models/device.dart';
+import 'config_service.dart';
+import 'manual_search_service.dart';
+import 'compliance_service.dart';
 
 class ManualFetchService {
   static final ManualFetchService _instance = ManualFetchService._internal();
   factory ManualFetchService() => _instance;
   ManualFetchService._internal();
 
-  /// 公式マニュアルを取得 (シミュレーション)
+  /// 公式マニュアルURLを案内（PDF保存なし）
   ///
   /// [device]: 対象デバイス
   /// 戻り値: { 'state': ManualFetchState, 'url': String? }
   Future<Map<String, dynamic>> fetchOfficialManual(Device device) async {
-    // 検索中状態 (UI側でstateをfetchingにする想定だが、ここでも遅延を入れる)
-    await Future.delayed(const Duration(seconds: 3));
+    final searchService = ManualSearchService(ConfigService());
+    final url = await searchService.searchManualUrl(
+      device.manufacturer,
+      device.modelNumber,
+    );
 
-    final random = Random();
-    // 70%の確率で成功
-    final isSuccess = random.nextDouble() < 0.7;
-
-    if (isSuccess) {
-      // ダミーPDF URL
+    if (url != null && ComplianceService.isAllowedSourceUrl(url)) {
+      await ComplianceService.logEvent(
+        action: 'manual_link_resolved',
+        targetId: device.id,
+        result: 'ok',
+      );
       return {
         'state': ManualFetchState.found,
-        'url':
-            'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', // 一般的なダミーPDF
-      };
-    } else {
-      return {
-        'state': ManualFetchState.notFound,
-        'url': null,
+        'url': url,
       };
     }
+
+    await ComplianceService.logEvent(
+      action: 'manual_link_resolved',
+      targetId: device.id,
+      result: 'not_found',
+      reason: 'no_allowed_source',
+    );
+    return {
+      'state': ManualFetchState.notFound,
+      'url': null,
+    };
   }
 }

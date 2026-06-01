@@ -87,9 +87,7 @@ class AssetValuationService {
 
     // データポイント作成（1ヶ月刻み）
     for (int i = 0; i <= totalMonths; i++) {
-      // 対象日時
-      final targetDate =
-          DateTime(purchaseDate.year, purchaseDate.month + i, purchaseDate.day);
+      final targetDate = _addMonths(purchaseDate, i);
 
       // 帳簿価値
       final bookVal = calculateBookValue(device, targetDate: targetDate);
@@ -104,6 +102,15 @@ class AssetValuationService {
       'bookValue': bookValueSpots,
       'marketValue': marketValueSpots,
     };
+  }
+
+  DateTime _addMonths(DateTime date, int monthsToAdd) {
+    final totalMonths = date.month - 1 + monthsToAdd;
+    final year = date.year + totalMonths ~/ 12;
+    final month = totalMonths % 12 + 1;
+    final lastDayOfMonth = DateTime(year, month + 1, 0).day;
+    final day = math.min(date.day, lastDayOfMonth);
+    return DateTime(year, month, day);
   }
 
   /// 経過月数を計算
@@ -132,7 +139,7 @@ class AssetValuationService {
 
     return AssetValue(
       purchasePrice: device.purchasePrice,
-      currentUsedPrice: marketValue, // 市場価値を現在の中古価格とする
+      currentUsedPrice: currentValue,
       depreciationRate: device.purchasePrice > 0
           ? (device.purchasePrice - bookValue) / device.purchasePrice
           : 0.0,

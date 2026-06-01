@@ -26,8 +26,18 @@ HomTuneは、単なる家電管理を超えて、以下の機能を提供しま�
 | **グラフ描画** | fl_chart |
 | **PDF** | pdfx (表示) / pdf (生成) |
 | **その他** | url_launcher, cached_network_image, intl, image_picker, file_picker |
-| **プラットフォーム** | Android / iOS |
+| **プラットフォーム** | Android / iOS（Web は UI プレビューのみ） |
 | **デザイン** | ミニマルデザイン（Japandi テイスト、細い線ベースの UI） |
+
+## Web UI プレビュー（友人共有用）
+
+ブラウザで **UI・導線のみ** 確認するビルドです。スキャン / OCR / カメラは無効です。
+
+```powershell
+.\scripts\build_web_preview.ps1
+```
+
+詳細: [docs/WEB_PREVIEW.md](docs/WEB_PREVIEW.md)
 
 ## ディレクトリ構造
 

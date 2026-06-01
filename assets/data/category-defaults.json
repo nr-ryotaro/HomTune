@@ -1,4 +1,9 @@
 {
+  "compliancePolicy": {
+    "rawTextStorage": "disabled",
+    "distributionRequiresApprovedSource": true,
+    "defaultPublisher": "HomTune Editorial"
+  },
   "usefulLife": {
     "エアコン": 10,
     "冷蔵庫": 12,
@@ -22,7 +27,19 @@
         "name": "フィルター掃除",
         "intervalDays": 14,
         "priority": "high",
-        "shortMethod": "前面パネルを開け、フィルターを取り外して掃除機でホコリを吸い取ります。汚れがひどい場合は中性洗剤を溶かしたぬるま湯で洗い、陰干しで完全に乾かしてから戻してください。",
+        "shortMethod": "",
+        "requiredTools": ["掃除機", "柔らかいブラシ", "中性洗剤"],
+        "methodTags": ["power_off", "remove_part", "water_wash"],
+        "safetyNote": "洗浄後は完全乾燥してから取り付けてください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -30,7 +47,18 @@
         "name": "内部クリーン運転",
         "intervalDays": 30,
         "priority": "medium",
-        "shortMethod": "冷房・除湿運転後にリモコンの「内部クリーン」ボタンを押してください。自動内部クリーン機能がある場合は設定をONにすると、運転停止後に自動で実行されます。カビ・ニオイ防止に効果的です。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "メーカー取扱説明書の内部クリーン手順に従ってください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -38,7 +66,19 @@
         "name": "室外機の清掃",
         "intervalDays": 90,
         "priority": "low",
-        "shortMethod": "室外機のフィン（裏側のアルミ部分）に付着したホコリや落ち葉を取り除きます。ホースで水をかけるか、ブラシで優しく掃除してください。周囲30cm以内に障害物がないか確認も忘れずに。",
+        "shortMethod": "",
+        "requiredTools": ["ホース", "柔らかいブラシ"],
+        "methodTags": ["power_off", "clean"],
+        "safetyNote": "室外機周辺の配線やガス配管に触れないでください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -48,7 +88,19 @@
         "name": "フィルター掃除",
         "intervalDays": 7,
         "priority": "high",
-        "shortMethod": "加湿フィルターを取り外し、水道水で押し洗いしてください。水アカが付着している場合は、クエン酸（水1Lに対し約6g）を溶かしたぬるま湯に30分〜2時間つけ置きした後、水道水ですすぎ洗いします。",
+        "shortMethod": "",
+        "requiredTools": ["中性洗剤", "クエン酸（任意）"],
+        "methodTags": ["power_off", "remove_part", "water_wash"],
+        "safetyNote": "完全乾燥後に組み立ててください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -56,7 +108,18 @@
         "name": "タンク洗浄",
         "intervalDays": 7,
         "priority": "high",
-        "shortMethod": "給水タンクの水を毎日交換し、少量の水を入れて振り洗いしてください。週に1度はタンクの蓋やパッキン部分もスポンジで丁寧に洗ってください。ぬめりが出たら中性洗剤を使用します。",
+        "shortMethod": "",
+        "methodTags": ["power_off", "water_wash"],
+        "safetyNote": "給水は毎日交換し、ぬめりが出たら洗浄してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -64,7 +127,18 @@
         "name": "トレー清掃",
         "intervalDays": 30,
         "priority": "medium",
-        "shortMethod": "トレーを取り外し、スポンジと中性洗剤で洗ってください。水アカがひどい場合はクエン酸水に1〜2時間つけ置きします。乾燥後に元に戻してください。",
+        "shortMethod": "",
+        "methodTags": ["remove_part", "water_wash"],
+        "safetyNote": "乾燥後に元の位置へ戻してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -74,7 +148,19 @@
         "name": "洗濯槽クリーナー",
         "intervalDays": 30,
         "priority": "high",
-        "shortMethod": "市販の洗濯槽クリーナー（塩素系または酸素系）を入れ、「槽洗浄コース」で運転してください。ない場合は「標準コース」の最高水位で空運転します。月に1回が目安です。",
+        "shortMethod": "",
+        "requiredTools": ["洗濯槽クリーナー"],
+        "methodTags": ["clean"],
+        "safetyNote": "取扱説明書の槽洗浄コースに従ってください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -82,7 +168,18 @@
         "name": "糸くずフィルター掃除",
         "intervalDays": 7,
         "priority": "medium",
-        "shortMethod": "洗濯機内部の糸くずフィルター（ネットまたはケース型）を取り外し、溜まった糸くずやゴミを除去してください。ぬめりがある場合は歯ブラシと中性洗剤で洗います。",
+        "shortMethod": "",
+        "methodTags": ["remove_part", "clean"],
+        "safetyNote": "フィルターを破損させないよう優しく扱ってください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -90,7 +187,18 @@
         "name": "ドアパッキン拭き取り",
         "intervalDays": 14,
         "priority": "medium",
-        "shortMethod": "ドラム式の場合、ドアのゴムパッキン裏側に溜まった水分や汚れを乾いた布で拭き取ってください。カビ予防のため、使用後はドアを開けて換気することも重要です。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "使用後はドアを開けて換気し、カビを防いでください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -100,7 +208,19 @@
         "name": "背面・コンデンサー清掃",
         "intervalDays": 180,
         "priority": "low",
-        "shortMethod": "冷蔵庫を少し手前に引き出し、背面や底面のコンデンサー・放熱部に付着したホコリを掃除機や乾いた布で除去します。放熱効率が上がり省エネにもつながります。",
+        "shortMethod": "",
+        "requiredTools": ["掃除機", "乾いた布"],
+        "methodTags": ["power_off", "clean"],
+        "safetyNote": "コンセントを抜いてから作業してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -108,7 +228,18 @@
         "name": "ドレンパン・排水口確認",
         "intervalDays": 180,
         "priority": "low",
-        "shortMethod": "冷蔵庫下部のドレンパン（水受け皿）を引き出して水を捨て、洗浄してください。庫内の排水口が詰まっていないかも確認し、詰まりがあればぬるま湯を流して解消します。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "排水口の詰まりは早めに解消してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -116,7 +247,18 @@
         "name": "ドアパッキン清掃",
         "intervalDays": 90,
         "priority": "medium",
-        "shortMethod": "ドアのゴムパッキンを湿らせた布で拭き、汚れやカビを除去します。隙間には綿棒が有効です。パッキンにヒビや変形がないかも確認してください。密閉不良は電気代増加の原因になります。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "パッキンのヒビ・変形がないか確認してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -126,7 +268,18 @@
         "name": "フィルター清掃",
         "intervalDays": 30,
         "priority": "high",
-        "shortMethod": "フィルターを取り外し、付着したホコリを軽く叩いて落としてください。水洗い可能なフィルターの場合は水道水で洗い、完全に乾かしてから戻します。吸引力低下の主な原因はフィルター詰まりです。",
+        "shortMethod": "",
+        "methodTags": ["remove_part", "clean"],
+        "safetyNote": "水洗い可能な場合は完全乾燥後に戻してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -134,7 +287,19 @@
         "name": "回転ブラシの絡まり除去",
         "intervalDays": 14,
         "priority": "medium",
-        "shortMethod": "ヘッド裏面の回転ブラシに絡まった髪の毛や糸くずをハサミで切って除去してください。ブラシが回転しにくくなると吸引力が落ち、モーターに負荷がかかります。",
+        "shortMethod": "",
+        "requiredTools": ["ハサミ"],
+        "methodTags": ["power_off", "clean"],
+        "safetyNote": "ブラシが回転しにくい場合は早めに清掃してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -144,7 +309,18 @@
         "name": "庫内清掃",
         "intervalDays": 14,
         "priority": "medium",
-        "shortMethod": "耐熱容器に水200mlと酢大さじ1（またはレモン汁）を入れ、ラップをせずに3分加熱。蒸気で汚れが浮くので、10分ほど放置した後、柔らかい布で庫内を拭き取ります。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "加熱中は庫内に触れないでください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -152,7 +328,18 @@
         "name": "ターンテーブル洗浄",
         "intervalDays": 14,
         "priority": "low",
-        "shortMethod": "ターンテーブルと回転用のリング・ローラーを取り外し、食器用洗剤とスポンジで洗ってください。乾かしてから元の位置に戻します。",
+        "shortMethod": "",
+        "methodTags": ["remove_part", "water_wash"],
+        "safetyNote": "乾燥後に元の位置へ戻してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -162,7 +349,18 @@
         "name": "フィルター掃除",
         "intervalDays": 7,
         "priority": "high",
-        "shortMethod": "加湿フィルターを取り外し、水道水で押し洗いしてください。水アカが付着している場合は、クエン酸（水1Lに対し約6g）を溶かしたぬるま湯に30分〜2時間つけ置きした後、水道水ですすぎ洗いします。",
+        "shortMethod": "",
+        "methodTags": ["power_off", "remove_part", "water_wash"],
+        "safetyNote": "完全乾燥後に組み立ててください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -170,7 +368,18 @@
         "name": "タンク洗浄",
         "intervalDays": 7,
         "priority": "high",
-        "shortMethod": "給水タンクの水を毎日交換し、少量の水を入れて振り洗いしてください。週に1度はタンクの蓋やパッキン部分もスポンジで丁寧に洗ってください。ぬめりが出たら中性洗剤を使用します。",
+        "shortMethod": "",
+        "methodTags": ["power_off", "water_wash"],
+        "safetyNote": "給水は毎日交換してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -178,7 +387,18 @@
         "name": "トレー清掃",
         "intervalDays": 30,
         "priority": "medium",
-        "shortMethod": "トレーを取り外し、スポンジと中性洗剤で洗ってください。水アカがひどい場合はクエン酸水に1〜2時間つけ置きします。乾燥後に元に戻してください。",
+        "shortMethod": "",
+        "methodTags": ["remove_part", "water_wash"],
+        "safetyNote": "乾燥後に元の位置へ戻してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -188,7 +408,18 @@
         "name": "背面・コンデンサー清掃",
         "intervalDays": 180,
         "priority": "low",
-        "shortMethod": "冷蔵庫を少し手前に引き出し、背面や底面のコンデンサー・放熱部に付着したホコリを掃除機や乾いた布で除去します。放熱効率が上がり省エネにもつながります。",
+        "shortMethod": "",
+        "methodTags": ["power_off", "clean"],
+        "safetyNote": "コンセントを抜いてから作業してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -196,7 +427,18 @@
         "name": "ドレンパン・排水口確認",
         "intervalDays": 180,
         "priority": "low",
-        "shortMethod": "冷蔵庫下部のドレンパン（水受け皿）を引き出して水を捨て、洗浄してください。庫内の排水口が詰まっていないかも確認し、詰まりがあればぬるま湯を流して解消します。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "排水口の詰まりは早めに解消してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -204,7 +446,18 @@
         "name": "ドアパッキン清掃",
         "intervalDays": 90,
         "priority": "medium",
-        "shortMethod": "ドアのゴムパッキンを湿らせた布で拭き、汚れやカビを除去します。隙間には綿棒が有効です。パッキンにヒビや変形がないかも確認してください。密閉不良は電気代増加の原因になります。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "パッキンの密閉不良は電気代増加の原因になります。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ],
@@ -214,7 +467,18 @@
         "name": "庫内清掃",
         "intervalDays": 14,
         "priority": "medium",
-        "shortMethod": "耐熱容器に水200mlと酢大さじ1（またはレモン汁）を入れ、ラップをせずに3分加熱。蒸気で汚れが浮くので、10分ほど放置した後、柔らかい布で庫内を拭き取ります。",
+        "shortMethod": "",
+        "methodTags": ["clean"],
+        "safetyNote": "加熱中は庫内に触れないでください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       },
       {
@@ -222,7 +486,18 @@
         "name": "ターンテーブル洗浄",
         "intervalDays": 14,
         "priority": "low",
-        "shortMethod": "ターンテーブルと回転用のリング・ローラーを取り外し、食器用洗剤とスポンジで洗ってください。乾かしてから元の位置に戻します。",
+        "shortMethod": "",
+        "methodTags": ["remove_part", "water_wash"],
+        "safetyNote": "乾燥後に元の位置へ戻してください。",
+        "sourceAttribution": {
+          "sourceType": "internal",
+          "sourceUrl": "",
+          "publisher": "HomTune Editorial",
+          "licenseType": "internal-curated",
+          "capturedAt": "2026-06-01T00:00:00.000Z",
+          "confidence": 0.9,
+          "reviewState": "approved"
+        },
         "notifyEnabled": true
       }
     ]

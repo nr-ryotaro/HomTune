@@ -1,0 +1,12 @@
+# HomTune Web UI プレビュー（静的ホスティング）
+# Netlify: リポジトリ連携時はビルドコマンドを Netlify UI 側で Flutter 対応に設定してください。
+# 手動デプロイ: scripts/build_web_preview.ps1 実行後、build/web をドラッグ＆ドロップ（Netlify Drop）
+
+[build]
+  publish = "build/web"
+  command = "echo \"Upload build/web from local: run scripts/build_web_preview.ps1\""
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

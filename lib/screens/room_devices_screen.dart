@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../widgets/device_detail_card.dart';
 import '../widgets/chat_widget.dart';
-import 'add_device_screen.dart';
+import 'add_appliance_screen.dart';
 import '../widgets/room_card_widget.dart';
 import '../models/room_card_model.dart';
 
@@ -108,7 +108,7 @@ class RoomDevicesScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => AddDeviceScreen(
+                    builder: (context) => AddApplianceScreen(
                       initialRoomId: roomId,
                     ),
                   ),

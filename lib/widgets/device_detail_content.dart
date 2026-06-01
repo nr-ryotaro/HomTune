@@ -26,19 +26,32 @@ class DeviceDetailContent extends StatefulWidget {
 class _DeviceDetailContentState extends State<DeviceDetailContent> {
   late ManualFetchState _manualState;
   String? _manualPdfUrl;
-  bool _isFetching = false;
 
   @override
   void initState() {
     super.initState();
-    _manualState = widget.device.manualState;
-    _manualPdfUrl = widget.device.manualPdfUrl;
+    _syncManualFromDevice(widget.device);
+  }
+
+  @override
+  void didUpdateWidget(covariant DeviceDetailContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.device.id != widget.device.id ||
+        oldWidget.device.manualState != widget.device.manualState ||
+        oldWidget.device.manualPdfUrl != widget.device.manualPdfUrl ||
+        oldWidget.device.manual?.url != widget.device.manual?.url) {
+      _syncManualFromDevice(widget.device);
+    }
+  }
+
+  void _syncManualFromDevice(Device device) {
+    _manualState = device.manualState;
+    _manualPdfUrl = device.manualPdfUrl ?? device.manual?.url;
   }
 
   Future<void> _fetchManual() async {
     setState(() {
       _manualState = ManualFetchState.fetching;
-      _isFetching = true;
     });
 
     try {
@@ -48,14 +61,12 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
         setState(() {
           _manualState = result['state'] as ManualFetchState;
           _manualPdfUrl = result['url'] as String?;
-          _isFetching = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _manualState = ManualFetchState.notFound;
-          _isFetching = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('マニュアル検索中にエラーが発生しました: $e')),
@@ -64,13 +75,13 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
     }
   }
 
-  Future<void> _launchPdf() async {
+  Future<void> _launchManualLink() async {
     if (_manualPdfUrl != null) {
       final Uri url = Uri.parse(_manualPdfUrl!);
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('PDFを開けませんでした')),
+            const SnackBar(content: Text('リンクを開けませんでした')),
           );
         }
       }
@@ -396,6 +407,15 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
           ),
           const SizedBox(height: 16),
           _buildManualActionButton(),
+          const SizedBox(height: 12),
+          Text(
+            '法務ポリシーにより、外部PDF本文の保存は行いません。公式ページへの参照リンクのみ扱います。',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
@@ -404,13 +424,13 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
   String _getManualStatusText() {
     switch (_manualState) {
       case ManualFetchState.notFetched:
-        return '公式マニュアルは未取得です。';
+        return '公式マニュアルの参照リンクは未取得です。';
       case ManualFetchState.fetching:
-        return '公式マニュアルを検索中...';
+        return '公式マニュアルの参照リンクを検索中...';
       case ManualFetchState.found:
-        return '公式マニュアルが見つかりました。';
+        return '公式マニュアルの参照リンクが見つかりました。';
       case ManualFetchState.notFound:
-        return '公式マニュアルは見つかりませんでした。';
+        return '許可ソース内で公式マニュアル参照リンクが見つかりませんでした。';
     }
   }
 
@@ -420,7 +440,7 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
         return OutlinedButton.icon(
           onPressed: _fetchManual,
           icon: const Icon(Icons.search),
-          label: const Text('公式マニュアルを探す'),
+          label: const Text('公式マニュアル参照リンクを探す'),
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF333333),
             side: const BorderSide(color: Color(0xFFE5E5E5)),
@@ -437,9 +457,9 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
         );
       case ManualFetchState.found:
         return ElevatedButton.icon(
-          onPressed: _launchPdf,
+          onPressed: _launchManualLink,
           icon: const Icon(Icons.open_in_new),
-          label: const Text('PDFを開く'),
+          label: const Text('公式ページを開く'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF333333),
             foregroundColor: Colors.white,
@@ -456,7 +476,7 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
             );
           },
           icon: const Icon(Icons.upload_file),
-          label: const Text('手動でリンク/ファイルを登録'),
+          label: const Text('手動でリンクを登録'),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.orange,
             side: const BorderSide(color: Colors.orange),
@@ -986,7 +1006,7 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
                   }
                   final provider =
                       Provider.of<DeviceService>(context, listen: false);
-                  provider.updateDevice(device);
+                  await provider.onMaintenanceTasksUpdated(device.id);
 
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(

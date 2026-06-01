@@ -3,8 +3,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'dart:math' as math;
+import '../models/appliance_archetype.dart';
 import '../models/device.dart';
+import '../services/appliance_template_service.dart';
 import '../services/device_service.dart';
+import '../services/manual_link_resolver.dart';
 import '../services/ocr_service.dart';
 import '../widgets/device_form.dart';
 
@@ -16,6 +19,7 @@ class AddDeviceScreen extends StatefulWidget {
   final String? initialModelNumber;
   final String? initialCategory;
   final String? initialName;
+  final String? initialArchetypeId;
 
   const AddDeviceScreen({
     super.key,
@@ -25,6 +29,7 @@ class AddDeviceScreen extends StatefulWidget {
     this.initialModelNumber,
     this.initialCategory,
     this.initialName,
+    this.initialArchetypeId,
   });
 
   @override
@@ -53,6 +58,9 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   String _location = '';
   String _notes = '';
   final List<String> _photos = [];
+  String? _selectedArchetypeId;
+  List<ApplianceArchetype> _roomArchetypes = [];
+  bool _loadingArchetypes = false;
 
   @override
   void initState() {
@@ -62,8 +70,38 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     if (widget.initialModelNumber != null) _modelNumber = widget.initialModelNumber!;
     if (widget.initialCategory != null) _category = widget.initialCategory!;
     if (widget.initialName != null) _name = widget.initialName!;
+    _selectedArchetypeId = widget.initialArchetypeId;
     final now = DateTime.now();
     _purchaseDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (_room.isNotEmpty) {
+      _loadArchetypesForRoom(_room);
+    }
+  }
+
+  Future<void> _loadArchetypesForRoom(String roomId) async {
+    if (roomId.isEmpty) return;
+    setState(() => _loadingArchetypes = true);
+    final list =
+        await ApplianceTemplateService.instance.getArchetypesForRoom(roomId);
+    if (!mounted) return;
+    setState(() {
+      _roomArchetypes = list;
+      _loadingArchetypes = false;
+    });
+  }
+
+  void _applyArchetype(ApplianceArchetype archetype) {
+    setState(() {
+      _selectedArchetypeId = archetype.id;
+      _category = archetype.category;
+      if (_name.isEmpty) _name = archetype.displayName;
+      if (_location.isEmpty && archetype.defaultLocationHint.isNotEmpty) {
+        _location = archetype.defaultLocationHint;
+      }
+    });
+    if (_manufacturer.isNotEmpty && _modelNumber.isNotEmpty) {
+      ManualLinkResolver.instance.prefetch(_manufacturer, _modelNumber);
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -102,6 +140,8 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
     final ocrService = OCRService();
     final scannedData = await ocrService.scanImage(image);
+
+    if (!mounted) return;
 
     setState(() {
       _isScanning = false;
@@ -164,10 +204,14 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         assetValue: null,
         photos: _photos,
         documents: [],
+        archetypeId: _selectedArchetypeId,
       );
 
       // デバイスを追加（モック実装）
-      await deviceService.addDevice(device);
+      await deviceService.addDevice(
+        device,
+        archetypeId: _selectedArchetypeId,
+      );
 
       if (mounted) {
         // 成功メッセージ
@@ -179,8 +223,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
           ),
         );
 
-        // 画面を閉じる
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       print('Error adding device: $e');
@@ -232,7 +275,11 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
               padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
-                child: DeviceForm(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_room.isNotEmpty) _buildArchetypeSuggestions(),
+                    DeviceForm(
                   modelNumber: _modelNumber,
                   name: _name,
                   category: _category,
@@ -254,15 +301,69 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                   onSerialNumberChanged: (value) => setState(() => _serialNumber = value),
                   onPurchasePriceChanged: (value) => setState(() => _purchasePrice = value),
                   onWarrantyYearsChanged: (value) => setState(() => _warrantyYears = value),
-                  onRoomChanged: (value) => setState(() => _room = value),
+                  onRoomChanged: (value) {
+                    setState(() {
+                      _room = value;
+                      _selectedArchetypeId = null;
+                    });
+                    _loadArchetypesForRoom(value);
+                  },
                   onLocationChanged: (value) => setState(() => _location = value),
                   onNotesChanged: (value) => setState(() => _notes = value),
                   onImagePicked: _pickImage,
                   onSubmit: _submitForm,
                   isProcessing: _isProcessing,
                 ),
+                  ],
+                ),
               ),
             ),
+    );
+  }
+
+  Widget _buildArchetypeSuggestions() {
+    if (_loadingArchetypes) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
+    }
+    if (_roomArchetypes.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'この部屋でよくある家電',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _roomArchetypes.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final a = _roomArchetypes[index];
+                final selected = _selectedArchetypeId == a.id;
+                return ChoiceChip(
+                  label: Text('${a.icon} ${a.displayName}'),
+                  selected: selected,
+                  onSelected: (_) => _applyArchetype(a),
+                  selectedColor: const Color(0xFFE8F4EA),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -1,13 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/appliance_presentation.dart';
 import '../models/device.dart';
+import '../services/appliance_template_service.dart';
 import '../services/device_service.dart';
-import '../widgets/device_detail_card.dart';
-import 'add_device_screen.dart';
+import '../widgets/appliance_compact_card.dart';
+import 'add_appliance_screen.dart';
+import 'device_detail_screen.dart';
 
 /// すべての家電を一覧表示する画面
-class AllDevicesScreen extends StatelessWidget {
+class AllDevicesScreen extends StatefulWidget {
   const AllDevicesScreen({super.key});
+
+  @override
+  State<AllDevicesScreen> createState() => _AllDevicesScreenState();
+}
+
+class _AllDevicesScreenState extends State<AllDevicesScreen> {
+  Map<String, AppliancePresentation> _presentations = {};
+
+  Future<void> _loadPresentations(List<Device> devices) async {
+    final map = <String, AppliancePresentation>{};
+    for (final device in devices) {
+      map[device.id] =
+          await ApplianceTemplateService.instance.resolvePresentation(device);
+    }
+    if (!mounted) return;
+    setState(() => _presentations = map);
+  }
+
+  bool _deviceNeedsAttention(Device device) {
+    if (device.safetyInfo?.isRecallActive == true) return true;
+    final alerts = device.maintenance?.alerts ?? [];
+    return alerts.any((a) => a.priority == 'high' || a.priority == 'medium');
+  }
+
+  String _roomLabel(String roomId) {
+    switch (roomId) {
+      case 'living-room':
+        return 'リビング';
+      case 'study':
+        return '書斎';
+      case 'bedroom':
+      case 'bedroom-01':
+        return '寝室';
+      case 'kitchen':
+      case 'kitchen-01':
+        return 'キッチン';
+      case 'entrance':
+        return '玄関';
+      default:
+        return roomId;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,12 +75,17 @@ class AllDevicesScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
+              onPressed: () async {
+                await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
-                    builder: (context) => const AddDeviceScreen(),
+                    builder: (context) => const AddApplianceScreen(),
                   ),
                 );
+                if (!mounted) return;
+                final service =
+                    Provider.of<DeviceService>(context, listen: false);
+                await service.loadData();
+                await _loadPresentations(service.devices);
               },
               icon: const Icon(Icons.add, size: 16),
               label: const Text(
@@ -66,9 +116,7 @@ class AllDevicesScreen extends StatelessWidget {
       body: Consumer<DeviceService>(
         builder: (context, deviceService, child) {
           if (deviceService.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (deviceService.errorMessage != null) {
@@ -76,18 +124,11 @@ class AllDevicesScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
                     deviceService.errorMessage!,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.red,
-                    ),
+                    style: const TextStyle(fontSize: 16, color: Colors.red),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -96,17 +137,18 @@ class AllDevicesScreen extends StatelessWidget {
           }
 
           final devices = deviceService.devices;
+          if (_presentations.length != devices.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadPresentations(devices);
+            });
+          }
 
           if (devices.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.devices_other,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.devices_other, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     '登録されている家電がありません',
@@ -121,33 +163,28 @@ class AllDevicesScreen extends StatelessWidget {
             );
           }
 
-          // 部屋ごとにグループ化（roomフィールドは部屋名）
           final devicesByRoom = <String, List<Device>>{};
           for (final device in devices) {
-            final roomName = device.room.isNotEmpty ? device.room : '未分類';
-            devicesByRoom.putIfAbsent(roomName, () => []).add(device);
+            final roomKey = device.room.isNotEmpty ? device.room : '未分類';
+            devicesByRoom.putIfAbsent(roomKey, () => []).add(device);
           }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: devicesByRoom.length,
             itemBuilder: (context, index) {
-              final roomName = devicesByRoom.keys.elementAt(index);
-              final roomDevices = devicesByRoom[roomName]!;
+              final roomId = devicesByRoom.keys.elementAt(index);
+              final roomDevices = devicesByRoom[roomId]!;
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 部屋名ヘッダー
                   Padding(
-                    padding: EdgeInsets.only(
-                      top: index > 0 ? 24 : 0,
-                      bottom: 12,
-                    ),
+                    padding: EdgeInsets.only(top: index > 0 ? 24 : 0, bottom: 12),
                     child: Row(
                       children: [
                         Text(
-                          roomName,
+                          _roomLabel(roomId),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -161,7 +198,8 @@ class AllDevicesScreen extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3b82f6).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF3b82f6).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -176,11 +214,32 @@ class AllDevicesScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // デバイス一覧
-                  ...roomDevices.map(
-                    (device) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: DeviceDetailCard(device: device),
+                  SizedBox(
+                    height: ApplianceCompactCard.cardHeight,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: roomDevices.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, deviceIndex) {
+                        final device = roomDevices[deviceIndex];
+                        final p = _presentations[device.id];
+                        return ApplianceCompactCard(
+                          icon: p?.icon ?? '📦',
+                          title: p?.title ??
+                              (device.category.isNotEmpty
+                                  ? device.category
+                                  : device.name),
+                          showAlertDot: _deviceNeedsAttention(device),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    DeviceDetailScreen(device: device),
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
                 ],

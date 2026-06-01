@@ -1,3 +1,5 @@
+import 'source_attribution.dart';
+
 // メンテナンスタスクモデル
 
 /// メンテナンスタスク（デバイスごとの定期お手入れ項目）
@@ -9,6 +11,10 @@ class MaintenanceTask {
   int recommendedIntervalDays; // メーカー推奨間隔（カテゴリデフォルト値）
   String priority; // "high", "medium", "low"
   String shortMethod; // 簡易手順テキスト
+  final List<String> requiredTools;
+  final List<String> methodTags;
+  final String safetyNote;
+  final SourceAttribution? sourceAttribution;
   bool notifyEnabled; // ユーザーが個別に ON/OFF 可能
   DateTime? lastCompleted;
   DateTime? nextDue; // lastCompleted + intervalDays（自動計算）
@@ -22,11 +28,17 @@ class MaintenanceTask {
     int? recommendedIntervalDays,
     this.priority = 'medium',
     this.shortMethod = '',
+    List<String>? requiredTools,
+    List<String>? methodTags,
+    this.safetyNote = '',
+    this.sourceAttribution,
     this.notifyEnabled = true,
     this.lastCompleted,
     this.nextDue,
     List<DateTime>? history,
-  })  : recommendedIntervalDays = recommendedIntervalDays ?? intervalDays,
+  })  : requiredTools = requiredTools ?? [],
+        methodTags = methodTags ?? [],
+        recommendedIntervalDays = recommendedIntervalDays ?? intervalDays,
         history = history ?? [];
 
   /// カテゴリデフォルト JSON からタスクを生成
@@ -35,6 +47,18 @@ class MaintenanceTask {
     String deviceId,
   ) {
     final interval = (json['intervalDays'] as num?)?.toInt() ?? 30;
+    final source = json['sourceAttribution'] is Map<String, dynamic>
+        ? SourceAttribution.fromJson(
+            json['sourceAttribution'] as Map<String, dynamic>)
+        : SourceAttribution(
+            sourceType: SourceType.internal,
+            sourceUrl: '',
+            publisher: 'HomTune Editorial',
+            licenseType: 'internal-curated',
+            capturedAt: DateTime.now(),
+            confidence: 0.8,
+            reviewState: ReviewState.approved,
+          );
     return MaintenanceTask(
       taskId: json['taskId']?.toString() ?? '',
       deviceId: deviceId,
@@ -43,6 +67,16 @@ class MaintenanceTask {
       recommendedIntervalDays: interval, // カテゴリデフォルト = 推奨値
       priority: json['priority']?.toString() ?? 'medium',
       shortMethod: json['shortMethod']?.toString() ?? '',
+      requiredTools: (json['requiredTools'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      methodTags: (json['methodTags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      safetyNote: json['safetyNote']?.toString() ?? '',
+      sourceAttribution: source,
       notifyEnabled: json['notifyEnabled'] != false,
     );
   }
@@ -59,6 +93,19 @@ class MaintenanceTask {
           (json['recommendedIntervalDays'] as num?)?.toInt() ?? interval,
       priority: json['priority']?.toString() ?? 'medium',
       shortMethod: json['shortMethod']?.toString() ?? '',
+      requiredTools: (json['requiredTools'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      methodTags: (json['methodTags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      safetyNote: json['safetyNote']?.toString() ?? '',
+      sourceAttribution: json['sourceAttribution'] is Map<String, dynamic>
+          ? SourceAttribution.fromJson(
+              json['sourceAttribution'] as Map<String, dynamic>)
+          : null,
       notifyEnabled: json['notifyEnabled'] != false,
       lastCompleted: json['lastCompleted'] != null
           ? DateTime.tryParse(json['lastCompleted'].toString())
@@ -83,6 +130,10 @@ class MaintenanceTask {
       'recommendedIntervalDays': recommendedIntervalDays,
       'priority': priority,
       'shortMethod': shortMethod,
+      'requiredTools': requiredTools,
+      'methodTags': methodTags,
+      'safetyNote': safetyNote,
+      'sourceAttribution': sourceAttribution?.toJson(),
       'notifyEnabled': notifyEnabled,
       'lastCompleted': lastCompleted?.toIso8601String(),
       'nextDue': nextDue?.toIso8601String(),
@@ -141,7 +192,7 @@ class MaintenanceTask {
     if (nextDue == null) return false;
     final now = DateTime.now();
     final weekLater = now.add(const Duration(days: 7));
-    return nextDue!.isAfter(now) && nextDue!.isBefore(weekLater);
+    return nextDue!.isAfter(now) && !nextDue!.isAfter(weekLater);
   }
 
   /// 期限までの残り日数（負の値は超過日数）

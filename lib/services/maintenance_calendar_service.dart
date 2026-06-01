@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/device.dart';
 import '../models/maintenance_task.dart';
+import '../utils/category_mapper.dart';
 import 'config_service.dart';
+import 'compliance_service.dart';
 
 /// メンテナンスカレンダーのコアロジック
 ///
@@ -56,17 +59,30 @@ class MaintenanceCalendarService {
       Device device) async {
     final defaults = await _loadCategoryDefaults();
 
-    // カテゴリに一致するタスクテンプレートを検索
-    final templates = defaults[device.category];
+    // カテゴリに一致するタスクテンプレートを検索（英語カテゴリもマッピング）
+    final categoryKey = CategoryMapper.normalize(device.category);
+    final templates = defaults[categoryKey] ?? defaults[device.category];
     if (templates == null || templates.isEmpty) return [];
 
     final purchaseDate = DateTime.tryParse(device.purchaseDate);
 
-    return templates.map((template) {
+    final tasks = <MaintenanceTask>[];
+    for (final template in templates) {
       final task = MaintenanceTask.fromCategoryDefault(template, device.id);
+      final attribution = task.sourceAttribution;
+      if (attribution != null && !ComplianceService.canDistribute(attribution)) {
+        ComplianceService.logEvent(
+          action: 'maintenance_template_filtered',
+          targetId: '${device.id}:${task.taskId}',
+          result: 'blocked',
+          reason: 'source_not_distributable',
+        );
+        continue;
+      }
       task.initializeNextDue(purchaseDate);
-      return task;
-    }).toList();
+      tasks.add(task);
+    }
+    return tasks;
   }
 
   /// 全デバイスから「期限超過」タスクを取得
@@ -79,7 +95,7 @@ class MaintenanceCalendarService {
         }
       }
     }
-    // 超過日数が多い順にソート
+    // 超過日数が多い順にソート（daysUntilDue は負値なので昇順＝より深刻な超過が先）
     results.sort((a, b) => a.task.daysUntilDue.compareTo(b.task.daysUntilDue));
     return results;
   }
@@ -131,26 +147,37 @@ class MaintenanceCalendarService {
     task.complete();
   }
 
-  // ── お手入れ方法テキスト（3 段階フォールバック） ──
+  // ── お手入れ方法テキスト（法務ゲート付き） ──
 
-  /// お手入れ方法テキストを取得（非同期・3段階フォールバック）
-  ///
-  /// ① shortMethod（カテゴリデフォルトの手順テキスト）
-  /// ② AI 生成（ConfigService.isUsingRealApi で分岐）
-  ///    - true  : Gemini API で型番・タスクに応じた手順生成
-  ///    - false : 高品質なダミー応答（即時）
-  /// ③ 汎用フォールバックテキスト
+  /// お手入れ方法テキストを取得（非同期・法務ゲート付き）
   static Future<String> getMethodText(
     MaintenanceTask task,
     Device device,
     ConfigService configService,
   ) async {
-    // ① shortMethod があればそのまま返す
+    // ① 事実データから自社文面テンプレート生成（優先）
+    final templated = _buildComplianceTemplate(task, device);
+    if (templated != null) {
+      return templated;
+    }
+
+    // 本番では未承認ソースを配信しない
+    if (kReleaseMode) {
+      await ComplianceService.logEvent(
+        action: 'maintenance_method_blocked',
+        targetId: '${device.id}:${task.taskId}',
+        result: 'blocked',
+        reason: 'missing_or_unapproved_source',
+      );
+      return 'この手順は法務確認中です。取扱説明書またはメーカー公式サポートをご確認ください。';
+    }
+
+    // ② 開発時のみ互換で既存 shortMethod を許可
     if (task.shortMethod.isNotEmpty) {
       return task.shortMethod;
     }
 
-    // ② AI 生成 or ダミー応答
+    // ③ AI 生成 or ダミー応答
     final cacheKey = '${device.id}:${task.taskId}';
     if (_aiMethodCache.containsKey(cacheKey)) {
       return _aiMethodCache[cacheKey]!;
@@ -169,12 +196,18 @@ class MaintenanceCalendarService {
       print('AI method text generation error: $e');
     }
 
-    // ③ 汎用フォールバック
+    // ④ 汎用フォールバック
     return 'お手入れ方法の詳細は取扱説明書をご確認ください。';
   }
 
-  /// 同期版（shortMethod のみ。AI 未使用時の即時表示用）
+  /// 同期版（テンプレート優先。未承認データは非表示）
   static String getMethodTextSync(MaintenanceTask task) {
+    final templated = _buildComplianceTemplate(task, null);
+    if (templated != null) return templated;
+
+    if (kReleaseMode) {
+      return 'この手順は法務確認中です。取扱説明書またはメーカー公式サポートをご確認ください。';
+    }
     if (task.shortMethod.isNotEmpty) return task.shortMethod;
 
     final cacheKey = '${task.deviceId}:${task.taskId}';
@@ -183,6 +216,37 @@ class MaintenanceCalendarService {
     }
 
     return 'お手入れ方法の詳細は取扱説明書をご確認ください。';
+  }
+
+  static String? _buildComplianceTemplate(
+    MaintenanceTask task,
+    Device? device,
+  ) {
+    final attribution = task.sourceAttribution;
+    if (attribution == null) return null;
+    if (!ComplianceService.canDistribute(attribution)) return null;
+
+    final tools = task.requiredTools.isNotEmpty
+        ? task.requiredTools.join('、')
+        : '柔らかい布・中性洗剤';
+    final target = device?.name ?? '対象機器';
+    final tags = task.methodTags.isNotEmpty ? task.methodTags : <String>['clean'];
+    final firstAction = tags.contains('power_off')
+        ? '電源を切り、プラグを抜いて安全を確認します。'
+        : '安全を確認してから作業を開始します。';
+    final secondAction = tags.contains('water_wash')
+        ? '取り外せる部品を洗浄し、十分に乾燥させます。'
+        : '汚れを拭き取り、必要な箇所を清掃します。';
+    final safety = task.safetyNote.isNotEmpty
+        ? task.safetyNote
+        : '異常や破損がある場合は作業を中止してメーカーへお問い合わせください。';
+
+    return '【必要な道具】$tools\n\n'
+        '1. $firstAction\n'
+        '2. $secondAction\n'
+        '3. 清掃後に$targetの動作を確認します。\n\n'
+        '推奨頻度: ${task.intervalDays}日ごと\n'
+        '注意: $safety';
   }
 
   /// Gemini API でお手入れ手順を生成
@@ -295,7 +359,9 @@ class MaintenanceCalendarService {
 
   /// マニュアル PDF リンクがあるかどうか
   static bool hasManualLink(Device device) {
-    return device.manualPdfUrl != null && device.manualPdfUrl!.isNotEmpty;
+    final url = device.manualPdfUrl;
+    if (url == null || url.isEmpty) return false;
+    return ComplianceService.isAllowedSourceUrl(url);
   }
 
   // ── 永続化 ──

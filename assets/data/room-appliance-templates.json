@@ -1,0 +1,376 @@
+{
+  "version": 1,
+  "rooms": {
+    "living-room": {
+      "name": "リビング",
+      "archetypes": [
+        {
+          "id": "living_ac",
+          "displayName": "エアコン",
+          "category": "エアコン",
+          "icon": "❄️",
+          "defaultLocationHint": "リビング壁面",
+          "careItems": [
+            {
+              "taskId": "living_ac_electrical",
+              "type": "electrical",
+              "name": "通電・ブレーカー確認",
+              "intervalDays": 30,
+              "priority": "low",
+              "methodTags": ["power_off"],
+              "safetyNote": "長期未使用時は通電前に異音・異臭がないか確認してください。"
+            },
+            {
+              "taskId": "living_ac_seasonal",
+              "type": "seasonal",
+              "name": "シーズン前の試運転",
+              "intervalDays": 180,
+              "priority": "medium",
+              "methodTags": ["clean"],
+              "safetyNote": "冷暖房シーズン前に短時間の試運転を推奨します。",
+              "seasonMonths": [3, 4, 10, 11]
+            }
+          ]
+        },
+        {
+          "id": "living_tv",
+          "displayName": "テレビ",
+          "category": "テレビ",
+          "icon": "📺",
+          "defaultLocationHint": "テレビボード",
+          "careItems": [
+            {
+              "taskId": "living_tv_dust",
+              "type": "cleaning",
+              "name": "画面・換気口のホコリ落とし",
+              "intervalDays": 14,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "画面は乾いたマイクロファイバーで優しく拭いてください。"
+            },
+            {
+              "taskId": "living_tv_electrical",
+              "type": "electrical",
+              "name": "待機電力・配線確認",
+              "intervalDays": 90,
+              "priority": "low",
+              "methodTags": ["power_off"],
+              "safetyNote": "タコ足配線の過熱やケーブルの損傷がないか確認してください。"
+            }
+          ]
+        },
+        {
+          "id": "living_air_purifier",
+          "displayName": "空気清浄機",
+          "category": "空気清浄機",
+          "icon": "🌬️",
+          "careItems": [
+            {
+              "taskId": "living_ap_filter",
+              "type": "maintenance",
+              "name": "集塵フィルター清掃",
+              "intervalDays": 14,
+              "priority": "high",
+              "methodTags": ["remove_part", "clean"],
+              "safetyNote": "フィルター交換時期は取扱説明書を確認してください。"
+            },
+            {
+              "taskId": "living_ap_usage",
+              "type": "usage",
+              "name": "運転モード・設置場所の見直し",
+              "intervalDays": 30,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "壁から10cm以上離して設置すると効率が上がります。"
+            }
+          ]
+        },
+        {
+          "id": "living_humidifier",
+          "displayName": "加湿器",
+          "category": "加湿器",
+          "icon": "💧",
+          "careItems": [
+            {
+              "taskId": "living_hum_usage",
+              "type": "usage",
+              "name": "水の交換・空焚き防止",
+              "intervalDays": 1,
+              "priority": "high",
+              "methodTags": ["clean"],
+              "safetyNote": "毎日の給水交換と、不使用時のタンク乾燥を推奨します。"
+            }
+          ]
+        },
+        {
+          "id": "living_vacuum",
+          "displayName": "掃除機",
+          "category": "掃除機",
+          "icon": "🧹",
+          "careItems": [
+            {
+              "taskId": "living_vc_usage",
+              "type": "usage",
+              "name": "ゴミ捨て・吸引力チェック",
+              "intervalDays": 7,
+              "priority": "medium",
+              "methodTags": ["clean"],
+              "safetyNote": "ダストカップが8割を超えたら空にしてください。"
+            }
+          ]
+        },
+        {
+          "id": "living_audio",
+          "displayName": "スピーカー / AV機器",
+          "category": "オーディオ",
+          "icon": "🔊",
+          "careItems": [
+            {
+              "taskId": "living_audio_electrical",
+              "type": "electrical",
+              "name": "通電確認（長期未使用時）",
+              "intervalDays": 60,
+              "priority": "low",
+              "methodTags": ["power_off"],
+              "safetyNote": "長期放置後は低音量で短時間の通電確認をしてください。"
+            },
+            {
+              "taskId": "living_audio_dust",
+              "type": "cleaning",
+              "name": "通気口・端子のホコリ除去",
+              "intervalDays": 30,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "端子は乾いた布で優しく拭いてください。"
+            }
+          ]
+        }
+      ]
+    },
+    "bedroom-01": {
+      "name": "寝室",
+      "archetypes": [
+        {
+          "id": "bedroom_ac",
+          "displayName": "エアコン",
+          "category": "エアコン",
+          "icon": "❄️",
+          "careItems": [
+            {
+              "taskId": "bedroom_ac_electrical",
+              "type": "electrical",
+              "name": "通電・リモコン電池確認",
+              "intervalDays": 30,
+              "priority": "low",
+              "methodTags": ["power_off"],
+              "safetyNote": "就寝前のタイマー設定が正しいか確認してください。"
+            }
+          ]
+        },
+        {
+          "id": "bedroom_air_purifier",
+          "displayName": "空気清浄機",
+          "category": "空気清浄機",
+          "icon": "🌬️",
+          "careItems": [
+            {
+              "taskId": "bedroom_ap_usage",
+              "type": "usage",
+              "name": "静音モード・夜間運転の確認",
+              "intervalDays": 14,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "就寝時は静音・弱風設定を推奨します。"
+            }
+          ]
+        },
+        {
+          "id": "bedroom_humidifier",
+          "displayName": "加湿器",
+          "category": "加湿器",
+          "icon": "💧",
+          "careItems": [
+            {
+              "taskId": "bedroom_hum_usage",
+              "type": "usage",
+              "name": "就寝前の湿度・水交換",
+              "intervalDays": 1,
+              "priority": "high",
+              "methodTags": ["clean"],
+              "safetyNote": "適正湿度（40〜60%）を目安に調整してください。"
+            }
+          ]
+        },
+        {
+          "id": "bedroom_dehumidifier",
+          "displayName": "除湿機",
+          "category": "除湿機",
+          "icon": "💨",
+          "careItems": [
+            {
+              "taskId": "bedroom_dehum_drain",
+              "type": "usage",
+              "name": "タンク排水・フィルター確認",
+              "intervalDays": 7,
+              "priority": "medium",
+              "methodTags": ["clean"],
+              "safetyNote": "梅雨時は毎日の排水確認を推奨します。"
+            }
+          ]
+        },
+        {
+          "id": "bedroom_fan",
+          "displayName": "扇風機 / サーキュレーター",
+          "category": "その他",
+          "icon": "🌀",
+          "careItems": [
+            {
+              "taskId": "bedroom_fan_clean",
+              "type": "cleaning",
+              "name": "羽根・ガードのホコリ落とし",
+              "intervalDays": 30,
+              "priority": "low",
+              "methodTags": ["power_off", "clean"],
+              "safetyNote": "電源を切ってから羽根を清掃してください。"
+            },
+            {
+              "taskId": "bedroom_fan_electrical",
+              "type": "electrical",
+              "name": "シーズン前の通電確認",
+              "intervalDays": 180,
+              "priority": "low",
+              "methodTags": ["power_off"],
+              "safetyNote": "異音がある場合は使用を中止してください。",
+              "seasonMonths": [4, 5, 6]
+            }
+          ]
+        }
+      ]
+    },
+    "kitchen-01": {
+      "name": "キッチン",
+      "archetypes": [
+        {
+          "id": "kitchen_fridge",
+          "displayName": "冷蔵庫",
+          "category": "冷蔵庫",
+          "icon": "🧊",
+          "careItems": [
+            {
+              "taskId": "kitchen_fridge_usage",
+              "type": "usage",
+              "name": "庫内の整理・温度設定確認",
+              "intervalDays": 7,
+              "priority": "medium",
+              "methodTags": ["clean"],
+              "safetyNote": "冷気の循環を妨げる過密収納を避けてください。"
+            }
+          ]
+        },
+        {
+          "id": "kitchen_microwave",
+          "displayName": "電子レンジ",
+          "category": "電子レンジ",
+          "icon": "📻",
+          "careItems": [
+            {
+              "taskId": "kitchen_mw_clean",
+              "type": "cleaning",
+              "name": "庫内・ターンテーブルの拭き取り",
+              "intervalDays": 14,
+              "priority": "medium",
+              "methodTags": ["clean"],
+              "safetyNote": "庫内の油汚れは早期に落とすと臭い防止になります。"
+            }
+          ]
+        },
+        {
+          "id": "kitchen_dishwasher",
+          "displayName": "食洗機",
+          "category": "食洗機",
+          "icon": "🍽️",
+          "careItems": [
+            {
+              "taskId": "kitchen_dw_filter",
+              "type": "maintenance",
+              "name": "フィルター・排水口の清掃",
+              "intervalDays": 14,
+              "priority": "high",
+              "methodTags": ["remove_part", "clean"],
+              "safetyNote": "食べかすの詰まりは臭いの原因になります。"
+            },
+            {
+              "taskId": "kitchen_dw_usage",
+              "type": "usage",
+              "name": "洗剤・食器の配置チェック",
+              "intervalDays": 7,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "取扱説明書の載せ方に従ってください。"
+            }
+          ]
+        },
+        {
+          "id": "kitchen_rice_cooker",
+          "displayName": "炊飯器",
+          "category": "その他",
+          "icon": "🍚",
+          "careItems": [
+            {
+              "taskId": "kitchen_rc_clean",
+              "type": "cleaning",
+              "name": "内釜・蒸気口の清掃",
+              "intervalDays": 14,
+              "priority": "medium",
+              "methodTags": ["power_off", "clean"],
+              "safetyNote": "内釜のコーティングを傷つけないよう優しく洗ってください。"
+            }
+          ]
+        },
+        {
+          "id": "kitchen_stove",
+          "displayName": "コンロ / オーブン",
+          "category": "Oven",
+          "icon": "🔥",
+          "careItems": [
+            {
+              "taskId": "kitchen_stove_clean",
+              "type": "cleaning",
+              "name": "バーナー・グリル皿の油汚れ落とし",
+              "intervalDays": 7,
+              "priority": "high",
+              "methodTags": ["power_off", "clean"],
+              "safetyNote": "ガス臭や火のつきが悪い場合は専門業者へ相談してください。"
+            },
+            {
+              "taskId": "kitchen_stove_electrical",
+              "type": "electrical",
+              "name": "点火・安全装置の動作確認",
+              "intervalDays": 90,
+              "priority": "medium",
+              "methodTags": ["power_off"],
+              "safetyNote": "異常時は直ちにガス栓を閉めてください。"
+            }
+          ]
+        },
+        {
+          "id": "kitchen_hood",
+          "displayName": "レンジフード",
+          "category": "その他",
+          "icon": "💨",
+          "careItems": [
+            {
+              "taskId": "kitchen_hood_filter",
+              "type": "maintenance",
+              "name": "フィルター・ファンの油汚れ清掃",
+              "intervalDays": 30,
+              "priority": "high",
+              "methodTags": ["remove_part", "clean"],
+              "safetyNote": "換気不良は火災リスクにつながるため定期清掃を推奨します。"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

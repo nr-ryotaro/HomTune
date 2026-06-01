@@ -62,4 +62,5 @@ flutter:
     - assets/data/floor-plan.json
     - assets/data/safety-mock-data.json
     - assets/data/category-defaults.json
+    - assets/data/room-appliance-templates.json
     - assets/images/

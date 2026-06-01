@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../models/device.dart';
 import '../models/maintenance_task.dart';
 import '../services/maintenance_calendar_service.dart';
+import '../services/compliance_service.dart';
 import '../services/config_service.dart';
+import '../services/device_service.dart';
 
 /// お手入れ詳細画面
 ///
@@ -52,8 +54,11 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
     }
   }
 
-  void _markCompleted() {
+  Future<void> _markCompleted() async {
     MaintenanceCalendarService.completeTask(widget.task);
+    final deviceService = Provider.of<DeviceService>(context, listen: false);
+    await deviceService.onMaintenanceTasksUpdated(widget.device.id);
+    if (!mounted) return;
     setState(() => _completed = true);
     widget.onCompleted?.call();
 
@@ -75,6 +80,14 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
   void _openManual() async {
     final url = widget.device.manualPdfUrl;
     if (url != null && url.isNotEmpty) {
+      if (!ComplianceService.isAllowedSourceUrl(url)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('許可された公式リンクのみ開けます')),
+          );
+        }
+        return;
+      }
       try {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       } catch (e) {
@@ -280,6 +293,54 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                               fontSize: 14,
                               color: Colors.blue.shade600,
                               fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (widget.task.sourceAttribution != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '出典情報',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '発行元: ${widget.task.sourceAttribution!.publisher}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          Text(
+                            '最終確認: ${DateFormat('yyyy/MM/dd').format(widget.task.sourceAttribution!.capturedAt)}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (widget.task.sourceAttribution!.sourceUrl.isNotEmpty)
+                            Text(
+                              '参照: ${widget.task.sourceAttribution!.sourceUrl}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            '注意: 本情報は一般的な運用支援です。最終判断は公式取扱説明書・メーカー案内をご確認ください。',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                              height: 1.4,
                             ),
                           ),
                         ],

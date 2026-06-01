@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import '../utils/category_mapper.dart';
 import 'package:flutter/services.dart';
 import '../models/device.dart';
 import '../models/safety_info.dart';
@@ -146,8 +147,9 @@ class SafetyService {
   Future<double> calculateSafetyScore(Device device) async {
     double score = 100.0;
 
-    // 経過年数による減点（30%）
-    final agePenalty = math.min(device.yearsOwned / 10.0 * 30, 30.0);
+    // 経過年数による減点（30%）— 購入日から再計算
+    final yearsOwned = _effectiveYearsOwned(device);
+    final agePenalty = math.min(yearsOwned / 10.0 * 30, 30.0);
     score -= agePenalty;
 
     // メンテナンス履歴による減点（30%）
@@ -178,6 +180,13 @@ class SafetyService {
     score -= recallPenalty;
 
     return math.max(0.0, math.min(100.0, score));
+  }
+
+  static double _effectiveYearsOwned(Device device) {
+    final purchase = DateTime.tryParse(device.purchaseDate);
+    if (purchase == null) return device.yearsOwned;
+    final years = DateTime.now().difference(purchase).inDays / 365.25;
+    return years > 0 ? years : device.yearsOwned;
   }
 
   /// メンテナンス履歴による減点を計算
@@ -211,13 +220,16 @@ class SafetyService {
   /// 耐用年数による減点を計算
   Future<double> _calculateLifespanPenalty(Device device) async {
     final lifespans = await _loadStandardLifespans();
-    final standardLifespan = lifespans[device.category] ?? 10;
+    final categoryKey = CategoryMapper.normalize(device.category);
+    final standardLifespan =
+        lifespans[categoryKey] ?? lifespans[device.category] ?? 10;
+    final yearsOwned = _effectiveYearsOwned(device);
 
-    if (device.yearsOwned <= standardLifespan) {
+    if (yearsOwned <= standardLifespan) {
       return 0.0;
     }
 
-    final yearsOverLifespan = device.yearsOwned - standardLifespan;
+    final yearsOverLifespan = yearsOwned - standardLifespan;
     return math.min(yearsOverLifespan * 4.0, 20.0);
   }
 

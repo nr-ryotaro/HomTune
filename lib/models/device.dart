@@ -41,6 +41,7 @@ class Device {
   final List<String> photos;
   final List<String> documents;
   final List<MaintenanceTask> maintenanceTasks;
+  final String? archetypeId;
 
   Device({
     required this.id,
@@ -69,6 +70,7 @@ class Device {
     this.manualPdfUrl,
     this.manualState = ManualFetchState.notFetched,
     List<MaintenanceTask>? maintenanceTasks,
+    this.archetypeId,
   }) : maintenanceTasks = maintenanceTasks ?? [];
 
   factory Device.fromJson(Map<String, dynamic> json) {
@@ -174,6 +176,7 @@ class Device {
                     (e) => MaintenanceTask.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
+        archetypeId: json['archetypeId']?.toString(),
       );
     } catch (e) {
       print('Error parsing Device: $e');
@@ -209,6 +212,8 @@ class Device {
       'manualPdfUrl': manualPdfUrl,
       'manualState': manualState.name,
       'maintenanceTasks': maintenanceTasks.map((e) => e.toJson()).toList(),
+      if (archetypeId != null && archetypeId!.isNotEmpty)
+        'archetypeId': archetypeId,
     };
   }
 
@@ -239,6 +244,7 @@ class Device {
     String? manualPdfUrl,
     ManualFetchState? manualState,
     List<MaintenanceTask>? maintenanceTasks,
+    String? archetypeId,
   }) {
     return Device(
       id: id ?? this.id,
@@ -267,6 +273,7 @@ class Device {
       manualPdfUrl: manualPdfUrl ?? this.manualPdfUrl,
       manualState: manualState ?? this.manualState,
       maintenanceTasks: maintenanceTasks ?? this.maintenanceTasks,
+      archetypeId: archetypeId ?? this.archetypeId,
     );
   }
 }

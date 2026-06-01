@@ -1,5 +1,7 @@
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'config_service.dart';
+import 'compliance_service.dart';
 
 class WebSearchService {
   final ConfigService _configService;
@@ -12,9 +14,18 @@ class WebSearchService {
     if (!_configService.isUsingRealApi) {
       return _mockSearch(query);
     }
+    if (kReleaseMode) {
+      await ComplianceService.logEvent(
+        action: 'web_search_blocked',
+        targetId: query,
+        result: 'blocked',
+        reason: 'scraping_disabled_in_release',
+      );
+      throw Exception('商用モードでは外部検索スクレイピングは無効化されています。');
+    }
 
     try {
-      // Using DuckDuckGo HTML version which is easier to scrape and doesn't require JS
+      // 開発用のみ: DuckDuckGo HTML 取得
       final uri = Uri.parse('https://html.duckduckgo.com/html/').replace(
         queryParameters: {'q': query},
       );
@@ -30,7 +41,7 @@ class WebSearchService {
         throw Exception('Failed to load search results: ${response.statusCode}');
       }
     } catch (e) {
-      // Fallback to mock if network fails just to keep app alive
+      // 開発時のみモックフォールバック
       print('Search failed: $e, falling back to mock.');
       return _mockSearch(query);
     }

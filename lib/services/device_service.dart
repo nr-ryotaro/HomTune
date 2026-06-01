@@ -1,19 +1,44 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device.dart';
+import '../models/maintenance_task.dart';
 import '../models/room.dart';
 import '../models/room.dart' as room_models;
 import 'asset_valuation_service.dart';
 import 'maintenance_calendar_service.dart';
 import 'notification_service.dart';
+import 'manual_link_resolver.dart';
+import 'manual_search_service.dart';
+import 'appliance_template_service.dart';
 
 class DeviceService extends ChangeNotifier {
+  static const _userDevicesStorageKey = 'user_devices';
+  static const _seedDeviceIds = {
+    'tv_001',
+    'speaker_001',
+    'record_player_001',
+    'humidifier_001',
+    'sofa_001',
+    'tv_bed_001',
+    'bed_001',
+    'light_bed_001',
+    'smart_speaker_bed_001',
+    'cabinet_bed_001',
+    'fridge_001',
+    'oven_001',
+    'espresso_001',
+    'rice_cooker_001',
+    'light_kitchen_001',
+  };
+
   List<Device> _devices = [];
   FloorPlan? _floorPlan;
   List<Room> _rooms = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String? _pendingUserMessage;
 
   List<Device> get devices => _devices;
   FloorPlan? get floorPlan => _floorPlan;
@@ -21,8 +46,15 @@ class DeviceService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  /// デバイスを追加（モック実装）
-  Future<void> addDevice(Device device) async {
+  /// One-shot message for UI (e.g. manual archive complete after navigation).
+  String? consumePendingUserMessage() {
+    final msg = _pendingUserMessage;
+    _pendingUserMessage = null;
+    return msg;
+  }
+
+  /// デバイスを追加（[archetypeId] 指定時は部屋別テンプレのケア項目をマージ）
+  Future<void> addDevice(Device device, {String? archetypeId}) async {
     try {
       // 資産価値を計算 (Double Timeline Logic)
       final valuationService = AssetValuationService();
@@ -51,24 +83,72 @@ class DeviceService extends ChangeNotifier {
         safetyInfo: device.safetyInfo,
         photos: device.photos,
         documents: device.documents,
+        archetypeId: archetypeId ?? device.archetypeId,
       );
 
-      // モック実装: 実際の実装では、ローカルストレージまたはAPIに保存
-      _devices.add(deviceWithAssetValue);
+      var deviceToStore = deviceWithAssetValue;
+      if (deviceToStore.maintenanceTasks.isEmpty) {
+        final categoryTasks =
+            await MaintenanceCalendarService.initializeTasksForDevice(
+                deviceToStore);
+        final archetypeTasks = archetypeId != null
+            ? await ApplianceTemplateService.instance
+                .buildTasksForArchetype(archetypeId, deviceToStore.id)
+            : <MaintenanceTask>[];
+        final merged = _mergeMaintenanceTasks(categoryTasks, archetypeTasks);
+        if (merged.isNotEmpty) {
+          deviceToStore = deviceToStore.copyWith(maintenanceTasks: merged);
+        }
+      }
+
+      final shouldResolveManual = deviceToStore.manufacturer.trim().isNotEmpty ||
+          deviceToStore.modelNumber.trim().isNotEmpty;
+      if (shouldResolveManual && deviceToStore.manual == null) {
+        deviceToStore = deviceToStore.copyWith(
+          manualState: ManualFetchState.fetching,
+        );
+      }
+
+      _devices.add(deviceToStore);
+      await _persistUserDevices();
+      await MaintenanceCalendarService.saveTasks(_devices);
+      NotificationService()
+          .scheduleAllMaintenanceNotifications(_devices);
       notifyListeners();
 
-      // 実際の実装では、以下を実行:
-      // 1. SharedPreferencesまたはローカルDBに保存
-      // 2. またはAPIにPOSTリクエスト
-      // 3. 成功後にリストを更新
+      if (shouldResolveManual) {
+        ManualLinkResolver.instance.resolveForDevice(this, deviceToStore);
+      }
     } catch (e) {
       print('Error adding device: $e');
       rethrow;
     }
   }
 
+  List<MaintenanceTask> _mergeMaintenanceTasks(
+    List<MaintenanceTask> categoryTasks,
+    List<MaintenanceTask> archetypeTasks,
+  ) {
+    final byId = <String, MaintenanceTask>{};
+    for (final t in categoryTasks) {
+      byId[t.taskId] = t;
+    }
+    for (final t in archetypeTasks) {
+      byId.putIfAbsent(t.taskId, () => t);
+    }
+    return byId.values.toList();
+  }
+
   Future<void> loadData() async {
-    if (_isLoading) return; // 既に読み込み中の場合は何もしない
+    if (_isLoading) {
+      var waitedMs = 0;
+      const maxWaitMs = 30000;
+      while (_isLoading && waitedMs < maxWaitMs) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        waitedMs += 50;
+      }
+      return;
+    }
 
     _isLoading = true;
     _errorMessage = null;
@@ -78,10 +158,16 @@ class DeviceService extends ChangeNotifier {
       // 少し待機してUIが準備できるようにする
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // assets/data/mock-data.json からの読み込みを無効化し、
-      // 今回実装したダミーデータのみを使用するように変更
-      _devices = [];
-      _rooms = [];
+      // ユーザー追加デバイスを保持（シードデータ再注入時も消さない）
+      final persistedUser = await _loadPersistedUserDevices();
+      final inMemoryUser = _devices
+          .where((d) => !_seedDeviceIds.contains(d.id))
+          .toList();
+      final userById = <String, Device>{};
+      for (final d in [...persistedUser, ...inMemoryUser]) {
+        userById[d.id] = d;
+      }
+      _devices = userById.values.toList();
 
       // floor-plan.jsonから読み込み（floorPlanがnullの場合）
       if (_floorPlan == null) {
@@ -97,8 +183,6 @@ class DeviceService extends ChangeNotifier {
           // (この時点では部屋がないので後で生成される)
         }
       }
-
-      _isLoading = false;
 
       // リビングルームのダミーデータを注入
       final livingRoomId = _rooms
@@ -571,34 +655,70 @@ class DeviceService extends ChangeNotifier {
         _floorPlan = _generateFloorPlanFromRooms();
       }
 
-      // メンテナンスタスクの自動割り当て（カテゴリデフォルトから）
+      // メンテナンスタスク: 永続化データを優先、なければカテゴリデフォルトから割当
       for (int i = 0; i < _devices.length; i++) {
         final device = _devices[i];
-        if (device.maintenanceTasks.isEmpty) {
-          try {
+        try {
+          final persisted =
+              await MaintenanceCalendarService.loadTasksForDevice(device.id);
+          if (persisted.isNotEmpty) {
+            _devices[i] = device.copyWith(maintenanceTasks: persisted);
+            continue;
+          }
+          if (device.maintenanceTasks.isEmpty) {
             final tasks =
                 await MaintenanceCalendarService.initializeTasksForDevice(
                     device);
             if (tasks.isNotEmpty) {
               _devices[i] = device.copyWith(maintenanceTasks: tasks);
             }
-          } catch (e) {
-            print(
-                'Error initializing maintenance tasks for ${device.name}: $e');
           }
+        } catch (e) {
+          print(
+              'Error initializing maintenance tasks for ${device.name}: $e');
         }
       }
 
+      await MaintenanceCalendarService.saveTasks(_devices);
+
       // メンテナンス通知のスケジュール
       NotificationService().scheduleAllMaintenanceNotifications(_devices);
-
-      notifyListeners();
     } catch (e, stackTrace) {
-      _isLoading = false;
       _errorMessage = 'データの読み込みに失敗しました: $e';
       print('Error loading data: $e');
       print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _persistUserDevices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDevices =
+          _devices.where((d) => !_seedDeviceIds.contains(d.id)).toList();
+      final encoded =
+          jsonEncode(userDevices.map((d) => d.toJson()).toList());
+      await prefs.setString(_userDevicesStorageKey, encoded);
+    } catch (e) {
+      print('Error persisting user devices: $e');
+    }
+  }
+
+  Future<List<Device>> _loadPersistedUserDevices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_userDevicesStorageKey);
+      if (stored == null || stored.isEmpty) return [];
+
+      final list = jsonDecode(stored) as List<dynamic>;
+      return list
+          .map((e) => Device.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('Error loading persisted user devices: $e');
+      return [];
     }
   }
 
@@ -688,21 +808,60 @@ class DeviceService extends ChangeNotifier {
     return count;
   }
 
-  void updateDevice(Device updatedDevice) {
+  Future<void> updateDevice(Device updatedDevice) async {
     final index = _devices.indexWhere((d) => d.id == updatedDevice.id);
     if (index >= 0) {
       _devices[index] = updatedDevice;
+      await MaintenanceCalendarService.saveTasks(_devices);
+      if (!_seedDeviceIds.contains(updatedDevice.id)) {
+        await _persistUserDevices();
+      }
+      NotificationService()
+          .scheduleAllMaintenanceNotifications(_devices);
       notifyListeners();
-      MaintenanceCalendarService.saveTasks(_devices);
     }
   }
 
-  /// デバイスの説明書URLを更新（Smart Ingester バックグラウンド検索完了時）
+  /// メンテタスク完了後の永続化・通知更新
+  Future<void> onMaintenanceTasksUpdated(String deviceId) async {
+    final device = getDeviceById(deviceId);
+    if (device == null) return;
+    await MaintenanceCalendarService.saveTasks(_devices);
+    if (!_seedDeviceIds.contains(deviceId)) {
+      await _persistUserDevices();
+    }
+    NotificationService().scheduleAllMaintenanceNotifications(_devices);
+    notifyListeners();
+  }
+
+  /// マニュアル取得状態のみ更新
+  Future<void> updateDeviceManualState(
+    String deviceId,
+    ManualFetchState state,
+  ) async {
+    final i = _devices.indexWhere((d) => d.id == deviceId);
+    if (i < 0) return;
+    _devices[i] = _devices[i].copyWith(manualState: state);
+    if (!_seedDeviceIds.contains(deviceId)) {
+      await _persistUserDevices();
+    }
+    notifyListeners();
+  }
+
+  /// デバイスの説明書URLを更新（公式リンク解決完了時）
   Future<void> updateDeviceManual(String deviceId, Manual manual) async {
     final i = _devices.indexWhere((d) => d.id == deviceId);
     if (i < 0) return;
     final prev = _devices[i];
-    _devices[i] = prev.copyWith(manual: manual);
+    _devices[i] = prev.copyWith(
+      manual: manual,
+      manualPdfUrl: manual.url,
+      manualState: ManualFetchState.found,
+    );
+    if (!_seedDeviceIds.contains(deviceId)) {
+      await _persistUserDevices();
+    }
+    _pendingUserMessage = ManualSearchService.archiveCompleteMessage;
     notifyListeners();
   }
 

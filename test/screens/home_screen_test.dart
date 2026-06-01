@@ -105,9 +105,18 @@ class MockDeviceService extends ChangeNotifier implements DeviceService {
 
   // Stubs for unused methods
   @override
-  Future<void> addDevice(Device device) async {}
+  Future<void> addDevice(Device device, {String? archetypeId}) async {}
+  @override
+  Future<void> updateDeviceManualState(
+    String deviceId,
+    ManualFetchState state,
+  ) async {}
   @override
   Future<void> updateDevice(Device device) async {}
+  @override
+  Future<void> onMaintenanceTasksUpdated(String deviceId) async {}
+  @override
+  String? consumePendingUserMessage() => null;
   @override
   Future<void> updateDeviceManual(String deviceId, Manual manual) async {}
   @override

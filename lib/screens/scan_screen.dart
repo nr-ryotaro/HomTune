@@ -6,9 +6,11 @@ import 'package:provider/provider.dart';
 import '../models/device.dart';
 import '../services/config_service.dart';
 import '../services/device_service.dart';
-import '../services/manual_search_service.dart';
+import '../services/manual_link_resolver.dart';
 import '../services/scanner_service.dart';
+import '../utils/platform_support.dart';
 import 'add_device_screen.dart';
+import 'web_unsupported_feature_screen.dart';
 
 /// Smart Ingester: バーコード（JAN）＋製品プレート撮影のマルチスキャン画面
 /// - バーコード検知時は即製品取得フローへ
@@ -22,14 +24,16 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen> {
+class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   final ImagePicker _imagePicker = ImagePicker();
   ScannerService? _scannerService;
-  ManualSearchService? _manualSearchService;
 
   MobileScannerController? _controller;
   ScanMode _mode = ScanMode.barcode;
   bool _isProcessing = false;
+  bool _cameraReady = false;
+  bool _cameraUnavailable = false;
+  String? _cameraUnavailableMessage;
   String? _errorMessage;
   String? _janCode;
   ExtractedProductInfo? _extracted;
@@ -37,12 +41,52 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
-      facing: CameraFacing.back,
-      torchEnabled: false,
-      returnImage: false,
-    );
+    WidgetsBinding.instance.addObserver(this);
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      final controller = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+        torchEnabled: false,
+        returnImage: false,
+        autoStart: false,
+      );
+      _controller = controller;
+      await controller.start();
+      if (!mounted) return;
+      setState(() {
+        _cameraReady = true;
+        _cameraUnavailable = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cameraUnavailable = true;
+        _cameraUnavailableMessage =
+            'カメラを起動できませんでした。手入力で登録できます。';
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null || !_cameraReady) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        controller.start().catchError((_) {});
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        controller.stop().catchError((_) {});
+        break;
+    }
   }
 
   @override
@@ -51,27 +95,26 @@ class _ScanScreenState extends State<ScanScreen> {
     if (_scannerService == null) {
       final config = Provider.of<ConfigService>(context, listen: false);
       _scannerService = ScannerService(config);
-      _manualSearchService = ManualSearchService(config);
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
     _scannerService?.dispose();
-    _manualSearchService?.close();
     super.dispose();
   }
 
   void _onBarcodeDetected(BarcodeCapture capture) {
-    if (_isProcessing || _mode != ScanMode.barcode) return;
+    if (_isProcessing || _mode != ScanMode.barcode || !_cameraReady) return;
     final barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
     final code = barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
 
+    _isProcessing = true;
     setState(() {
-      _isProcessing = true;
       _errorMessage = null;
       _janCode = code;
     });
@@ -101,7 +144,12 @@ class _ScanScreenState extends State<ScanScreen> {
       if (info.isEmpty) {
         _showFallbackSnackBar('製品情報を取得できませんでした。手入力で登録してください。');
       } else {
-        // 成功時は自動的に結果シートが表示される
+        if (info.modelNumber.isNotEmpty) {
+          ManualLinkResolver.instance.prefetch(
+            info.manufacturer,
+            info.modelNumber,
+          );
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('製品情報を取得しました')),
         );
@@ -138,6 +186,10 @@ class _ScanScreenState extends State<ScanScreen> {
       // 2. 抽出できた場合、Web検索で詳細を補完（より正確な製品名などを取得）
       if (!info.isEmpty && info.modelNumber.isNotEmpty) {
         info = await _scannerService!.refineProductInfo(info);
+        ManualLinkResolver.instance.prefetch(
+          info.manufacturer,
+          info.modelNumber,
+        );
       }
 
       if (!mounted) return;
@@ -176,8 +228,7 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   void _navigateToManualInput({String? janCode}) {
-    Navigator.of(context).pop();
-    Navigator.of(context).push(
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => AddDeviceScreen(
           initialRoomId: widget.initialRoomId,
@@ -236,15 +287,7 @@ class _ScanScreenState extends State<ScanScreen> {
       await deviceService.addDevice(device);
       if (!mounted) return;
 
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('登録しました。説明書の検索をバックグラウンドで実行しています。'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      _runManualSearchInBackground(device.id, info.manufacturer, info.modelNumber, deviceService);
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -254,35 +297,15 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  Future<void> _runManualSearchInBackground(
-    String deviceId,
-    String manufacturer,
-    String modelNumber,
-    DeviceService deviceService,
-  ) async {
-    try {
-      final url = await _manualSearchService!.searchManualUrl(manufacturer, modelNumber);
-      if (url == null || url.isEmpty) return;
-
-      final manual = Manual(
-        url: url,
-        autoGenerated: true,
-        lastUpdated: DateTime.now().toIso8601String(),
-        source: 'official',
-      );
-      await deviceService.updateDeviceManual(deviceId, manual);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ManualSearchService.archiveCompleteMessage),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } catch (_) {}
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (!PlatformSupport.supportsSmartIngester) {
+      return WebUnsupportedFeatureScreen(
+        featureName: 'Smart Ingester',
+        initialRoomId: widget.initialRoomId,
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -308,10 +331,23 @@ class _ScanScreenState extends State<ScanScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          MobileScanner(
-            controller: _controller!,
-            onDetect: _onBarcodeDetected,
-          ),
+          if (_cameraUnavailable)
+            _buildCameraUnavailableView()
+          else if (_cameraReady && _controller != null)
+            MobileScanner(
+              controller: _controller!,
+              onDetect: _onBarcodeDetected,
+              errorBuilder: (context, error, child) {
+                return _buildCameraErrorView(error.errorCode.name);
+              },
+            )
+          else
+            const ColoredBox(
+              color: Colors.black,
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.white54),
+              ),
+            ),
           _ThinLineScanOverlay(mode: _mode),
           _buildModeToggle(),
           if (_mode == ScanMode.plate) _buildShutterButton(),
@@ -533,6 +569,67 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCameraUnavailableView() {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.videocam_off, color: Colors.white54, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                _cameraUnavailableMessage ??
+                    'カメラを利用できません。',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton(
+                onPressed: () => _navigateToManualInput(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white38),
+                ),
+                child: const Text('手入力で登録'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraErrorView(String message) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.orange, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => _navigateToManualInput(),
+                child: const Text('手入力で登録'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

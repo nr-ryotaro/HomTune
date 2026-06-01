@@ -1,9 +1,12 @@
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
+import '../utils/platform_support.dart';
 import 'config_service.dart';
+import 'compliance_service.dart';
 
-/// 説明書PDF検索サービス（メーカー＋型番 → URL）
+/// 公式マニュアル参照URLの解決（メーカー＋型番 → 許可HTTPS URLのみ、PDF保存なし）
 /// 検索結果を SQLite にキャッシュし、API 呼び出しを最小限に抑える
 class ManualSearchService {
   static const String _dbName = 'homtune_manual_cache.db';
@@ -13,7 +16,13 @@ class ManualSearchService {
   final ConfigService _configService;
   Database? _db;
 
+  /// Web プレビュー用インメモリキャッシュ（sqflite 非対応のため）
+  static final Map<String, String> _memoryCache = {};
+
   ManualSearchService(this._configService);
+
+  static String _cacheKey(String manufacturer, String modelNumber) =>
+      '${manufacturer.trim().toLowerCase()}|${modelNumber.trim().toLowerCase()}';
 
   /// ダミーモード用: メーカー×型番 → URL（機能確認用）
   static final Map<String, String> _dummyManualUrls = {
@@ -34,6 +43,9 @@ class ManualSearchService {
   };
 
   Future<Database> _getDb() async {
+    if (PlatformSupport.supportsManualSqliteCache == false) {
+      throw UnsupportedError('SQLite cache is not available on Web preview');
+    }
     if (_db != null && _db!.isOpen) return _db!;
     final base = await getDatabasesPath();
     final dbPath = path.join(base, _dbName);
@@ -57,6 +69,9 @@ class ManualSearchService {
 
   /// キャッシュから URL 取得
   Future<String?> getCachedUrl(String manufacturer, String modelNumber) async {
+    if (!PlatformSupport.supportsManualSqliteCache) {
+      return _memoryCache[_cacheKey(manufacturer, modelNumber)];
+    }
     try {
       final db = await _getDb();
       final rows = await db.query(
@@ -78,6 +93,10 @@ class ManualSearchService {
     String modelNumber,
     String url,
   ) async {
+    if (!PlatformSupport.supportsManualSqliteCache) {
+      _memoryCache[_cacheKey(manufacturer, modelNumber)] = url;
+      return;
+    }
     try {
       final db = await _getDb();
       await db.insert(
@@ -95,7 +114,7 @@ class ManualSearchService {
     }
   }
 
-  /// メーカー＋型番で公式説明書PDFのURLを検索
+  /// メーカー＋型番で公式マニュアル参照URLを検索
   /// まずキャッシュを確認し、未ヒット時のみネット検索（モック／実API）
   Future<String?> searchManualUrl(String manufacturer, String modelNumber) async {
     if (manufacturer.trim().isEmpty && modelNumber.trim().isEmpty) {
@@ -112,10 +131,24 @@ class ManualSearchService {
       return null;
     }
 
-    if (url != null && url.isNotEmpty) {
+    if (url != null &&
+        url.isNotEmpty &&
+        ComplianceService.isAllowedSourceUrl(url)) {
       await _cacheUrl(manufacturer, modelNumber, url);
+      await ComplianceService.logEvent(
+        action: 'manual_url_lookup',
+        targetId: '$manufacturer:$modelNumber',
+        result: 'ok',
+      );
+      return url;
     }
-    return url;
+    await ComplianceService.logEvent(
+      action: 'manual_url_lookup',
+      targetId: '$manufacturer:$modelNumber',
+      result: 'blocked',
+      reason: 'unapproved_or_empty_source',
+    );
+    return null;
   }
 
   /// ダミーモード: Map から URL を返す（機能確認用）
@@ -165,6 +198,7 @@ class ManualSearchService {
       return 'https://www.sony.com/electronics/support';
     }
     if (m.contains('apple')) {
+      if (kReleaseMode) return 'https://support.apple.com/manuals';
       return 'https://support.apple.com/manuals/$model';
     }
     if (m.contains('lg')) {
@@ -199,7 +233,7 @@ class ManualSearchService {
 
   /// 説明書アーカイブ完了通知用の文言（UIで使用）
   static String get archiveCompleteMessage =>
-      '説明書のアーカイブを完了しました。PDFはいつでもご確認いただけます。';
+      '公式マニュアルの参照リンクを更新しました。';
 
   Future<void> close() async {
     if (_db != null && _db!.isOpen) {

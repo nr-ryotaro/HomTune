@@ -16,7 +16,7 @@ class OnboardingStep1Screen extends StatelessWidget {
         children: [
           const SizedBox(height: 40),
           const Text(
-            'お住まいのタイプは？',
+            '住まいのタイプを教えてください',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w200,
@@ -26,7 +26,7 @@ class OnboardingStep1Screen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'タップするだけで、あなたに合った部屋を\n自動で用意します。',
+            '選んだタイプにあわせて、\n部屋のテンプレートを用意します。',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w300,

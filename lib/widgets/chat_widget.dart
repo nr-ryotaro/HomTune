@@ -21,26 +21,43 @@ class _ChatWidgetState extends State<ChatWidget> {
   final List<ChatMessage> _messages = [];
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  late ChatService _chatService;
+  ChatService? _chatService;
+  bool _isChatReady = false;
+  int _deviceCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _deviceCount = widget.devices.length;
     _initChatService();
   }
 
   Future<void> _initChatService() async {
     final configService = Provider.of<ConfigService>(context, listen: false);
-    _chatService = ChatService(configService);
-    await _chatService.initializeWithDevices(widget.devices);
+    final service = ChatService(configService);
+    await service.initializeWithDevices(widget.devices);
+    if (!mounted) {
+      service.dispose();
+      return;
+    }
+    setState(() {
+      _chatService = service;
+      _isChatReady = true;
+    });
+  }
+
+  Future<void> _refreshDeviceContext(List<Device> devices) async {
+    final service = _chatService;
+    if (service == null || !_isChatReady) return;
+    await service.initializeWithDevices(devices);
   }
 
   @override
   void didUpdateWidget(covariant ChatWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // デバイスリストが変更されたら再初期化
-    if (widget.devices != oldWidget.devices) {
-      _chatService.initializeWithDevices(widget.devices);
+    if (widget.devices.length != _deviceCount) {
+      _deviceCount = widget.devices.length;
+      _refreshDeviceContext(widget.devices);
     }
   }
 
@@ -48,15 +65,16 @@ class _ChatWidgetState extends State<ChatWidget> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _chatService.dispose();
+    _chatService?.dispose();
     super.dispose();
   }
 
   void _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _isLoading) return;
+    if (text.isEmpty || _isLoading || !_isChatReady || _chatService == null) {
+      return;
+    }
 
-    // ユーザーメッセージを追加
     setState(() {
       _messages.add(ChatMessage(
         text: text,
@@ -69,9 +87,8 @@ class _ChatWidgetState extends State<ChatWidget> {
     _messageController.clear();
     _scrollToBottom();
 
-    // ChatService 経由で AI 応答を取得
     try {
-      final response = await _chatService.sendMessage(text);
+      final response = await _chatService!.sendMessage(text);
       if (mounted) {
         setState(() {
           _messages.add(ChatMessage(
@@ -123,15 +140,13 @@ class _ChatWidgetState extends State<ChatWidget> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // 質問テキスト
           if (_messages.isEmpty)
             Container(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-              child: const Text(
-                '今日はどうしましたか？',
-                style: TextStyle(
+              child: Text(
+                _isChatReady ? '今日はどうしましたか？' : 'チャットを準備しています…',
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w300,
                   color: Color(0xFF333333),
@@ -139,9 +154,8 @@ class _ChatWidgetState extends State<ChatWidget> {
               ),
             ),
 
-          // メッセージリスト
           if (_messages.isNotEmpty)
-            Flexible(
+            Expanded(
               child: ListView.builder(
                 controller: _scrollController,
                 shrinkWrap: true,
@@ -157,7 +171,6 @@ class _ChatWidgetState extends State<ChatWidget> {
               ),
             ),
 
-          // 入力欄
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
@@ -176,6 +189,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                   Expanded(
                     child: TextField(
                       controller: _messageController,
+                      enabled: _isChatReady,
                       decoration: InputDecoration(
                         hintText: _getPlaceholderText(),
                         hintStyle: const TextStyle(
@@ -220,7 +234,7 @@ class _ChatWidgetState extends State<ChatWidget> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: _isLoading
+                      color: _isLoading || !_isChatReady
                           ? Colors.grey[300]
                           : const Color(0xFF3b82f6),
                       shape: BoxShape.circle,
@@ -241,7 +255,8 @@ class _ChatWidgetState extends State<ChatWidget> {
                               color: Colors.white,
                               size: 20,
                             ),
-                      onPressed: _isLoading ? null : _sendMessage,
+                      onPressed:
+                          _isLoading || !_isChatReady ? null : _sendMessage,
                     ),
                   ),
                 ],
@@ -259,7 +274,6 @@ class _ChatWidgetState extends State<ChatWidget> {
       '使っているパソコンの電源がつかない',
       '部屋のライトの電球のサイズなんだったっけ',
     ];
-    // 現在の時刻に基づいてプレースホルダーをローテーション
     final index = DateTime.now().millisecond % placeholders.length;
     return placeholders[index];
   }

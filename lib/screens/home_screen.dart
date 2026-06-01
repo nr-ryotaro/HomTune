@@ -2,13 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/device_service.dart';
+import '../services/onboarding_prefs.dart';
+import '../services/room_photo_service.dart';
+import 'room_photo_setup_screen.dart';
 import '../services/maintenance_calendar_service.dart';
 import '../models/device.dart';
-import '../widgets/device_card.dart';
-
+import '../services/appliance_template_service.dart';
+import '../models/appliance_presentation.dart';
+import '../widgets/appliance_compact_card.dart';
+import 'device_detail_screen.dart';
 import '../widgets/chat_widget.dart';
 import 'all_devices_screen.dart';
-import 'scan_screen.dart';
+import 'add_appliance_screen.dart';
+import '../utils/platform_support.dart';
 import 'dev_settings_screen.dart';
 import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
@@ -23,17 +29,133 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _selectedRoomId;
-  List<Device> _filteredDevices = [];
   late PageController _pageController;
+  List<String> _homeRoomIds = OnboardingRoomCatalog.defaultHomeRoomIds;
+  final Map<String, String> _roomImagePaths = {};
+  bool _applianceSetupDone = false;
+  bool _roomPhotosConfigured = false;
+  bool _roomPhotoPromptShown = false;
+  Map<String, AppliancePresentation> _presentationByDeviceId = {};
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.85);
-    // フレームが構築された後にデータを読み込む
+    _loadOnboardingRoomPrefs();
+    _loadRoomPhotoPhase();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDevices();
     });
+  }
+
+  Future<void> _loadDevicePresentations(List<Device> devices) async {
+    final map = <String, AppliancePresentation>{};
+    for (final device in devices) {
+      map[device.id] =
+          await ApplianceTemplateService.instance.resolvePresentation(device);
+    }
+    if (!mounted) return;
+    setState(() => _presentationByDeviceId = map);
+  }
+
+  bool _deviceNeedsAttention(Device device) {
+    if (device.safetyInfo?.isRecallActive == true) return true;
+    final alerts = device.maintenance?.alerts ?? [];
+    return alerts.any((a) => a.priority == 'high' || a.priority == 'medium');
+  }
+
+  Future<void> _loadRoomPhotoPhase() async {
+    final applianceDone = await RoomPhotoService.isApplianceSetupDone();
+    final photosDone = await RoomPhotoService.isRoomPhotosConfigured();
+    if (!mounted) return;
+    setState(() {
+      _applianceSetupDone = applianceDone;
+      _roomPhotosConfigured = photosDone;
+    });
+    await _reloadRoomImagePaths();
+    if (applianceDone && !photosDone) {
+      _maybePromptRoomPhotoSetup();
+    }
+  }
+
+  Future<void> _reloadRoomImagePaths() async {
+    final ids = _homeRoomIds
+        .where((id) => OnboardingRoomCatalog.cardById.containsKey(id))
+        .toList();
+    final effective = ids.isNotEmpty
+        ? ids
+        : OnboardingRoomCatalog.defaultHomeRoomIds;
+    for (final id in effective) {
+      _roomImagePaths[id] = await RoomPhotoService.imagePathForRoom(id);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openAddAppliance() async {
+    final finished = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddApplianceScreen(initialRoomId: _selectedRoomId),
+      ),
+    );
+    if (!mounted) return;
+    final deviceService = Provider.of<DeviceService>(context, listen: false);
+    await deviceService.loadData();
+    await _loadDevicePresentations(deviceService.devices);
+    await _loadRoomPhotoPhase();
+    if (finished == true && !_roomPhotosConfigured) {
+      _maybePromptRoomPhotoSetup();
+    }
+  }
+
+  void _maybePromptRoomPhotoSetup() {
+    if (_roomPhotosConfigured || _roomPhotoPromptShown) return;
+    _roomPhotoPromptShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('部屋の写真を設定'),
+          content: const Text(
+            '家電の登録、おつかれさまでした。\n'
+            '次は、お部屋の写真を登録してホーム画面を自分の住まいらしくしましょう。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('あとで'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('写真を設定する'),
+            ),
+          ],
+        ),
+      );
+      if (go == true && mounted) {
+        await _openRoomPhotoSetup();
+      }
+    });
+  }
+
+  Future<void> _openRoomPhotoSetup() async {
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const RoomPhotoSetupScreen(),
+      ),
+    );
+    if (done == true && mounted) {
+      await _loadRoomPhotoPhase();
+    }
+  }
+
+  Future<void> _loadOnboardingRoomPrefs() async {
+    final ids = await OnboardingPrefs.getSelectedRoomIds();
+    if (!mounted) return;
+    if (ids.isNotEmpty) {
+      setState(() => _homeRoomIds = ids);
+    }
+    await _reloadRoomImagePaths();
   }
 
   @override
@@ -42,25 +164,47 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  void _applyInitialRoomSelection(DeviceService deviceService) {
+    final rooms = _getRooms(deviceService);
+    if (rooms.isNotEmpty && _selectedRoomId == null) {
+      _selectedRoomId = rooms[0].id;
+    }
+  }
+
+  void _maybeShowPendingMessage(DeviceService deviceService) {
+    final message = deviceService.consumePendingUserMessage();
+    if (message == null || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+      );
+    });
+  }
+
   void _loadDevices() async {
     if (!mounted) return;
 
     try {
       final deviceService = Provider.of<DeviceService>(context, listen: false);
+
+      if (deviceService.devices.isNotEmpty && !deviceService.isLoading) {
+        if (mounted) {
+          await _loadOnboardingRoomPrefs();
+          await _loadDevicePresentations(deviceService.devices);
+          setState(() => _applyInitialRoomSelection(deviceService));
+          _maybeShowPendingMessage(deviceService);
+        }
+        return;
+      }
+
       await deviceService.loadData();
 
       if (mounted) {
-        setState(() {
-          // 初期表示時は最初の部屋を選択状態にする
-          // Note: deviceService is available in the outer scope of _loadDevices via Provider lookup? No, we looked it up at line 47.
-          // Re-using the deviceService instance from line 47 is tricky because we are in setState callback (anonymous function).
-          // But line 47 variable 'deviceService' is available in the closure? Yes.
-          final rooms = _getRooms(deviceService);
-          if (rooms.isNotEmpty) {
-            _selectedRoomId = rooms[0].id;
-          }
-          _updateFilteredDevices();
-        });
+        await _loadOnboardingRoomPrefs();
+        await _loadDevicePresentations(deviceService.devices);
+        setState(() => _applyInitialRoomSelection(deviceService));
+        _maybeShowPendingMessage(deviceService);
       }
     } catch (e) {
       print('Error loading devices in HomeScreen: $e');
@@ -208,32 +352,29 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final roomIds = _homeRoomIds
+        .where((id) => OnboardingRoomCatalog.cardById.containsKey(id))
+        .toList();
+    final effectiveIds = roomIds.isNotEmpty
+        ? roomIds
+        : OnboardingRoomCatalog.defaultHomeRoomIds;
+
     return [
-      createRoomCard(
-        id: 'living-room',
-        title: 'Living Room',
-        imagePath: 'assets/images/Living_sample.jpg',
-      ),
-      createRoomCard(
-        id: 'bedroom-01',
-        title: 'Bedroom',
-        imagePath: 'assets/images/Bedroom_sample.jpg',
-      ),
-      createRoomCard(
-        id: 'kitchen-01',
-        title: 'Kitchen',
-        imagePath: 'assets/images/Kitchen_sample.jpg',
-      ),
+      for (final id in effectiveIds)
+        createRoomCard(
+          id: id,
+          title: OnboardingRoomCatalog.cardById[id]!.title,
+          imagePath: _roomImagePaths[id] ??
+              OnboardingRoomCatalog.cardById[id]!.imagePath,
+        ),
     ];
   }
 
-  void _updateFilteredDevices() {
-    final deviceService = Provider.of<DeviceService>(context, listen: false);
+  List<Device> _devicesForDisplay(DeviceService deviceService) {
     if (_selectedRoomId != null) {
-      _filteredDevices = deviceService.getDevicesByRoom(_selectedRoomId!);
-    } else {
-      _filteredDevices = deviceService.devices;
+      return deviceService.getDevicesByRoom(_selectedRoomId!);
     }
+    return deviceService.devices;
   }
 
   void _onPageChanged(int index) {
@@ -243,18 +384,13 @@ class _HomeScreenState extends State<HomeScreen> {
       final rooms = _getRooms(deviceService);
       if (index < rooms.length) {
         _selectedRoomId = rooms[index].id;
-      } else {
-        // AI Generator card selected
-        _selectedRoomId = null;
       }
-      _updateFilteredDevices();
     });
   }
 
   void _clearFilter() {
     setState(() {
       _selectedRoomId = null;
-      _updateFilteredDevices();
     });
   }
 
@@ -283,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'すべての家電を見る',
           ),
-          if (kDebugMode)
+          if (kDebugMode && !PlatformSupport.isWebUiPreview)
             IconButton(
               icon: const Icon(Icons.settings, color: Color(0xFF333333)),
               onPressed: () {
@@ -312,10 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (deviceService.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (deviceService.devices.isEmpty &&
-              deviceService.errorMessage == null) {
-            return _buildEmptyState();
-          }
+          final displayedDevices = _devicesForDisplay(deviceService);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -333,12 +466,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       // メンテナンスバナー
                       _buildMaintenanceBanner(deviceService),
 
+                      if (_applianceSetupDone && !_roomPhotosConfigured) ...[
+                        _buildRoomPhotoPromptBanner(context),
+                        const SizedBox(height: 16),
+                      ],
+
                       // チャットBOX (Reduced height)
                       _buildChatBox(context, deviceService),
                       const SizedBox(height: 24),
 
                       // デバイス一覧
-                      _buildDeviceList(context, deviceService),
+                      _buildDeviceList(context, deviceService, displayedDevices),
                     ],
                   ),
                 ),
@@ -374,23 +512,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.devices_other, size: 64, color: Color(0xFF999999)),
-          SizedBox(height: 16),
-          Text(
-            'デバイスが登録されていません',
-            style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
+  Widget _buildRoomPhotoPromptBanner(BuildContext context) {
+    return Material(
+      color: const Color(0xFFEFF6FF),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: _openRoomPhotoSetup,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Icon(Icons.photo_camera_outlined, color: Color(0xFF1D4ED8)),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '部屋の写真を設定しましょう',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'いまはサンプル画像です。撮影やアルバムから選べます。',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6)),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.blue[300]),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildDeviceList(BuildContext context, DeviceService deviceService) {
+  Widget _buildDeviceList(
+    BuildContext context,
+    DeviceService deviceService,
+    List<Device> displayedDevices,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -400,11 +567,12 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Text(
                 _selectedRoomId != null
-                    ? 'デバイス一覧 - ${_getRoomName(_selectedRoomId!)}'
-                    : 'デバイス一覧',
+                    ? '登録した家電 · ${_getRoomName(_selectedRoomId!)}'
+                    : '登録した家電',
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w300,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF333333),
                 ),
               ),
             ),
@@ -414,48 +582,72 @@ class _HomeScreenState extends State<HomeScreen> {
                   TextButton(
                     onPressed: _clearFilter,
                     child:
-                        const Text('フィルタをクリア', style: TextStyle(fontSize: 12)),
+                        const Text('すべて', style: TextStyle(fontSize: 12)),
                   ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AllDevicesScreen(),
-                      ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                if (displayedDevices.isNotEmpty)
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const AllDevicesScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('詳細一覧', style: TextStyle(fontSize: 12)),
                   ),
-                  child: const Text('すべて見る', style: TextStyle(fontSize: 12)),
-                ),
               ],
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        if (_filteredDevices.isEmpty)
+        const SizedBox(height: 4),
+        const Text(
+          'タップしてお手入れや資産情報を確認できます',
+          style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+        ),
+        const SizedBox(height: 12),
+        if (displayedDevices.isEmpty)
           Container(
-            padding: const EdgeInsets.all(32),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
-              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: const Color(0xFFE5E5E5)),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: const Center(
-              child: Text(
-                'この部屋にはデバイスが登録されていません',
-                style: TextStyle(fontSize: 14, color: Color(0xFF666666)),
-              ),
+            child: const Text(
+              'この部屋にはまだ家電が登録されていません',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
             ),
           )
         else
-          ..._filteredDevices.map(
-            (device) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: DeviceCard(device: device),
+          SizedBox(
+            height: ApplianceCompactCard.cardHeight,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: displayedDevices.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final device = displayedDevices[index];
+                final presentation = _presentationByDeviceId[device.id];
+                final icon = presentation?.icon ?? '📦';
+                final title = presentation?.title ??
+                    (device.category.isNotEmpty
+                        ? device.category
+                        : device.name);
+                return ApplianceCompactCard(
+                  icon: icon,
+                  title: title,
+                  showAlertDot: _deviceNeedsAttention(device),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DeviceDetailScreen(device: device),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
       ],
@@ -465,7 +657,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRoomCardsCarousel(
       BuildContext context, DeviceService deviceService) {
     final rooms = _getRooms(deviceService);
-    final itemCount = rooms.length + 1; // +1 for AI Generator
+    final showPhotoSetupCard =
+        _applianceSetupDone && !_roomPhotosConfigured;
+    final itemCount = rooms.length + (showPhotoSetupCard ? 1 : 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,15 +675,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               // Updated Button Name and Icon
               TextButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const ScanScreen()),
-                  );
-                },
-                icon: const Icon(Icons.qr_code_2, size: 20), // Barcode icon
-                label: const Text('家電を追加'), // Clearer label
+                onPressed: _openAddAppliance,
+                icon: const Icon(Icons.add, size: 20),
+                label: const Text('家電を追加'),
                 style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF3b82f6)),
+                  foregroundColor: const Color(0xFF3b82f6),
+                ),
               ),
             ],
           ),
@@ -497,8 +688,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 16),
         // Carousel
         SizedBox(
-          height:
-              380, // Restored to smaller height due to overflow fix + PageView behavior
+          height: 395,
           child: PageView.builder(
             controller: _pageController,
             itemCount: itemCount,
@@ -508,7 +698,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 8.0), // Padding between cards
                 child: index < rooms.length
-                    ? RoomCardWidget(
+                    ? SizedBox(
+                        height: 395,
+                        child: RoomCardWidget(
                         room: rooms[index],
                         onTap: () {
                           _pageController.animateToPage(
@@ -517,8 +709,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             curve: Curves.easeOut,
                           );
                         },
+                        onCustomizePhoto: _applianceSetupDone &&
+                                !_roomPhotosConfigured
+                            ? _openRoomPhotoSetup
+                            : null,
+                      ),
                       )
-                    : _buildAiGeneratorCard(context),
+                    : _buildRoomPhotoSetupCard(context),
               );
             },
           ),
@@ -527,17 +724,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAiGeneratorCard(BuildContext context) {
+  Widget _buildRoomPhotoSetupCard(BuildContext context) {
     return Container(
       width: 280,
-      // Removed margin here because PageView handles spacing via padding in itemBuilder
       decoration: BoxDecoration(
         color: const Color(0xFFF9F9F9),
         borderRadius: BorderRadius.circular(2),
         border: Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
       ),
       child: InkWell(
-        onTap: () => _simulateAiGeneration(context),
+        onTap: _openRoomPhotoSetup,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -554,12 +750,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.auto_awesome,
+              child: const Icon(Icons.photo_camera_outlined,
                   size: 32, color: Color(0xFF333333)),
             ),
             const SizedBox(height: 24),
             const Text(
-              'Generate My Room\nwith AI',
+              '部屋の写真を\n設定する',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -570,45 +766,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Transform your photo\ninto Japandi Style',
+              '撮影やアルバムから\nお部屋の写真を登録',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
-                  fontWeight: FontWeight.w400),
+                fontSize: 12,
+                color: Colors.grey[500],
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _simulateAiGeneration(BuildContext context) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 16),
-            Text('Analyzing your room structure...',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    decoration: TextDecoration.none)),
-          ],
-        ),
-      ),
-    );
-    await Future.delayed(const Duration(seconds: 3));
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('✨ Room generated! (Demo functionality)'),
-          behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -703,7 +871,7 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 200, // Reduced height to fix "useless whitespace"
+          height: 220,
           child: ChatWidget(devices: deviceService.devices),
         ),
       ],
@@ -711,9 +879,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getRoomName(String roomId) {
-    if (roomId == 'living') return 'Living Room';
-    if (roomId == 'bedroom') return 'Bedroom';
-    if (roomId == 'kitchen') return 'Kitchen';
+    if (roomId == 'living-room' || roomId == 'living') {
+      return 'Living Room';
+    }
+    if (roomId == 'bedroom-01' || roomId == 'bedroom') {
+      return 'Bedroom';
+    }
+    if (roomId == 'kitchen-01' || roomId == 'kitchen') {
+      return 'Kitchen';
+    }
+    if (roomId == 'entrance') {
+      return 'Entrance';
+    }
+    if (roomId == 'study') {
+      return 'Study';
+    }
 
     final deviceService = Provider.of<DeviceService>(context, listen: false);
     try {

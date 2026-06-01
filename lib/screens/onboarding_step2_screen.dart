@@ -26,7 +26,7 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
         children: [
           const SizedBox(height: 40),
           const Text(
-            'お部屋を確認',
+            '使うお部屋を選びましょう',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w200,
@@ -36,7 +36,9 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            '使わない部屋はタップで外せます。\nあとからいつでも追加・変更できます。',
+            'いまはサンプルの部屋画像が表示されます。\n'
+            '写真は、家電の登録が終わってから設定できます。\n'
+            '使わない部屋はチェックを外してください。',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w300,

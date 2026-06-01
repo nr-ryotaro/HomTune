@@ -4,24 +4,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/add_device_screen.dart';
+import 'screens/web_unsupported_feature_screen.dart';
+import 'widgets/web_preview_banner.dart';
+import 'utils/platform_support.dart';
 import 'services/config_service.dart';
 import 'services/device_service.dart';
 import 'services/notification_service.dart';
+import 'services/onboarding_prefs.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('ja_JP');
+  try {
+    await initializeDateFormatting('ja_JP');
+  } catch (e) {
+    debugPrint('Date formatting init failed, using default locale: $e');
+    try {
+      await initializeDateFormatting('en_US');
+    } catch (_) {}
+  }
   final configService = ConfigService();
   await configService.load();
 
-  // オンボーディング完了チェック
-  final prefs = await SharedPreferences.getInstance();
-  final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+  final showOnboarding = await OnboardingPrefs.shouldShowOnLaunch();
 
   // メンテナンス通知サービスの初期化
   final notificationService = NotificationService();
@@ -43,7 +51,7 @@ Future<void> main() async {
       };
       runApp(HomTuneApp(
         configService: configService,
-        onboardingCompleted: onboardingCompleted,
+        showOnboarding: showOnboarding,
       ));
     },
     (error, stack) {
@@ -57,10 +65,10 @@ class HomTuneApp extends StatelessWidget {
   const HomTuneApp({
     super.key,
     required this.configService,
-    required this.onboardingCompleted,
+    required this.showOnboarding,
   });
   final ConfigService configService;
-  final bool onboardingCompleted;
+  final bool showOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +78,20 @@ class HomTuneApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DeviceService()),
       ],
       child: MaterialApp(
-        title: 'HomTune',
+        title: PlatformSupport.isWebUiPreview
+            ? 'HomTune (Web Preview)'
+            : 'HomTune',
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          if (child == null) return const SizedBox.shrink();
+          if (!PlatformSupport.isWebUiPreview) return child;
+          return Column(
+            children: [
+              const WebPreviewBanner(),
+              Expanded(child: child),
+            ],
+          );
+        },
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
@@ -79,14 +99,20 @@ class HomTuneApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
           scaffoldBackgroundColor: Colors.white,
-          fontFamily:
-              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         ),
-        home:
-            onboardingCompleted ? const HomeScreen() : const OnboardingScreen(),
+        home: showOnboarding
+            ? const OnboardingScreen()
+            : const HomeScreen(),
         routes: {
           '/home': (context) => const HomeScreen(),
-          '/scan': (context) => const ScanScreen(),
+          '/onboarding': (context) => const OnboardingScreen(),
+          '/onboarding-preview': (context) =>
+              const OnboardingScreen(isPreview: true),
+          '/scan': (context) => PlatformSupport.supportsSmartIngester
+              ? const ScanScreen()
+              : const WebUnsupportedFeatureScreen(
+                  featureName: 'Smart Ingester',
+                ),
           '/add-device': (context) => const AddDeviceScreen(),
         },
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../utils/platform_support.dart';
 import '../services/device_service.dart';
 import '../models/room.dart';
 import '../screens/manual_registration_screen.dart';
@@ -79,7 +80,8 @@ class DeviceForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 画像アップロードセクション
-        _buildImageSection(context),
+        if (PlatformSupport.supportsDevicePhotoPick)
+          _buildImageSection(context),
         const SizedBox(height: 32),
 
         // マニュアル設定セクション

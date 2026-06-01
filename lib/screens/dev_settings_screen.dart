@@ -2,11 +2,63 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/config_service.dart';
+import '../services/onboarding_prefs.dart';
+import 'onboarding_screen.dart';
 
 /// 機能確認用の開発者設定画面（kDebugMode 時のみ表示）
 /// リリース前に削除予定（RELEASE_CHECKLIST.md 参照）
-class DevSettingsScreen extends StatelessWidget {
+class DevSettingsScreen extends StatefulWidget {
   const DevSettingsScreen({super.key});
+
+  @override
+  State<DevSettingsScreen> createState() => _DevSettingsScreenState();
+}
+
+class _DevSettingsScreenState extends State<DevSettingsScreen> {
+  bool _showOnboardingOnLaunch = false;
+  bool _onboardingPrefsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOnboardingPrefs();
+  }
+
+  Future<void> _loadOnboardingPrefs() async {
+    final enabled = await OnboardingPrefs.isShowOnLaunchEnabled();
+    if (!mounted) return;
+    setState(() {
+      _showOnboardingOnLaunch = enabled;
+      _onboardingPrefsLoaded = true;
+    });
+  }
+
+  Future<void> _setShowOnboardingOnLaunch(bool value) async {
+    await OnboardingPrefs.setShowOnLaunch(value);
+    if (!mounted) return;
+    setState(() => _showOnboardingOnLaunch = value);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value
+              ? '次回起動時に初回LPを表示します。'
+              : '次回起動時の初回LP表示をオフにしました。',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _openOnboardingPreview() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OnboardingScreen(
+          key: ValueKey<int>(DateTime.now().millisecondsSinceEpoch),
+          isPreview: true,
+        ),
+      ),
+    );
+  }
 
   /// Gemini API キーが設定されているかどうか
   static bool get _hasGeminiApiKey {
@@ -224,6 +276,61 @@ class DevSettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+
+                const SizedBox(height: 24),
+
+                const Text(
+                  '初回LP（オンボーディング）',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '次回起動時に初回LPを表示',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            'ON: 完了済みでも次回起動でLPを操作できます',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF888888),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _showOnboardingOnLaunch,
+                      onChanged: _onboardingPrefsLoaded
+                          ? _setShowOnboardingOnLaunch
+                          : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _openOnboardingPreview,
+                  icon: const Icon(Icons.play_circle_outline, size: 20),
+                  label: const Text('今すぐ初回LPを確認'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF333333),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 24),
 
