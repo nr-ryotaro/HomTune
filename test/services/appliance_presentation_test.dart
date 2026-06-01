@@ -57,4 +57,32 @@ void main() {
     expect(presentation.icon, '📺');
     expect(presentation.title, 'テレビ');
   });
+
+  test('resolvePresentation applies custom display name and icon', () async {
+    final device = Device(
+      id: 'd3',
+      name: '超音波式加湿器',
+      modelNumber: 'ABC-100',
+      category: '加湿器',
+      manufacturer: 'シャープ',
+      purchaseDate: '2024-01-01',
+      purchasePrice: 10000,
+      yearsOwned: 1,
+      room: 'living-room',
+      location: '',
+      status: 'active',
+      consumables: [],
+      photos: [],
+      documents: [],
+      customDisplayName: 'リビングの加湿器',
+      customIcon: '🌫️',
+    );
+
+    final presentation =
+        await ApplianceTemplateService.instance.resolvePresentation(device);
+
+    expect(presentation.icon, '🌫️');
+    expect(presentation.title, 'リビングの加湿器');
+    expect(presentation.subtitle, 'ABC-100');
+  });
 }

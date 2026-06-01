@@ -9,8 +9,8 @@ import '../services/maintenance_calendar_service.dart';
 import '../models/device.dart';
 import '../services/appliance_template_service.dart';
 import '../models/appliance_presentation.dart';
-import '../widgets/appliance_compact_card.dart';
-import 'device_detail_screen.dart';
+import '../widgets/appliance_icon_chip.dart';
+import '../widgets/device_quick_preview_sheet.dart';
 import '../widgets/chat_widget.dart';
 import 'all_devices_screen.dart';
 import 'add_appliance_screen.dart';
@@ -601,10 +601,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'タップしてお手入れや資産情報を確認できます',
+          'アイコンをタップすると名前と詳細が表示されます',
           style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         if (displayedDevices.isEmpty)
           Container(
             width: double.infinity,
@@ -622,29 +622,31 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         else
           SizedBox(
-            height: ApplianceCompactCard.cardHeight,
+            height: ApplianceIconChip.size,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: displayedDevices.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final device = displayedDevices[index];
-                final presentation = _presentationByDeviceId[device.id];
-                final icon = presentation?.icon ?? '📦';
-                final title = presentation?.title ??
-                    (device.category.isNotEmpty
-                        ? device.category
-                        : device.name);
-                return ApplianceCompactCard(
-                  icon: icon,
-                  title: title,
-                  showAlertDot: _deviceNeedsAttention(device),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => DeviceDetailScreen(device: device),
-                      ),
+                final presentation = _presentationByDeviceId[device.id] ??
+                    AppliancePresentation(
+                      icon: '📦',
+                      title: device.category.isNotEmpty
+                          ? device.category
+                          : device.name,
                     );
+                return ApplianceIconChip(
+                  icon: presentation.icon,
+                  showAlertDot: _deviceNeedsAttention(device),
+                  onTap: () async {
+                    await DeviceQuickPreviewSheet.show(
+                      context,
+                      device: device,
+                      presentation: presentation,
+                    );
+                    if (!mounted) return;
+                    await _loadDevicePresentations(deviceService.devices);
                   },
                 );
               },

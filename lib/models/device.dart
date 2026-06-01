@@ -42,6 +42,8 @@ class Device {
   final List<String> documents;
   final List<MaintenanceTask> maintenanceTasks;
   final String? archetypeId;
+  final String? customDisplayName;
+  final String? customIcon;
 
   Device({
     required this.id,
@@ -71,6 +73,8 @@ class Device {
     this.manualState = ManualFetchState.notFetched,
     List<MaintenanceTask>? maintenanceTasks,
     this.archetypeId,
+    this.customDisplayName,
+    this.customIcon,
   }) : maintenanceTasks = maintenanceTasks ?? [];
 
   factory Device.fromJson(Map<String, dynamic> json) {
@@ -177,6 +181,8 @@ class Device {
                 .toList() ??
             [],
         archetypeId: json['archetypeId']?.toString(),
+        customDisplayName: json['customDisplayName']?.toString(),
+        customIcon: json['customIcon']?.toString(),
       );
     } catch (e) {
       print('Error parsing Device: $e');
@@ -214,6 +220,10 @@ class Device {
       'maintenanceTasks': maintenanceTasks.map((e) => e.toJson()).toList(),
       if (archetypeId != null && archetypeId!.isNotEmpty)
         'archetypeId': archetypeId,
+      if (customDisplayName != null && customDisplayName!.isNotEmpty)
+        'customDisplayName': customDisplayName,
+      if (customIcon != null && customIcon!.isNotEmpty)
+        'customIcon': customIcon,
     };
   }
 
@@ -245,6 +255,8 @@ class Device {
     ManualFetchState? manualState,
     List<MaintenanceTask>? maintenanceTasks,
     String? archetypeId,
+    String? customDisplayName,
+    String? customIcon,
   }) {
     return Device(
       id: id ?? this.id,
@@ -274,6 +286,8 @@ class Device {
       manualState: manualState ?? this.manualState,
       maintenanceTasks: maintenanceTasks ?? this.maintenanceTasks,
       archetypeId: archetypeId ?? this.archetypeId,
+      customDisplayName: customDisplayName ?? this.customDisplayName,
+      customIcon: customIcon ?? this.customIcon,
     );
   }
 }

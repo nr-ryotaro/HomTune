@@ -9,15 +9,20 @@ import '../services/sell_advisor_service.dart';
 import '../services/config_service.dart';
 import '../services/device_service.dart';
 import '../services/maintenance_calendar_service.dart';
-import 'anthropomorphic_device_icon.dart';
+import '../models/appliance_presentation.dart';
 import 'asset_value_chart.dart';
 import '../screens/maintenance_detail_screen.dart';
 import '../screens/maintenance_calendar_screen.dart';
 
 class DeviceDetailContent extends StatefulWidget {
   final Device device;
+  final AppliancePresentation? presentation;
 
-  const DeviceDetailContent({super.key, required this.device});
+  const DeviceDetailContent({
+    super.key,
+    required this.device,
+    this.presentation,
+  });
 
   @override
   State<DeviceDetailContent> createState() => _DeviceDetailContentState();
@@ -93,6 +98,15 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
     final currencyFormatter =
         NumberFormat.currency(locale: 'ja_JP', symbol: '¥', decimalDigits: 0);
     final device = widget.device;
+    final p = widget.presentation;
+    final displayIcon = p?.icon ?? '📦';
+    final displayTitle = p?.title ??
+        (device.category.isNotEmpty ? device.category : device.name);
+    final modelLine = p?.subtitle?.trim().isNotEmpty == true
+        ? p!.subtitle!
+        : (device.modelNumber.trim().isNotEmpty
+            ? '${device.manufacturer} ${device.modelNumber}'.trim()
+            : null);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -104,45 +118,45 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
             child: Column(
               children: [
                 Container(
-                  width: 100,
-                  height: 100,
+                  width: 88,
+                  height: 88,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE5E5E5)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: AnthropomorphicDeviceIcon(
-                      device: device,
-                      size: 50,
-                      showAnimation: true,
-                    ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    displayIcon,
+                    style: const TextStyle(fontSize: 40, height: 1),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  device.name,
+                  displayTitle,
                   style: const TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFF333333),
                   ),
                   textAlign: TextAlign.center,
                 ),
-                if (device.modelNumber.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                if (modelLine != null && modelLine.isNotEmpty) ...[
+                  const SizedBox(height: 6),
                   Text(
-                    '${device.manufacturer} ${device.modelNumber}',
-                    style: TextStyle(
+                    modelLine,
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: Color(0xFF888888),
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ],

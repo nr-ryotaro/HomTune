@@ -4,7 +4,8 @@ import '../models/appliance_presentation.dart';
 import '../models/device.dart';
 import '../services/appliance_template_service.dart';
 import '../services/device_service.dart';
-import '../widgets/appliance_compact_card.dart';
+import '../widgets/appliance_detail_card.dart';
+import '../widgets/edit_device_appearance_sheet.dart';
 import 'add_appliance_screen.dart';
 import 'device_detail_screen.dart';
 
@@ -51,6 +52,25 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
         return '玄関';
       default:
         return roomId;
+    }
+  }
+
+  Future<void> _openEditAppearance(
+    BuildContext context,
+    Device device,
+  ) async {
+    final defaultPresentation = await resolveDefaultPresentation(device);
+    if (!context.mounted) return;
+    final service = Provider.of<DeviceService>(context, listen: false);
+    final latest = service.getDeviceById(device.id) ?? device;
+    final updated = await EditDeviceAppearanceSheet.show(
+      context,
+      device: latest,
+      defaultPresentation: defaultPresentation,
+    );
+    if (updated == true && mounted) {
+      await service.loadData();
+      await _loadPresentations(service.devices);
     }
   }
 
@@ -180,7 +200,8 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.only(top: index > 0 ? 24 : 0, bottom: 12),
+                    padding:
+                        EdgeInsets.only(top: index > 0 ? 24 : 0, bottom: 12),
                     child: Row(
                       children: [
                         Text(
@@ -215,7 +236,7 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                     ),
                   ),
                   SizedBox(
-                    height: ApplianceCompactCard.cardHeight,
+                    height: ApplianceDetailCard.cardHeight,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: roomDevices.length,
@@ -223,20 +244,29 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                       itemBuilder: (context, deviceIndex) {
                         final device = roomDevices[deviceIndex];
                         final p = _presentations[device.id];
-                        return ApplianceCompactCard(
+                        final title = p?.title ??
+                            (device.category.isNotEmpty
+                                ? device.category
+                                : device.name);
+                        return ApplianceDetailCard(
                           icon: p?.icon ?? '📦',
-                          title: p?.title ??
-                              (device.category.isNotEmpty
-                                  ? device.category
-                                  : device.name),
+                          title: title,
+                          subtitle: p?.subtitle,
                           showAlertDot: _deviceNeedsAttention(device),
-                          onTap: () {
-                            Navigator.of(context).push(
+                          onEdit: () => _openEditAppearance(context, device),
+                          onTap: () async {
+                            await Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
                                     DeviceDetailScreen(device: device),
                               ),
                             );
+                            if (!mounted) return;
+                            final service = Provider.of<DeviceService>(
+                              context,
+                              listen: false,
+                            );
+                            await _loadPresentations(service.devices);
                           },
                         );
                       },

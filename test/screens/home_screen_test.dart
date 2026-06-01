@@ -114,6 +114,13 @@ class MockDeviceService extends ChangeNotifier implements DeviceService {
   @override
   Future<void> updateDevice(Device device) async {}
   @override
+  Future<void> updateDeviceAppearance(
+    String deviceId, {
+    String? displayName,
+    String? icon,
+    bool resetToDefault = false,
+  }) async {}
+  @override
   Future<void> onMaintenanceTasksUpdated(String deviceId) async {}
   @override
   String? consumePendingUserMessage() => null;

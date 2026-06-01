@@ -21,9 +21,19 @@ flutter run -d chrome
 
 ## 公開（Netlify Drop が最速）
 
-1. [Netlify Drop](https://app.netlify.com/drop) を開く
-2. `build/web` フォルダをドラッグ＆ドロップ
-3. 表示された URL を共有
+1. `.\scripts\build_web_preview.ps1` を実行（`dist/homtune-web-deploy.zip` も生成されます）
+2. [Netlify Drop](https://app.netlify.com/drop) を開く
+3. **`build/web` フォルダ全体**（または `dist/homtune-web-deploy.zip`）をドラッグ＆ドロップ
+4. 表示された URL を共有
+
+### 白画面になる典型原因
+
+| アップロードしたもの | 結果 |
+|---------------------|------|
+| `build/web`（ビルド後） | 正常 |
+| リポジトリ直下の `web/`（ソースのみ） | **白画面**（`main.dart.js` が無い） |
+
+デプロイ後、`https://あなたのURL/main.dart.js` を開いて **404 でなければ OK** です。
 
 ## 公開（Netlify CLI）
 

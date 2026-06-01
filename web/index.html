@@ -33,6 +33,22 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="loading" style="font-family:system-ui,sans-serif;padding:2rem;text-align:center;color:#333;">
+    <p style="font-size:1.1rem;margin:0 0 0.5rem;">HomTune を読み込み中…</p>
+    <p style="font-size:0.85rem;color:#888;margin:0;">初回は数十秒かかることがあります</p>
+  </div>
+  <script>
+    window.addEventListener('error', function (e) {
+      if (e.target && e.target.tagName === 'SCRIPT') {
+        var el = document.getElementById('loading');
+        if (el) {
+          el.innerHTML = '<p style="color:#b91c1c;font-weight:600;">読み込みに失敗しました</p>' +
+            '<p style="font-size:0.85rem;color:#666;">Netlify には <code>build/web</code> フォルダ全体をアップロードしてください。<br>' +
+            'リポジトリ直下の <code>web/</code> だけでは動きません。</p>';
+        }
+      }
+    }, true);
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

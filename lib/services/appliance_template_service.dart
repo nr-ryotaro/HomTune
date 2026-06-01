@@ -133,26 +133,55 @@ class ApplianceTemplateService {
     'オーディオ': '🔊',
   };
 
-  /// ホームのコンパクトカード用表示（絵文字＋テンプレ名称を優先）
+  /// ホームのコンパクトカード用表示（カスタム > テンプレ > カテゴリ）
   Future<AppliancePresentation> resolvePresentation(Device device) async {
     await _ensureLoaded();
     final archetype = await _findArchetypeForDevice(device);
+
+    AppliancePresentation base;
     if (archetype != null) {
-      return AppliancePresentation(
+      base = AppliancePresentation(
         icon: archetype.icon,
         title: archetype.displayName,
         subtitle: _modelSubtitle(device, archetype.displayName),
       );
+    } else {
+      final categoryTitle =
+          device.category.trim().isNotEmpty ? device.category.trim() : null;
+      final title = categoryTitle ?? _shortName(device.name);
+      base = AppliancePresentation(
+        icon: _categoryFallbackIcons[device.category] ?? '📦',
+        title: title,
+        subtitle: _modelSubtitle(device, title),
+      );
     }
 
-    final categoryTitle =
-        device.category.trim().isNotEmpty ? device.category.trim() : null;
-    final title = categoryTitle ?? _shortName(device.name);
+    final customIcon = device.customIcon?.trim();
+    final customTitle = device.customDisplayName?.trim();
+    final title = (customTitle != null && customTitle.isNotEmpty)
+        ? customTitle
+        : base.title;
     return AppliancePresentation(
-      icon: _categoryFallbackIcons[device.category] ?? '📦',
+      icon: (customIcon != null && customIcon.isNotEmpty)
+          ? customIcon
+          : base.icon,
       title: title,
-      subtitle: _modelSubtitle(device, title),
+      subtitle: _detailModelLine(device, title),
     );
+  }
+
+  /// 詳細一覧用（型番・製品名を優先表示）
+  String? _detailModelLine(Device device, String displayTitle) {
+    final model = device.modelNumber.trim();
+    if (model.isNotEmpty) return model;
+    final productName = device.name.trim();
+    if (productName.isNotEmpty &&
+        productName.toLowerCase() != displayTitle.toLowerCase()) {
+      return productName;
+    }
+    final maker = device.manufacturer.trim();
+    if (maker.isNotEmpty) return maker;
+    return null;
   }
 
   Future<ApplianceArchetype?> _findArchetypeForDevice(Device device) async {

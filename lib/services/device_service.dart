@@ -808,6 +808,34 @@ class DeviceService extends ChangeNotifier {
     return count;
   }
 
+  /// 一覧表示用の名前・絵文字を更新（空文字でカスタムを解除）
+  Future<void> updateDeviceAppearance(
+    String deviceId, {
+    String? displayName,
+    String? icon,
+    bool resetToDefault = false,
+  }) async {
+    final index = _devices.indexWhere((d) => d.id == deviceId);
+    if (index < 0) return;
+    final current = _devices[index];
+    if (resetToDefault) {
+      _devices[index] = current.copyWith(
+        customDisplayName: '',
+        customIcon: '',
+      );
+    } else {
+      _devices[index] = current.copyWith(
+        customDisplayName: displayName ?? current.customDisplayName,
+        customIcon: icon ?? current.customIcon,
+      );
+    }
+    await MaintenanceCalendarService.saveTasks(_devices);
+    if (!_seedDeviceIds.contains(deviceId)) {
+      await _persistUserDevices();
+    }
+    notifyListeners();
+  }
+
   Future<void> updateDevice(Device updatedDevice) async {
     final index = _devices.indexWhere((d) => d.id == updatedDevice.id);
     if (index >= 0) {
