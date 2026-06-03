@@ -44,62 +44,34 @@ HomTuneは、単なる家電管理を超えて、以下の機能を提供しま�
 ```
 HomTune/
 ├── lib/
-│   ├── main.dart                 # アプリエントリーポイント
-│   ├── models/
-│   │   ├── device.dart           # Device モデル（家電の全情報）
-│   │   ├── room.dart             # Room モデル
-│   │   ├── room_card_model.dart  # ルームカード表示用モデル
-│   │   └── safety_info.dart      # 安全情報モデル
-│   ├── screens/
-│   │   ├── home_screen.dart              # ホーム画面（ルームカード一覧 + デバイス一覧）
-│   │   ├── device_detail_screen.dart     # デバイス詳細画面
-│   │   ├── room_devices_screen.dart      # 部屋別デバイス一覧
-│   │   ├── all_devices_screen.dart       # 全デバイス一覧
-│   │   ├── add_device_screen.dart        # デバイス追加（手動入力）
-│   │   ├── scan_screen.dart              # スマートスキャン（バーコード / 型番 OCR）
-│   │   ├── manual_registration_screen.dart # 取扱説明書の手動登録
-│   │   ├── manual_viewer_screen.dart     # PDF ビューア
-│   │   └── dev_settings_screen.dart      # 開発者設定
-│   ├── services/
-│   │   ├── device_service.dart           # デバイス CRUD + ダミーデータ
-│   │   ├── chat_service.dart             # AI チャット（Gemini API + デバイスコンテキスト注入）
-│   │   ├── sell_advisor_service.dart      # 売却タイミング分析（BV×MV交差点算出）
-│   │   ├── asset_valuation_service.dart  # 帳簿価値・市場価値の計算
-│   │   ├── valuation_service.dart        # 資産評価ロジック
-│   │   ├── scanner_service.dart          # OCR + Gemini 構造化抽出
-│   │   ├── manual_fetch_service.dart     # マニュアル自動取得（スタブ）
-│   │   ├── manual_search_service.dart    # 説明書 Web 検索
-│   │   ├── manual_service.dart           # 説明書管理
-│   │   ├── ocr_service.dart              # OCR ユーティリティ
-│   │   ├── safety_service.dart           # リコールチェック・安全性スコア算出
-│   │   ├── config_service.dart           # 設定管理
-│   │   ├── device_status_service.dart    # デバイスステータス判定
-│   │   ├── pdf_generation_service.dart   # PDF 生成
-│   │   └── web_search_service.dart       # Web 検索
-│   └── widgets/
-│       ├── room_card_widget.dart          # ルームカード（画像 + 統計情報）
-│       ├── device_card.dart               # デバイスカード
-│       ├── device_detail_card.dart        # デバイス詳細カード
-│       ├── device_detail_content.dart     # デバイス詳細コンテンツ（資産 + マニュアル）
-│       ├── asset_value_chart.dart         # 資産価値推移グラフ（fl_chart）
-│       ├── anthropomorphic_device_icon.dart # 擬人化デバイスアイコン
-│       ├── chat_widget.dart               # AI チャット UI（Gemini 統合）
-│       ├── device_form.dart               # デバイス入力フォーム
-│       ├── floor_plan_widget.dart         # 間取り図ウィジェット
-│       └── summary_card.dart              # サマリーカード
-├── assets/
-│   ├── data/                    # モックデータ JSON
-│   │   ├── mock-data.json
-│   │   ├── floor-plan.json
-│   │   ├── safety-mock-data.json
-│   │   └── category-defaults.json
-│   └── images/                  # 部屋サンプル画像
-├── test/                        # ユニットテスト / ウィジェットテスト
-├── android/                     # Android プラットフォーム
-├── docs/                        # 設計ドキュメント（23 ファイル）
-├── pubspec.yaml                 # 依存関係管理
-└── analysis_options.yaml        # Lint 設定
+│   ├── main.dart
+│   ├── app/                     # アプリシェル・ルーティング（go_router）
+│   ├── data/                    # Repository / LocalSource
+│   ├── models/                  # Device, Room, Safety, AI 課金ポリシー等
+│   ├── screens/                 # 画面（ホーム・オンボーディング・スキャン・メンテ等）
+│   ├── services/                # ビジネスロジック・外部連携
+│   ├── utils/                   # platform_support, category_mapper
+│   └── widgets/                 # 共有 UI・device_detail セクション
+├── assets/data/                 # mock-data, floor-plan, templates 等
+├── test/                        # サービス・画面・ウィジェットのユニットテスト
+├── docs/                        # 設計・運用ドキュメント
+└── pubspec.yaml
 ```
+
+主要ファイル（抜粋）:
+
+| 領域 | 代表ファイル |
+|------|----------------|
+| エントリ | `lib/main.dart`, `lib/app/router.dart` |
+| 状態 | `device_service.dart`, `config_service.dart` |
+| データ | `lib/data/repositories/device_repository.dart` |
+| オンボーディング | `onboarding_screen.dart`, `onboarding_step*_screen.dart` |
+| AI | `chat_service.dart`, `ai_routing_service.dart`, `ai_usage_service.dart` |
+| メンテ | `maintenance_calendar_service.dart`, `maintenance_*_screen.dart` |
+| 資産・売却 | `asset_valuation_service.dart`, `sell_advisor_service.dart` |
+| 安全 | `safety_service.dart`, `safety_info.dart` |
+
+アーキテクチャの詳細は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照。
 
 ## セットアップ
 
@@ -115,12 +87,23 @@ HomTune/
 # 依存関係の取得
 flutter pub get
 
+# 静的解析（lib は error 0 を維持）
+flutter analyze lib
+
+# ユニット / ウィジェットテスト（CI 相当）
+flutter test
+
 # デバッグ実行（エミュレータまたは接続デバイス）
 flutter run
 
 # Gemini API を有効化して実行する場合
 flutter run --dart-define=GEMINI_API_KEY=your_api_key_here
 ```
+
+### 開発者設定
+
+- デバッグビルドのホーム AppBar から開発者設定へ遷移（`kDebugMode` のみ）
+- 本番での扱いは [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) を参照
 
 ### エミュレータでのテスト
 
@@ -296,6 +279,8 @@ flutter run --dart-define=GEMINI_API_KEY=your_api_key_here
 
 `docs/` ディレクトリに詳細な設計・運用ドキュメントがあります：
 
+- [AI_PRICING_AND_BILLING.md](docs/AI_PRICING_AND_BILLING.md) — AI課金、請求確認、Free/Pro制限、黒字運用ガイド
+- [FREE_PRO_COMPARISON_AND_ROADMAP.md](docs/FREE_PRO_COMPARISON_AND_ROADMAP.md) — Free/Pro差異と追加機能ロードマップ
 - [FLUTTER_SETUP.md](docs/FLUTTER_SETUP.md) — Flutter 環境セットアップ
 - [FLUTTER_EXECUTION.md](docs/FLUTTER_EXECUTION.md) — 実行手順
 - [SMART_INGESTER.md](docs/SMART_INGESTER.md) — スマートスキャン機能設計
@@ -303,6 +288,16 @@ flutter run --dart-define=GEMINI_API_KEY=your_api_key_here
 - [living-icons-safety.md](docs/living-icons-safety.md) — Living Icons & 安全機能
 - [feature-manual-archiver.md](docs/feature-manual-archiver.md) — 説明書アーカイバ機能
 - [feature-add-appliance.md](docs/feature-add-appliance.md) — 家電追加機能
+
+## AI課金方針（運用案）
+
+黒字運用前提の初期案:
+
+- **Free**: 0円 / 月間 40 credits（部屋画像は初回1回/部屋、生涯）
+- **Pro**: 490円 / 月間 120 credits（部屋画像は2回/部屋/月）
+- **超過時**: ローカル回答へフォールバック（または追加クレジット購入）
+
+詳細な料金設計・請求確認・インフラ制御は [AI_PRICING_AND_BILLING.md](docs/AI_PRICING_AND_BILLING.md) を参照してください。
 
 ## ライセンス
 

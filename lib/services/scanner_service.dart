@@ -2,30 +2,19 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/ai_usage_policy.dart';
+import 'ai_usage_service.dart';
 import 'config_service.dart';
 import 'web_search_service.dart';
 
 /// Smart Ingester: OCR（ML Kit）+ Gemini による製品プレートからの構造化データ抽出
 class ScannerService {
-  static const String _geminiModel = 'gemini-2.0-flash-exp';
-  static const String _apiKeyEnv = 'GEMINI_API_KEY';
-
   final ConfigService _configService;
   late final WebSearchService _webSearchService;
   final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.japanese);
 
   ScannerService(this._configService, {WebSearchService? webSearchService}) {
     _webSearchService = webSearchService ?? WebSearchService(_configService);
-  }
-
-  /// 環境変数または dart-define から API キーを取得
-  static String? get _geminiApiKey {
-    const key = String.fromEnvironment(
-      _apiKeyEnv,
-      defaultValue: '',
-    );
-    if (key.isNotEmpty) return key;
-    return null;
   }
 
   /// 画像からテキストを抽出（ML Kit）
@@ -102,9 +91,20 @@ class ScannerService {
     if (!_configService.isUsingRealApi) {
       return _extractProductInfoDummy(rawText);
     }
+    final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
+      AiFeature.scanner,
+    );
+    final budget = await AiUsageService.instance.canRunFeature(
+      _configService,
+      feature: AiFeature.scanner,
+      requestedCredits: requestedCredits,
+    );
+    if (!budget.allowed) {
+      throw ScannerException('${budget.reason}（ローカル判定に切替してください）');
+    }
 
-    final apiKey = _geminiApiKey;
-    if (apiKey == null || apiKey.isEmpty) {
+    final apiKey = _configService.geminiApiKey;
+    if (apiKey.isEmpty) {
       throw ScannerException('Gemini API キーが設定されていません。--dart-define=GEMINI_API_KEY=xxx で指定してください。');
     }
 
@@ -139,7 +139,7 @@ class ScannerService {
 
     try {
       final model = GenerativeModel(
-        model: _geminiModel,
+        model: _configService.geminiModel,
         apiKey: apiKey,
       );
       final fullPrompt = '$systemPrompt\n\n$userPromptPrefix$rawText$userPromptSuffix';
@@ -155,6 +155,12 @@ class ScannerService {
       if (m != null) jsonStr = m.group(1)?.trim() ?? text;
 
       final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+      await AiUsageService.instance.recordUsage(
+        _configService,
+        feature: AiFeature.scanner,
+        consumedCredits: requestedCredits,
+        route: 'scanner_extract',
+      );
       return ExtractedProductInfo(
         manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',
         modelNumber: (decoded['modelNumber'] as String?)?.trim() ?? '',
@@ -210,8 +216,25 @@ class ScannerService {
         return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
       }
 
-      final apiKey = _geminiApiKey;
-      if (apiKey == null) return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
+      final apiKey = _configService.geminiApiKey;
+      if (apiKey.isEmpty) {
+        return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
+      }
+      final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
+        AiFeature.scanner,
+      );
+      final budget = await AiUsageService.instance.canRunFeature(
+        _configService,
+        feature: AiFeature.scanner,
+        requestedCredits: requestedCredits,
+      );
+      if (!budget.allowed) {
+        return ExtractedProductInfo(
+          manufacturer: '',
+          modelNumber: '',
+          category: '',
+        );
+      }
 
       const systemPrompt = '''
 あなたは家電製品のWeb検索結果（HTMLまたはテキスト）を解析する専門家です。
@@ -237,7 +260,8 @@ $rawText
 ''';
 
       try {
-        final model = GenerativeModel(model: _geminiModel, apiKey: apiKey);
+        final model =
+            GenerativeModel(model: _configService.geminiModel, apiKey: apiKey);
         final response = await model.generateContent([Content.text('$systemPrompt\n\n$userPrompt')]);
         
         final text = response.text?.trim() ?? '';
@@ -247,6 +271,12 @@ $rawText
         if (m != null) jsonStr = m.group(1)?.trim() ?? text;
 
         final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        await AiUsageService.instance.recordUsage(
+          _configService,
+          feature: AiFeature.scanner,
+          consumedCredits: requestedCredits,
+          route: 'scanner_search_refine',
+        );
         return ExtractedProductInfo(
           manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',
           modelNumber: (decoded['modelNumber'] as String?)?.trim() ?? '',

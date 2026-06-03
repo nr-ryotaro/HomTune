@@ -8,11 +8,21 @@ import 'manual_search_service.dart';
 
 /// 登録完了後に公式マニュアルURLのみを非同期解決（PDF保存なし）
 class ManualLinkResolver {
-  ManualLinkResolver._();
-  static final ManualLinkResolver instance = ManualLinkResolver._();
+  ManualLinkResolver(this._configService);
 
-  final ManualSearchService _manualSearch =
-      ManualSearchService(ConfigService());
+  final ConfigService _configService;
+  late final ManualSearchService _manualSearch =
+      ManualSearchService(_configService);
+
+  static ManualLinkResolver? _bound;
+
+  /// [main] で `ManualLinkResolver.bind` 後に利用。未 bind 時は新規 ConfigService で生成。
+  static ManualLinkResolver get instance =>
+      _bound ?? ManualLinkResolver(ConfigService());
+
+  static void bind(ManualLinkResolver resolver) {
+    _bound = resolver;
+  }
   final Map<String, Future<String?>> _inFlight = {};
 
   String _dedupeKey(String manufacturer, String modelNumber) =>

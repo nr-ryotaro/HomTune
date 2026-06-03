@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import '../models/appliance_presentation.dart';
 import '../models/device.dart';
 import '../services/manual_service.dart';
-import '../services/valuation_service.dart';
 import '../screens/manual_viewer_screen.dart';
 import '../screens/manual_registration_screen.dart';
-import 'asset_value_chart.dart';
 import 'device_detail_content.dart';
 
 class DeviceDetailCard extends StatelessWidget {
   final Device device;
+  final AppliancePresentation? presentation;
 
   const DeviceDetailCard({
     super.key,
     required this.device,
+    this.presentation,
   });
 
   void _showMoreDetails(BuildContext context) {
@@ -152,25 +153,31 @@ class DeviceDetailCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // デバイス名
+                if (presentation != null) ...[
+                  Text(
+                    presentation!.icon,
+                    style: const TextStyle(fontSize: 32, height: 1.1),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Text(
-                  device.name,
+                  presentation?.title ?? device.name,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
-                // 型名
-                if (device.modelNumber.isNotEmpty)
+                if (_subtitleLine != null) ...[
+                  const SizedBox(height: 8),
                   Text(
-                    device.modelNumber,
+                    _subtitleLine!,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
                       fontWeight: FontWeight.w300,
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -183,8 +190,8 @@ class DeviceDetailCard extends StatelessWidget {
                 // 説明書（丸型アイコン）
                 _buildManualButton(context),
                 const SizedBox(width: 12),
-                // More
-                _buildMoreButton(context),
+                // 資産価値・詳細（帳簿/市場価値・グラフ・売却アドバイス等）
+                _buildAssetValueButton(context),
               ],
             ),
           ),
@@ -227,27 +234,95 @@ class DeviceDetailCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMoreButton(BuildContext context) {
-    return InkWell(
-      onTap: () => _showMoreDetails(context),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: const Color(0xFFE5E5E5),
-            width: 1,
+  String? get _subtitleLine {
+    final fromPresentation = presentation?.subtitle?.trim();
+    if (fromPresentation != null && fromPresentation.isNotEmpty) {
+      return fromPresentation;
+    }
+    if (device.modelNumber.isNotEmpty) return device.modelNumber;
+    return null;
+  }
+
+  Widget _buildAssetValueButton(BuildContext context) {
+    final valueLabel = device.assetValue != null
+        ? '¥${_formatCompactYen(device.assetValue!.currentUsedPrice)}'
+        : null;
+
+    return Tooltip(
+      message: '資産価値の詳細（帳簿・市場価値・推移グラフ）',
+      waitDuration: const Duration(milliseconds: 200),
+      child: Semantics(
+        button: true,
+        label: '資産価値を表示',
+        child: InkWell(
+          onTap: () => _showAssetDetails(context),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3b82f6).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF3b82f6).withValues(alpha: 0.35),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.savings_outlined,
+                  size: 20,
+                  color: Color(0xFF3b82f6),
+                ),
+                if (valueLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    valueLabel,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF3b82f6),
+                      height: 1,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 2),
+                  const Text(
+                    '資産',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF3b82f6),
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-        child: const Icon(
-          Icons.more_horiz,
-          size: 20,
-          color: Color(0xFF3b82f6),
         ),
       ),
     );
+  }
+
+  String _formatCompactYen(int amount) {
+    if (amount >= 10000) {
+      final man = amount / 10000;
+      if (man >= 10) {
+        return '${man.round()}万';
+      }
+      return '${man.toStringAsFixed(1)}万';
+    }
+    if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(0)}千';
+    }
+    return amount.toString();
+  }
+
+  void _showAssetDetails(BuildContext context) {
+    _showMoreDetails(context);
   }
 }

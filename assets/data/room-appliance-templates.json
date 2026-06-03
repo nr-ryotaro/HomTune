@@ -38,6 +38,7 @@
           "category": "テレビ",
           "icon": "📺",
           "defaultLocationHint": "テレビボード",
+          "exampleModelNumber": "XRJ-65A95K",
           "careItems": [
             {
               "taskId": "living_tv_dust",
@@ -90,6 +91,7 @@
           "displayName": "加湿器",
           "category": "加湿器",
           "icon": "💧",
+          "exampleModelNumber": "SH-C300",
           "careItems": [
             {
               "taskId": "living_hum_usage",
@@ -120,10 +122,49 @@
           ]
         },
         {
+          "id": "living_record_player",
+          "displayName": "レコードプレーヤー",
+          "category": "オーディオ",
+          "icon": "💿",
+          "defaultLocationHint": "サイドテーブル",
+          "exampleModelNumber": "TN-400BT-WA",
+          "careItems": [
+            {
+              "taskId": "living_rp_dust",
+              "type": "cleaning",
+              "name": "針・ターntableのホコリ除去",
+              "intervalDays": 30,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "針は専用ブラシで優しく清掃してください。"
+            }
+          ]
+        },
+        {
+          "id": "living_sofa",
+          "displayName": "ソファ",
+          "category": "その他",
+          "icon": "🛋️",
+          "defaultLocationHint": "リビング中央",
+          "exampleModelNumber": "ZU46",
+          "careItems": [
+            {
+              "taskId": "living_sofa_clean",
+              "type": "cleaning",
+              "name": "座面・肘掛けの汚れチェック",
+              "intervalDays": 14,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "生地に合ったクリーナーを使用してください。"
+            }
+          ]
+        },
+        {
           "id": "living_audio",
           "displayName": "スピーカー / AV機器",
           "category": "オーディオ",
           "icon": "🔊",
+          "exampleModelNumber": "OBERON1 LO",
           "careItems": [
             {
               "taskId": "living_audio_electrical",
@@ -219,6 +260,60 @@
           ]
         },
         {
+          "id": "bedroom_light",
+          "displayName": "照明",
+          "category": "その他",
+          "icon": "💡",
+          "exampleModelNumber": "IC Lights S1",
+          "careItems": [
+            {
+              "taskId": "bedroom_light_bulb",
+              "type": "maintenance",
+              "name": "電球・点灯確認",
+              "intervalDays": 90,
+              "priority": "low",
+              "methodTags": ["power_off"],
+              "safetyNote": "交換時は必ずブレーカーを落としてください。"
+            }
+          ]
+        },
+        {
+          "id": "bedroom_bed",
+          "displayName": "ベッド",
+          "category": "その他",
+          "icon": "🛏️",
+          "exampleModelNumber": "Arlington",
+          "careItems": [
+            {
+              "taskId": "bedroom_bed_mattress",
+              "type": "cleaning",
+              "name": "マットレスの反転・清掃",
+              "intervalDays": 90,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "メーカー推奨の向き・交換時期を確認してください。"
+            }
+          ]
+        },
+        {
+          "id": "bedroom_storage",
+          "displayName": "収納 / TVボード",
+          "category": "その他",
+          "icon": "🗄️",
+          "exampleModelNumber": "Margin Cabinet MA-180",
+          "careItems": [
+            {
+              "taskId": "bedroom_storage_dust",
+              "type": "cleaning",
+              "name": "天板・引出しのホコリ落とし",
+              "intervalDays": 14,
+              "priority": "low",
+              "methodTags": ["clean"],
+              "safetyNote": "過積載は変形の原因になります。"
+            }
+          ]
+        },
+        {
           "id": "bedroom_fan",
           "displayName": "扇風機 / サーキュレーター",
           "category": "その他",
@@ -255,6 +350,7 @@
           "displayName": "冷蔵庫",
           "category": "冷蔵庫",
           "icon": "🧊",
+          "exampleModelNumber": "NR-F608WPX",
           "careItems": [
             {
               "taskId": "kitchen_fridge_usage",
@@ -311,10 +407,47 @@
           ]
         },
         {
+          "id": "kitchen_coffee",
+          "displayName": "エスプレッソマシン",
+          "category": "その他",
+          "icon": "☕",
+          "exampleModelNumber": "BES875",
+          "careItems": [
+            {
+              "taskId": "kitchen_coffee_descale",
+              "type": "maintenance",
+              "name": "デカルシネーション・ミルク回路洗浄",
+              "intervalDays": 30,
+              "priority": "medium",
+              "methodTags": ["clean"],
+              "safetyNote": "専用洗浄剤の手順に従ってください。"
+            }
+          ]
+        },
+        {
+          "id": "kitchen_light",
+          "displayName": "ペンダント照明",
+          "category": "その他",
+          "icon": "💡",
+          "exampleModelNumber": "Ambit Pendant",
+          "careItems": [
+            {
+              "taskId": "kitchen_light_dust",
+              "type": "cleaning",
+              "name": "シェード・電球のホコリ落とし",
+              "intervalDays": 60,
+              "priority": "low",
+              "methodTags": ["power_off", "clean"],
+              "safetyNote": "高所作業は安全な脚立を使用してください。"
+            }
+          ]
+        },
+        {
           "id": "kitchen_rice_cooker",
           "displayName": "炊飯器",
-          "category": "その他",
+          "category": "炊飯器",
           "icon": "🍚",
+          "exampleModelNumber": "PH23A-WH",
           "careItems": [
             {
               "taskId": "kitchen_rc_clean",
@@ -330,8 +463,9 @@
         {
           "id": "kitchen_stove",
           "displayName": "コンロ / オーブン",
-          "category": "Oven",
+          "category": "コンロ",
           "icon": "🔥",
+          "exampleModelNumber": "H 7164 B",
           "careItems": [
             {
               "taskId": "kitchen_stove_clean",

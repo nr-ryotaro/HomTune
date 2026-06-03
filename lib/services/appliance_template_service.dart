@@ -6,6 +6,7 @@ import '../models/appliance_archetype.dart';
 import '../models/appliance_presentation.dart';
 import '../models/device.dart';
 import '../models/maintenance_task.dart';
+import '../utils/category_mapper.dart';
 import 'compliance_service.dart';
 
 /// 部屋別家電アーキタイプとケア項目テンプレート
@@ -131,6 +132,9 @@ class ApplianceTemplateService {
     '洗濯機': '🧺',
     'PC': '💻',
     'オーディオ': '🔊',
+    'その他': '📦',
+    '除湿機': '💨',
+    'スマートフォン': '📱',
   };
 
   /// ホームのコンパクトカード用表示（カスタム > テンプレ > カテゴリ）
@@ -146,11 +150,13 @@ class ApplianceTemplateService {
         subtitle: _modelSubtitle(device, archetype.displayName),
       );
     } else {
-      final categoryTitle =
-          device.category.trim().isNotEmpty ? device.category.trim() : null;
+      final normalizedCategory = CategoryMapper.normalize(device.category);
+      final categoryTitle = normalizedCategory.trim().isNotEmpty
+          ? normalizedCategory.trim()
+          : null;
       final title = categoryTitle ?? _shortName(device.name);
       base = AppliancePresentation(
-        icon: _categoryFallbackIcons[device.category] ?? '📦',
+        icon: _categoryFallbackIcons[normalizedCategory] ?? '📦',
         title: title,
         subtitle: _modelSubtitle(device, title),
       );
@@ -190,14 +196,17 @@ class ApplianceTemplateService {
       if (byId != null) return byId;
     }
 
-    final cat = device.category.trim().toLowerCase();
+    final normalizedCat =
+        CategoryMapper.normalize(device.category).trim().toLowerCase();
     final name = device.name.trim().toLowerCase();
-    ApplianceArchetype? categoryMatch;
+    final model = device.modelNumber.trim().toLowerCase();
 
-    for (final list in _archetypesByRoom.values) {
+    ApplianceArchetype? matchInRoom(List<ApplianceArchetype> list) {
+      ApplianceArchetype? categoryMatch;
       for (final a in list) {
-        final archetypeCat = a.category.trim().toLowerCase();
-        if (cat.isNotEmpty && archetypeCat == cat) {
+        final archetypeCat =
+            CategoryMapper.normalize(a.category).trim().toLowerCase();
+        if (normalizedCat.isNotEmpty && archetypeCat == normalizedCat) {
           categoryMatch ??= a;
         }
         final display = a.displayName.trim().toLowerCase();
@@ -205,9 +214,32 @@ class ApplianceTemplateService {
             (name.contains(display) || display.contains(name))) {
           return a;
         }
+        if (model.isNotEmpty &&
+            (name.contains(model) || display.contains(model))) {
+          return a;
+        }
+      }
+      return categoryMatch;
+    }
+
+    final roomList = _archetypesByRoom[device.room];
+    if (roomList != null) {
+      final inRoom = matchInRoom(roomList);
+      if (inRoom != null) return inRoom;
+    }
+
+    ApplianceArchetype? globalMatch;
+    for (final list in _archetypesByRoom.values) {
+      final hit = matchInRoom(list);
+      if (hit != null) {
+        globalMatch ??= hit;
+        if (CategoryMapper.normalize(hit.category).trim().toLowerCase() ==
+            normalizedCat) {
+          return hit;
+        }
       }
     }
-    return categoryMatch;
+    return globalMatch;
   }
 
   String? _modelSubtitle(Device device, String title) {

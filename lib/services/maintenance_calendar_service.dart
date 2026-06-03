@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/device.dart';
+import '../models/ai_usage_policy.dart';
 import '../models/maintenance_task.dart';
 import '../utils/category_mapper.dart';
+import 'ai_usage_service.dart';
 import 'config_service.dart';
 import 'compliance_service.dart';
 
@@ -18,9 +20,6 @@ import 'compliance_service.dart';
 /// - 永続化（SharedPreferences）
 class MaintenanceCalendarService {
   static Map<String, List<Map<String, dynamic>>>? _categoryDefaults;
-
-  /// Gemini API モデル名
-  static const String _geminiModel = 'gemini-2.0-flash-exp';
 
   /// AI 生成した手順テキストのキャッシュ（deviceId:taskId → text）
   static final Map<String, String> _aiMethodCache = {};
@@ -186,7 +185,26 @@ class MaintenanceCalendarService {
     try {
       String result;
       if (configService.isUsingRealApi) {
-        result = await _generateWithGemini(task, device);
+        final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
+          AiFeature.maintenance,
+        );
+        final budget = await AiUsageService.instance.canRunFeature(
+          configService,
+          feature: AiFeature.maintenance,
+          requestedCredits: requestedCredits,
+        );
+        if (!budget.allowed) {
+          result = _generateDummyMethod(task, device);
+          _aiMethodCache[cacheKey] = result;
+          return result;
+        }
+        result = await _generateWithGemini(task, device, configService);
+        await AiUsageService.instance.recordUsage(
+          configService,
+          feature: AiFeature.maintenance,
+          consumedCredits: requestedCredits,
+          route: 'maintenance_method',
+        );
       } else {
         result = _generateDummyMethod(task, device);
       }
@@ -251,14 +269,17 @@ class MaintenanceCalendarService {
 
   /// Gemini API でお手入れ手順を生成
   static Future<String> _generateWithGemini(
-      MaintenanceTask task, Device device) async {
-    const apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+    MaintenanceTask task,
+    Device device,
+    ConfigService configService,
+  ) async {
+    final apiKey = configService.geminiApiKey;
     if (apiKey.isEmpty) {
       return _generateDummyMethod(task, device);
     }
 
     final model = GenerativeModel(
-      model: _geminiModel,
+      model: configService.geminiModel,
       apiKey: apiKey,
     );
 

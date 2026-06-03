@@ -1,0 +1,102 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:homtune/models/ai_usage_policy.dart';
+import 'package:homtune/services/ai_usage_service.dart';
+import 'package:homtune/services/config_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('AiUsageService', () {
+    late ConfigService configService;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      AiUsageService.instance.resetForTest();
+      configService = ConfigService();
+      await configService.load();
+      await configService.setUseRealApi(true);
+    });
+
+    test('初期状態ではクレジット利用が0', () async {
+      final snapshot = await AiUsageService.instance.getSnapshot(configService);
+      expect(snapshot.usedCredits, 0);
+      expect(snapshot.remainingCredits, greaterThan(0));
+    });
+
+    test('recordUsageで利用量が増える', () async {
+      await AiUsageService.instance.recordUsage(
+        configService,
+        feature: AiFeature.chat,
+        consumedCredits: 3,
+        route: 'test',
+      );
+      final snapshot = await AiUsageService.instance.getSnapshot(configService);
+      expect(snapshot.usedCredits, greaterThanOrEqualTo(3));
+      expect(snapshot.estimatedCostUsd, greaterThan(0));
+    });
+
+    test('実APIオフ時は利用不可', () async {
+      await configService.setUseRealApi(false);
+      final check = await AiUsageService.instance.canRunFeature(
+        configService,
+        feature: AiFeature.chat,
+        requestedCredits: 1,
+      );
+      expect(check.allowed, false);
+      expect(check.reason, contains('実APIモード'));
+    });
+
+    test('pro tier は free より上限が大きい', () async {
+      final freeSnapshot = await AiUsageService.instance.getSnapshot(configService);
+      await configService.setSubscriptionTier(SubscriptionTier.pro);
+      final proSnapshot = await AiUsageService.instance.getSnapshot(configService);
+      expect(proSnapshot.creditLimit, greaterThan(freeSnapshot.creditLimit));
+    });
+
+    test('Free は部屋画像が部屋ごと初回1回まで', () async {
+      final first = await AiUsageService.instance.canRunRoomImage(
+        configService,
+        roomId: 'living-room',
+        requestedCredits: 8,
+      );
+      expect(first.allowed, true);
+      await AiUsageService.instance.recordRoomImageUsage(
+        configService,
+        roomId: 'living-room',
+        consumedCredits: 8,
+      );
+      final second = await AiUsageService.instance.canRunRoomImage(
+        configService,
+        roomId: 'living-room',
+        requestedCredits: 8,
+      );
+      expect(second.allowed, false);
+      expect(second.reason, contains('初回1回'));
+    });
+
+    test('Pro は部屋画像が月2回まで', () async {
+      await configService.setSubscriptionTier(SubscriptionTier.pro);
+      for (var i = 0; i < 2; i++) {
+        final check = await AiUsageService.instance.canRunRoomImage(
+          configService,
+          roomId: 'kitchen-01',
+          requestedCredits: 8,
+        );
+        expect(check.allowed, true);
+        await AiUsageService.instance.recordRoomImageUsage(
+          configService,
+          roomId: 'kitchen-01',
+          consumedCredits: 8,
+        );
+      }
+      final third = await AiUsageService.instance.canRunRoomImage(
+        configService,
+        roomId: 'kitchen-01',
+        requestedCredits: 8,
+      );
+      expect(third.allowed, false);
+      expect(third.reason, contains('月2回'));
+    });
+  });
+}

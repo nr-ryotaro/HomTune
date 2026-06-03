@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "description": "HomTune デモ・手動テスト用の実在型番カタログ（シードデータと一致）",
+  "devices": [
+    {
+      "id": "tv_001",
+      "archetypeId": "living_tv",
+      "name": "BRAVIA 65V型 有機ELテレビ",
+      "modelNumber": "XRJ-65A95K",
+      "manufacturer": "SONY",
+      "category": "テレビ",
+      "room": "living-room",
+      "icon": "📺"
+    },
+    {
+      "id": "speaker_001",
+      "archetypeId": "living_audio",
+      "name": "ブックシェルフスピーカー",
+      "modelNumber": "OBERON 1 LO",
+      "manufacturer": "DALI",
+      "category": "オーディオ",
+      "room": "living-room",
+      "icon": "🔊"
+    },
+    {
+      "id": "record_player_001",
+      "archetypeId": "living_record_player",
+      "name": "アナログターンテーブル",
+      "modelNumber": "TN-400BT-WA",
+      "manufacturer": "TEAC",
+      "category": "オーディオ",
+      "room": "living-room",
+      "icon": "💿"
+    },
+    {
+      "id": "humidifier_001",
+      "archetypeId": "living_humidifier",
+      "name": "超音波式加湿器",
+      "modelNumber": "SH-C300",
+      "manufacturer": "cado",
+      "category": "加湿器",
+      "room": "living-room",
+      "icon": "💧"
+    },
+    {
+      "id": "fridge_001",
+      "archetypeId": "kitchen_fridge",
+      "name": "冷蔵庫 600L",
+      "modelNumber": "NR-F608WPX",
+      "manufacturer": "Panasonic",
+      "category": "冷蔵庫",
+      "room": "kitchen-01",
+      "icon": "🧊"
+    },
+    {
+      "id": "rice_cooker_001",
+      "archetypeId": "kitchen_rice_cooker",
+      "name": "ライスポット 5合",
+      "modelNumber": "PH23A-WH",
+      "manufacturer": "Vermicular",
+      "category": "炊飯器",
+      "room": "kitchen-01",
+      "icon": "🍚"
+    }
+  ]
+}

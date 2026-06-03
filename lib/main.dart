@@ -2,19 +2,18 @@ import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'screens/home_screen.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/scan_screen.dart';
-import 'screens/add_device_screen.dart';
-import 'screens/web_unsupported_feature_screen.dart';
+import 'app/router.dart';
 import 'widgets/web_preview_banner.dart';
 import 'utils/platform_support.dart';
+import 'app/app_providers.dart';
 import 'services/config_service.dart';
-import 'services/device_service.dart';
+import 'services/manual_link_resolver.dart';
 import 'services/notification_service.dart';
 import 'services/onboarding_prefs.dart';
+import 'services/ad_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,9 +30,13 @@ Future<void> main() async {
 
   final showOnboarding = await OnboardingPrefs.shouldShowOnLaunch();
 
-  // メンテナンス通知サービスの初期化
   final notificationService = NotificationService();
   await notificationService.initialize();
+
+  final manualLinkResolver = ManualLinkResolver(configService);
+  ManualLinkResolver.bind(manualLinkResolver);
+
+  await AdService.instance.initialize();
 
   runZonedGuarded(
     () {
@@ -51,7 +54,9 @@ Future<void> main() async {
       };
       runApp(HomTuneApp(
         configService: configService,
-        showOnboarding: showOnboarding,
+        notificationService: notificationService,
+        manualLinkResolver: manualLinkResolver,
+        router: createAppRouter(showOnboarding: showOnboarding),
       ));
     },
     (error, stack) {
@@ -65,23 +70,29 @@ class HomTuneApp extends StatelessWidget {
   const HomTuneApp({
     super.key,
     required this.configService,
-    required this.showOnboarding,
+    required this.notificationService,
+    required this.manualLinkResolver,
+    required this.router,
   });
   final ConfigService configService;
-  final bool showOnboarding;
+  final NotificationService notificationService;
+  final ManualLinkResolver manualLinkResolver;
+  final GoRouter router;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<ConfigService>.value(value: configService),
-        ChangeNotifierProvider(create: (_) => DeviceService()),
-      ],
-      child: MaterialApp(
+      providers: buildAppProviders(
+        configService: configService,
+        notificationService: notificationService,
+        manualLinkResolver: manualLinkResolver,
+      ),
+      child: MaterialApp.router(
         title: PlatformSupport.isWebUiPreview
             ? 'HomTune (Web Preview)'
             : 'HomTune',
         debugShowCheckedModeBanner: false,
+        routerConfig: router,
         builder: (context, child) {
           if (child == null) return const SizedBox.shrink();
           if (!PlatformSupport.isWebUiPreview) return child;
@@ -100,21 +111,6 @@ class HomTuneApp extends StatelessWidget {
           ),
           scaffoldBackgroundColor: Colors.white,
         ),
-        home: showOnboarding
-            ? const OnboardingScreen()
-            : const HomeScreen(),
-        routes: {
-          '/home': (context) => const HomeScreen(),
-          '/onboarding': (context) => const OnboardingScreen(),
-          '/onboarding-preview': (context) =>
-              const OnboardingScreen(isPreview: true),
-          '/scan': (context) => PlatformSupport.supportsSmartIngester
-              ? const ScanScreen()
-              : const WebUnsupportedFeatureScreen(
-                  featureName: 'Smart Ingester',
-                ),
-          '/add-device': (context) => const AddDeviceScreen(),
-        },
       ),
     );
   }

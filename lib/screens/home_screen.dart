@@ -12,6 +12,7 @@ import '../models/appliance_presentation.dart';
 import '../widgets/appliance_icon_chip.dart';
 import '../widgets/device_quick_preview_sheet.dart';
 import '../widgets/chat_widget.dart';
+import '../widgets/home/home_maintenance_banner.dart';
 import 'all_devices_screen.dart';
 import 'add_appliance_screen.dart';
 import '../utils/platform_support.dart';
@@ -19,6 +20,8 @@ import 'dev_settings_screen.dart';
 import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
 import 'maintenance_calendar_screen.dart';
+import 'room_devices_screen.dart';
+import '../widgets/ads/free_plan_ad_body.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -394,6 +397,31 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _openRoomDetail(String roomId, String roomTitle) {
+    final deviceService = Provider.of<DeviceService>(context, listen: false);
+    final roomDevices = deviceService.getDevicesByRoom(roomId);
+
+    if (roomDevices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('この部屋にはまだ家電が登録されていません'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => RoomDevicesScreen(
+          roomId: roomId,
+          roomName: roomTitle,
+          devices: roomDevices,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -442,47 +470,44 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Consumer<DeviceService>(
         builder: (context, deviceService, child) {
+          Widget content;
           if (deviceService.errorMessage != null) {
-            return _buildErrorState(deviceService);
-          }
-          if (deviceService.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final displayedDevices = _devicesForDisplay(deviceService);
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 間取り図 (Room Card Carousel)
-                _buildRoomCardsCarousel(context, deviceService),
-                const SizedBox(height: 24),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Column(
-                    children: [
-                      // メンテナンスバナー
-                      _buildMaintenanceBanner(deviceService),
-
-                      if (_applianceSetupDone && !_roomPhotosConfigured) ...[
-                        _buildRoomPhotoPromptBanner(context),
-                        const SizedBox(height: 16),
+            content = _buildErrorState(deviceService);
+          } else if (deviceService.isLoading) {
+            content = const Center(child: CircularProgressIndicator());
+          } else {
+            final displayedDevices = _devicesForDisplay(deviceService);
+            content = SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRoomCardsCarousel(context, deviceService),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      children: [
+                        _buildMaintenanceBanner(deviceService),
+                        if (_applianceSetupDone && !_roomPhotosConfigured) ...[
+                          _buildRoomPhotoPromptBanner(context),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildChatBox(context, deviceService),
+                        const SizedBox(height: 24),
+                        _buildDeviceList(
+                          context,
+                          deviceService,
+                          displayedDevices,
+                        ),
                       ],
-
-                      // チャットBOX (Reduced height)
-                      _buildChatBox(context, deviceService),
-                      const SizedBox(height: 24),
-
-                      // デバイス一覧
-                      _buildDeviceList(context, deviceService, displayedDevices),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
+                ],
+              ),
+            );
+          }
+          return FreePlanAdBody(placement: 'home', child: content);
         },
       ),
     );
@@ -704,13 +729,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 395,
                         child: RoomCardWidget(
                         room: rooms[index],
-                        onTap: () {
-                          _pageController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        },
+                        onDetailTap: () => _openRoomDetail(
+                          rooms[index].id,
+                          rooms[index].title,
+                        ),
                         onCustomizePhoto: _applianceSetupDone &&
                                 !_roomPhotosConfigured
                             ? _openRoomPhotoSetup
@@ -784,88 +806,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// メンテナンスバナー（選択中の部屋のタスクのみ表示）
   Widget _buildMaintenanceBanner(DeviceService deviceService) {
-    // 選択中の部屋のデバイスだけに絞り込む
     final devices = _selectedRoomId != null
         ? deviceService.getDevicesByRoom(_selectedRoomId!)
         : deviceService.devices;
-    final overdue = MaintenanceCalendarService.getOverdueTasks(devices);
-    final upcoming = MaintenanceCalendarService.getUpcomingTasks(devices);
-    final totalCount = overdue.length + upcoming.length;
-
-    if (totalCount == 0) return const SizedBox.shrink();
-
-    // 最も重要なタスクを1件表示
-    final topTask = overdue.isNotEmpty ? overdue.first : upcoming.first;
-    final isOverdue = overdue.isNotEmpty;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const MaintenanceCalendarScreen(),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isOverdue ? Colors.orange.shade50 : Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isOverdue ? Colors.orange.shade200 : Colors.blue.shade200,
-            ),
-          ),
-          child: Row(
-            children: [
-              const Text(
-                '🧹',
-                style: TextStyle(fontSize: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isOverdue
-                          ? '$totalCount件のお手入れが期限を迎えています'
-                          : '$totalCount件のお手入れが予定されています',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isOverdue
-                            ? Colors.orange.shade800
-                            : Colors.blue.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${topTask.device.name} の${topTask.task.name}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color:
-                    isOverdue ? Colors.orange.shade400 : Colors.blue.shade400,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return HomeMaintenanceBanner(devices: devices);
   }
 
   Widget _buildChatBox(BuildContext context, DeviceService deviceService) {

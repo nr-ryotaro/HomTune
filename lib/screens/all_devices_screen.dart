@@ -8,6 +8,7 @@ import '../widgets/appliance_detail_card.dart';
 import '../widgets/edit_device_appearance_sheet.dart';
 import 'add_appliance_screen.dart';
 import 'device_detail_screen.dart';
+import '../widgets/ads/free_plan_ad_body.dart';
 
 /// すべての家電を一覧表示する画面
 class AllDevicesScreen extends StatefulWidget {
@@ -96,14 +97,14 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
             padding: const EdgeInsets.only(right: 16),
             child: OutlinedButton.icon(
               onPressed: () async {
+                final service =
+                    Provider.of<DeviceService>(context, listen: false);
                 await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
                     builder: (context) => const AddApplianceScreen(),
                   ),
                 );
-                if (!mounted) return;
-                final service =
-                    Provider.of<DeviceService>(context, listen: false);
+                if (!context.mounted) return;
                 await service.loadData();
                 await _loadPresentations(service.devices);
               },
@@ -135,12 +136,11 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
       ),
       body: Consumer<DeviceService>(
         builder: (context, deviceService, child) {
+          Widget content;
           if (deviceService.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (deviceService.errorMessage != null) {
-            return Center(
+            content = const Center(child: CircularProgressIndicator());
+          } else if (deviceService.errorMessage != null) {
+            content = Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -154,42 +154,42 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                 ],
               ),
             );
-          }
+          } else {
+            final devices = deviceService.devices;
+            if (_presentations.length != devices.length) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _loadPresentations(devices);
+              });
+            }
 
-          final devices = deviceService.devices;
-          if (_presentations.length != devices.length) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _loadPresentations(devices);
-            });
-          }
-
-          if (devices.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.devices_other, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    '登録されている家電がありません',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w300,
+            if (devices.isEmpty) {
+              content = Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.devices_other,
+                        size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text(
+                      '登録されている家電がありません',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w300,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }
+                  ],
+                ),
+              );
+            } else {
+              final devicesByRoom = <String, List<Device>>{};
+              for (final device in devices) {
+                final roomKey =
+                    device.room.isNotEmpty ? device.room : '未分類';
+                devicesByRoom.putIfAbsent(roomKey, () => []).add(device);
+              }
 
-          final devicesByRoom = <String, List<Device>>{};
-          for (final device in devices) {
-            final roomKey = device.room.isNotEmpty ? device.room : '未分類';
-            devicesByRoom.putIfAbsent(roomKey, () => []).add(device);
-          }
-
-          return ListView.builder(
+              content = ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: devicesByRoom.length,
             itemBuilder: (context, index) {
@@ -255,17 +255,17 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                           showAlertDot: _deviceNeedsAttention(device),
                           onEdit: () => _openEditAppearance(context, device),
                           onTap: () async {
+                            final service = Provider.of<DeviceService>(
+                              context,
+                              listen: false,
+                            );
                             await Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
                                     DeviceDetailScreen(device: device),
                               ),
                             );
-                            if (!mounted) return;
-                            final service = Provider.of<DeviceService>(
-                              context,
-                              listen: false,
-                            );
+                            if (!context.mounted) return;
                             await _loadPresentations(service.devices);
                           },
                         );
@@ -275,7 +275,11 @@ class _AllDevicesScreenState extends State<AllDevicesScreen> {
                 ],
               );
             },
-          );
+              );
+            }
+          }
+
+          return FreePlanAdBody(placement: 'all_devices', child: content);
         },
       ),
     );

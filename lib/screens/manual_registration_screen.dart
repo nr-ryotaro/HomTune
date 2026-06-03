@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import '../models/appliance_presentation.dart';
 import '../models/device.dart';
+import '../services/appliance_template_service.dart';
 import '../services/manual_service.dart';
 
-/// マニュアル登録画面
-/// スキャンまたはファイルアップロードでマニュアルを登録
+/// マニュアル登録画面（自前スキャンのみ。外部PDFのインポートは不可）
 class ManualRegistrationScreen extends StatefulWidget {
   final Device device;
 
@@ -22,10 +22,22 @@ class ManualRegistrationScreen extends StatefulWidget {
 
 class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
   final ImagePicker _imagePicker = ImagePicker();
-  RegistrationMode? _selectedMode;
   final List<File> _selectedImages = [];
-  File? _selectedPdfFile;
   bool _isProcessing = false;
+  AppliancePresentation? _presentation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPresentation();
+  }
+
+  Future<void> _loadPresentation() async {
+    final p = await ApplianceTemplateService.instance
+        .resolvePresentation(widget.device);
+    if (!mounted) return;
+    setState(() => _presentation = p);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,161 +64,70 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
           ),
         ),
       ),
-      body: _selectedMode == null
-          ? _buildSelectionView()
-          : _selectedMode == RegistrationMode.scan
-              ? _buildScanView()
-              : _buildUploadView(),
-    );
-  }
-
-  /// 選択画面（スキャン vs アップロード）
-  Widget _buildSelectionView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Column(
         children: [
-          // デバイス情報
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: const Color(0xFFE5E5E5),
-                width: 0.5,
-              ),
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.device.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (widget.device.modelNumber.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.device.modelNumber,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: _buildDeviceInfoCard(),
           ),
-          const SizedBox(height: 32),
-
-          // オプションA: スキャンして作成
-          _buildOptionCard(
-            title: 'スキャンして作成',
-            subtitle: 'カメラで撮影',
-            icon: Icons.camera_alt,
-            onTap: () {
-              setState(() {
-                _selectedMode = RegistrationMode.scan;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // オプションB: ファイルを選択
-          _buildOptionCard(
-            title: 'ファイルを選択',
-            subtitle: 'PDFをインポート',
-            icon: Icons.insert_drive_file,
-            onTap: () {
-              setState(() {
-                _selectedMode = RegistrationMode.upload;
-              });
-            },
-          ),
+          Expanded(child: _buildScanView()),
         ],
       ),
     );
   }
 
-  Widget _buildOptionCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(2),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(
-            color: const Color(0xFFE5E5E5),
-            width: 0.5,
-          ),
-          borderRadius: BorderRadius.circular(2),
+  Widget _buildDeviceInfoCard() {
+    final p = _presentation;
+    final title = p?.title ?? widget.device.name;
+    final subtitle = p?.subtitle?.trim().isNotEmpty == true
+        ? p!.subtitle!
+        : (widget.device.modelNumber.isNotEmpty
+            ? widget.device.modelNumber
+            : null);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: const Color(0xFFE5E5E5),
+          width: 0.5,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF3b82f6).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFF3b82f6),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                icon,
-                color: const Color(0xFF3b82f6),
-                size: 24,
-              ),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (p != null) ...[
+            Text(
+              p.icon,
+              style: const TextStyle(fontSize: 32, height: 1.1),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
             ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: Color(0xFF999999),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w300,
+              ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  /// スキャンビュー
   Widget _buildScanView() {
     return Column(
       children: [
@@ -216,30 +137,24 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ヘッダー
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)),
-                      onPressed: () {
-                        setState(() {
-                          _selectedMode = null;
-                          _selectedImages.clear();
-                        });
-                      },
-                    ),
-                    const Text(
-                      'スキャンして作成',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  ],
+                const Text(
+                  'スキャンして作成',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'カメラで撮影したページから、あなた専用の記録PDFを作成します',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w300,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 24),
-
-                // 撮影ボタン
                 Row(
                   children: [
                     Expanded(
@@ -274,8 +189,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // 画像プレビュー
                 if (_selectedImages.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(32),
@@ -314,8 +227,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
             ),
           ),
         ),
-
-        // フッター（PDF生成ボタン）
         if (_selectedImages.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(20),
@@ -348,7 +259,8 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text(
@@ -366,151 +278,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     );
   }
 
-  /// アップロードビュー
-  Widget _buildUploadView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ヘッダー
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF333333)),
-                onPressed: () {
-                  setState(() {
-                    _selectedMode = null;
-                    _selectedPdfFile = null;
-                  });
-                },
-              ),
-              const Text(
-                'ファイルを選択',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // ファイル選択ボタン
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isProcessing ? null : _pickPdfFile,
-              icon: const Icon(Icons.insert_drive_file, size: 18),
-              label: const Text('PDFファイルを選択'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(
-                  color: Color(0xFF3b82f6),
-                  width: 1,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // 選択されたファイルのプレビュー
-          if (_selectedPdfFile != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(
-                  color: const Color(0xFFE5E5E5),
-                  width: 0.5,
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.picture_as_pdf,
-                    color: Color(0xFFef4444),
-                    size: 32,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedPdfFile!.path.split('/').last,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${(_selectedPdfFile!.lengthSync() / 1024).toStringAsFixed(1)} KB',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () {
-                      setState(() {
-                        _selectedPdfFile = null;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 32),
-
-          // 保存ボタン
-          if (_selectedPdfFile != null)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isProcessing ? null : _savePdfFile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3b82f6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                child: _isProcessing
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Text(
-                        '保存',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// 画像プレビュー
   Widget _buildImagePreview() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,10 +300,9 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
             mainAxisSpacing: 8,
             childAspectRatio: 0.75,
           ),
-          itemCount: _selectedImages.length + 1, // +1 for add button
+          itemCount: _selectedImages.length + 1,
           itemBuilder: (context, index) {
             if (index == _selectedImages.length) {
-              // 追加ボタン
               return InkWell(
                 onTap: _pickFromGallery,
                 borderRadius: BorderRadius.circular(2),
@@ -593,7 +359,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                     ),
                   ),
                 ),
-                // 順序番号
                 Positioned(
                   top: 4,
                   left: 4,
@@ -616,7 +381,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
                     ),
                   ),
                 ),
-                // 削除ボタン
                 Positioned(
                   top: 4,
                   right: 4,
@@ -649,7 +413,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     );
   }
 
-  /// カメラで撮影
   Future<void> _takePhoto() async {
     try {
       final image = await _imagePicker.pickImage(
@@ -673,7 +436,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     }
   }
 
-  /// ギャラリーから選択
   Future<void> _pickFromGallery() async {
     try {
       final images = await _imagePicker.pickMultiImage(imageQuality: 85);
@@ -694,35 +456,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     }
   }
 
-  /// PDFファイルを選択
-  Future<void> _pickPdfFile() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: false,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final pickedFile = result.files.single;
-        if (pickedFile.path != null && pickedFile.path!.isNotEmpty) {
-          setState(() {
-            _selectedPdfFile = File(pickedFile.path!);
-          });
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('ファイルの選択に失敗しました: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  /// PDFを生成して保存
   Future<void> _generatePdf() async {
     if (_selectedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -739,7 +472,6 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
     });
 
     try {
-      // ローディング表示
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -770,21 +502,16 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
         widget.device.modelNumber,
       );
 
-          // デバイスにマニュアル情報を保存
-          await manualService.saveLocalManual(
-            pdfFile,
-            widget.device.id,
-            widget.device.name,
-            widget.device.modelNumber,
-          );
+      await manualService.saveLocalManual(
+        pdfFile,
+        widget.device.id,
+        widget.device.name,
+        widget.device.modelNumber,
+      );
 
-          // デバイス情報を更新（実際の実装では、DeviceServiceにupdateDeviceメソッドが必要）
-          // ここでは簡易的に成功メッセージを表示
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
-          if (!mounted) return;
-      Navigator.of(context).pop(); // ローディングを閉じる
-
-      // 成功メッセージ
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('あなたの機材知識がアーカイブされました'),
@@ -793,11 +520,10 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
         ),
       );
 
-      // 画面を閉じる
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pop(); // ローディングを閉じる
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('PDFの生成に失敗しました: $e'),
@@ -812,91 +538,4 @@ class _ManualRegistrationScreenState extends State<ManualRegistrationScreen> {
       }
     }
   }
-
-  /// PDFファイルを保存
-  Future<void> _savePdfFile() async {
-    if (_selectedPdfFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PDFファイルを選択してください'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      // ローディング表示
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                '記録を同期中...',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                  color: Color(0xFF666666),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-      final manualService = ManualService();
-      await manualService.saveLocalManual(
-        _selectedPdfFile!,
-        widget.device.id,
-        widget.device.name,
-        widget.device.modelNumber,
-      );
-
-      // デバイス情報を更新（実際の実装では、DeviceServiceにupdateDeviceメソッドが必要）
-
-      if (!mounted) return;
-      Navigator.of(context).pop(); // ローディングを閉じる
-
-      // 成功メッセージ
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('あなたの機材知識がアーカイブされました'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // 画面を閉じる
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop(); // ローディングを閉じる
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('ファイルの保存に失敗しました: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-}
-
-enum RegistrationMode {
-  scan,
-  upload,
 }

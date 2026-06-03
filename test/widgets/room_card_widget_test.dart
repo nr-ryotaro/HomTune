@@ -19,7 +19,7 @@ void main() {
         home: Scaffold(
           body: RoomCardWidget(
             room: room,
-            onTap: () {},
+            onDetailTap: () {},
           ),
         ),
       ),
@@ -58,7 +58,7 @@ void main() {
         home: Scaffold(
           body: RoomCardWidget(
             room: room,
-            onTap: () {},
+            onDetailTap: () {},
           ),
         ),
       ),

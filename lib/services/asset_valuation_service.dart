@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/services.dart';
+
 import '../models/device.dart';
 
 class AssetValuationService {
@@ -7,6 +11,172 @@ class AssetValuationService {
       AssetValuationService._internal();
   factory AssetValuationService() => _instance;
   AssetValuationService._internal();
+
+  Map<String, int>? _cachedUsefulLifes;
+
+  /// カテゴリごとの法定耐用年数を読み込み
+  Future<Map<String, int>> loadUsefulLifes() async {
+    if (_cachedUsefulLifes != null) {
+      return _cachedUsefulLifes!;
+    }
+
+    try {
+      final jsonString =
+          await rootBundle.loadString('assets/data/category-defaults.json');
+      final jsonData = json.decode(jsonString) as Map<String, dynamic>;
+      final usefulLifes = jsonData['usefulLife'] as Map<String, dynamic>?;
+      _cachedUsefulLifes = usefulLifes
+              ?.map((key, value) => MapEntry(key, (value as num).toInt())) ??
+          {};
+      return _cachedUsefulLifes!;
+    } catch (e) {
+      print('Error loading category defaults: $e');
+      _cachedUsefulLifes = {
+        'エアコン': 10,
+        '冷蔵庫': 12,
+        '洗濯機': 10,
+        'テレビ': 8,
+        'PC': 4,
+        'パソコン': 4,
+        'スマートフォン': 3,
+        '掃除機': 8,
+        '電子レンジ': 8,
+        'オーディオ': 15,
+      };
+      return _cachedUsefulLifes!;
+    }
+  }
+
+  Future<double> getUsefulLife(String category) async {
+    final usefulLifes = await loadUsefulLifes();
+    return (usefulLifes[category] ?? 10).toDouble();
+  }
+
+  double calculateElapsedTime(DateTime purchaseDate) {
+    try {
+      final now = DateTime.now();
+      final difference = now.difference(purchaseDate);
+      if (difference.isNegative) return 0.0;
+      final months = difference.inDays / 30.44;
+      return months / 12.0;
+    } catch (e) {
+      print('Error calculating elapsed time: $e');
+      return 0.0;
+    }
+  }
+
+  double calculateElapsedTimeFromString(String purchaseDateString) {
+    if (purchaseDateString.isEmpty) return 0.0;
+    try {
+      return calculateElapsedTime(DateTime.parse(purchaseDateString));
+    } catch (e) {
+      print('Error parsing purchase date "$purchaseDateString": $e');
+      return 0.0;
+    }
+  }
+
+  /// 法定耐用年数ベースの帳簿価値（旧 ValuationService 互換）
+  int calculateStatutoryBookValue(
+    int purchasePrice,
+    double usefulLife,
+    double elapsedTime,
+  ) {
+    try {
+      if (usefulLife <= 0 || purchasePrice <= 0) return 0;
+      final safeElapsed = math.max(0.0, elapsedTime);
+      final depreciationPerYear = purchasePrice / usefulLife;
+      final bookValue = purchasePrice - depreciationPerYear * safeElapsed;
+      return math.max(0, bookValue.round());
+    } catch (e) {
+      print('Error calculating statutory book value: $e');
+      return 0;
+    }
+  }
+
+  int getMarketValueFromDevice(Device device) {
+    if (device.assetValue != null && device.assetValue!.currentUsedPrice > 0) {
+      return device.assetValue!.currentUsedPrice;
+    }
+    return (device.purchasePrice * 0.5).round();
+  }
+
+  Future<int> calculateCurrentStatutoryValue(Device device) async {
+    final usefulLife = await getUsefulLife(device.category);
+    final elapsed = calculateElapsedTimeFromString(device.purchaseDate);
+    final bookValue = calculateStatutoryBookValue(
+      device.purchasePrice,
+      usefulLife,
+      elapsed,
+    );
+    final marketValue = getMarketValueFromDevice(device);
+    return math.max(bookValue, marketValue);
+  }
+
+  Future<bool> hasSellOpportunityStatutory(Device device) async {
+    final usefulLife = await getUsefulLife(device.category);
+    final elapsed = calculateElapsedTimeFromString(device.purchaseDate);
+    final bookValue = calculateStatutoryBookValue(
+      device.purchasePrice,
+      usefulLife,
+      elapsed,
+    );
+    return getMarketValueFromDevice(device) > bookValue;
+  }
+
+  Future<AssetValue> calculateStatutoryAssetValue(
+    Device device, {
+    bool forceUpdate = false,
+  }) async {
+    try {
+      if (!forceUpdate && device.assetValue != null) {
+        final lastCheck = DateTime.tryParse(device.assetValue!.lastPriceCheck);
+        if (lastCheck != null &&
+            DateTime.now().difference(lastCheck).inDays < 30) {
+          return device.assetValue!;
+        }
+      }
+
+      final usefulLife = await getUsefulLife(device.category);
+      final elapsed = calculateElapsedTimeFromString(device.purchaseDate);
+      final bookValue = calculateStatutoryBookValue(
+        device.purchasePrice,
+        usefulLife,
+        elapsed,
+      );
+      final marketValue = getMarketValueFromDevice(device);
+      final currentValue = math.max(bookValue, marketValue);
+      final hasSellOpp = marketValue > bookValue;
+      final existingHistory = device.assetValue?.priceHistory ?? [];
+
+      double depreciationRate = 0.0;
+      if (device.purchasePrice > 0) {
+        depreciationRate =
+            (device.purchasePrice - currentValue) / device.purchasePrice;
+      }
+
+      return AssetValue(
+        purchasePrice: device.purchasePrice,
+        currentUsedPrice: currentValue,
+        depreciationRate:
+            device.assetValue?.depreciationRate ?? depreciationRate,
+        lastPriceCheck: DateTime.now().toIso8601String(),
+        priceHistory: existingHistory,
+        bookValue: bookValue,
+        marketValue: marketValue,
+        hasSellOpportunity: hasSellOpp,
+        usefulLife: usefulLife,
+      );
+    } catch (e) {
+      print('Error in calculateStatutoryAssetValue: $e');
+      return AssetValue(
+        purchasePrice: device.purchasePrice,
+        currentUsedPrice: device.purchasePrice,
+        depreciationRate: 0.0,
+        lastPriceCheck: DateTime.now().toIso8601String(),
+        priceHistory: [],
+      );
+    }
+  }
 
   /// 帳簿価値を計算 (Book Value)
   /// 式: V_book = PurchasePrice * (1 - D) * (1 - r)^m

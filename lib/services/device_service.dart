@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../data/repositories/device_repository.dart';
 import '../models/device.dart';
 import '../models/maintenance_task.dart';
 import '../models/room.dart';
 import '../models/room.dart' as room_models;
-import 'asset_valuation_service.dart';
+import '../models/asset_refresh_result.dart';
+import '../models/market_refresh_mode.dart';
+import 'asset_valuation_refresh_service.dart';
+import 'config_service.dart';
 import 'maintenance_calendar_service.dart';
 import 'notification_service.dart';
 import 'manual_link_resolver.dart';
@@ -14,24 +17,23 @@ import 'manual_search_service.dart';
 import 'appliance_template_service.dart';
 
 class DeviceService extends ChangeNotifier {
-  static const _userDevicesStorageKey = 'user_devices';
-  static const _seedDeviceIds = {
-    'tv_001',
-    'speaker_001',
-    'record_player_001',
-    'humidifier_001',
-    'sofa_001',
-    'tv_bed_001',
-    'bed_001',
-    'light_bed_001',
-    'smart_speaker_bed_001',
-    'cabinet_bed_001',
-    'fridge_001',
-    'oven_001',
-    'espresso_001',
-    'rice_cooker_001',
-    'light_kitchen_001',
-  };
+  DeviceService({
+    DeviceRepository? repository,
+    NotificationService? notificationService,
+    ManualLinkResolver? manualLinkResolver,
+    ApplianceTemplateService? applianceTemplateService,
+  })  : _repository = repository ?? DeviceRepository(),
+        _notificationService = notificationService ?? NotificationService(),
+        _manualLinkResolver = manualLinkResolver ?? ManualLinkResolver.instance,
+        _applianceTemplateService =
+            applianceTemplateService ?? ApplianceTemplateService.instance;
+
+  final DeviceRepository _repository;
+  final NotificationService _notificationService;
+  final ManualLinkResolver _manualLinkResolver;
+  final ApplianceTemplateService _applianceTemplateService;
+  final AssetValuationRefreshService _assetRefresh =
+      AssetValuationRefreshService();
 
   List<Device> _devices = [];
   FloorPlan? _floorPlan;
@@ -57,9 +59,7 @@ class DeviceService extends ChangeNotifier {
   Future<void> addDevice(Device device, {String? archetypeId}) async {
     try {
       // 資産価値を計算 (Double Timeline Logic)
-      final valuationService = AssetValuationService();
-      final calculatedAssetValue =
-          await valuationService.calculateAssetValue(device);
+      final calculatedAssetValue = await _assetRefresh.refresh(device);
 
       // 資産価値を更新したデバイスを作成
       final deviceWithAssetValue = Device(
@@ -92,7 +92,7 @@ class DeviceService extends ChangeNotifier {
             await MaintenanceCalendarService.initializeTasksForDevice(
                 deviceToStore);
         final archetypeTasks = archetypeId != null
-            ? await ApplianceTemplateService.instance
+            ? await _applianceTemplateService
                 .buildTasksForArchetype(archetypeId, deviceToStore.id)
             : <MaintenanceTask>[];
         final merged = _mergeMaintenanceTasks(categoryTasks, archetypeTasks);
@@ -112,12 +112,11 @@ class DeviceService extends ChangeNotifier {
       _devices.add(deviceToStore);
       await _persistUserDevices();
       await MaintenanceCalendarService.saveTasks(_devices);
-      NotificationService()
-          .scheduleAllMaintenanceNotifications(_devices);
+      _notificationService.scheduleAllMaintenanceNotifications(_devices);
       notifyListeners();
 
       if (shouldResolveManual) {
-        ManualLinkResolver.instance.resolveForDevice(this, deviceToStore);
+        _manualLinkResolver.resolveForDevice(this, deviceToStore);
       }
     } catch (e) {
       print('Error adding device: $e');
@@ -159,15 +158,14 @@ class DeviceService extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 100));
 
       // ユーザー追加デバイスを保持（シードデータ再注入時も消さない）
-      final persistedUser = await _loadPersistedUserDevices();
+      final persistedUser = await _repository.loadPersistedUserDevices();
       final inMemoryUser = _devices
-          .where((d) => !_seedDeviceIds.contains(d.id))
+          .where((d) => !_repository.isSeedDevice(d.id))
           .toList();
-      final userById = <String, Device>{};
-      for (final d in [...persistedUser, ...inMemoryUser]) {
-        userById[d.id] = d;
-      }
-      _devices = userById.values.toList();
+      _devices = _repository.mergeUserDevices(
+        persisted: persistedUser,
+        inMemory: inMemoryUser,
+      );
 
       // floor-plan.jsonから読み込み（floorPlanがnullの場合）
       if (_floorPlan == null) {
@@ -184,471 +182,8 @@ class DeviceService extends ChangeNotifier {
         }
       }
 
-      // リビングルームのダミーデータを注入
-      final livingRoomId = _rooms
-          .firstWhere((r) => r.name.contains('リビング') || r.id.contains('living'),
-              orElse: () => Room(
-                  id: 'living-room',
-                  name: 'リビング',
-                  type: 'living_room',
-                  floor: 1,
-                  coordinates: RoomCoordinates(x: 0, y: 0, width: 0, height: 0),
-                  devices: []))
-          .id;
+      _devices = await _repository.applySeedDevices(_devices, _rooms);
 
-      if (livingRoomId.isNotEmpty) {
-        final dummyDevices = [
-          Device(
-            id: 'tv_001',
-            name: 'BRAVIA 65V型 有機ELテレビ',
-            modelNumber: 'XRJ-65A95K',
-            category: 'TV',
-            manufacturer: 'SONY',
-            purchaseDate: '2023-06-15',
-            purchasePrice: 450000,
-            yearsOwned: 2.5,
-            room: livingRoomId,
-            location: 'リビングボード',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 450000,
-              currentUsedPrice: 320000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'speaker_001',
-            name: 'ブックシェルフスピーカー ライトオーク',
-            modelNumber: 'OBERON1 LO',
-            category: 'Speaker',
-            manufacturer: 'DALI',
-            purchaseDate: '2023-01-20',
-            purchasePrice: 75000,
-            yearsOwned: 3.0,
-            room: livingRoomId,
-            location: 'リビングボード',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 75000,
-              currentUsedPrice: 50000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'record_player_001',
-            name: 'Bluetoothトランスミッター搭載 アナログターンテーブル',
-            modelNumber: 'TN-400BT-WA',
-            category: 'Record Player',
-            manufacturer: 'TEAC',
-            purchaseDate: '2022-11-10',
-            purchasePrice: 58000,
-            yearsOwned: 3.2,
-            room: livingRoomId,
-            location: 'サイドテーブル',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 58000,
-              currentUsedPrice: 42000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'humidifier_001',
-            name: '超音波式加湿器 クールグレー',
-            modelNumber: 'STEM 300 CG',
-            category: 'Humidifier',
-            manufacturer: 'cado',
-            purchaseDate: '2023-12-01',
-            purchasePrice: 29800,
-            yearsOwned: 1.2,
-            room: livingRoomId,
-            location: '床',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 29800,
-              currentUsedPrice: 15000,
-              depreciationRate: 0.2,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'sofa_001',
-            name: '2人掛けソファ ピュアオーク',
-            modelNumber: 'ZU46',
-            category: 'Furniture',
-            manufacturer: 'Karimoku',
-            purchaseDate: '2021-05-20',
-            purchasePrice: 245000,
-            yearsOwned: 4.5,
-            room: livingRoomId,
-            location: '中央',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 245000,
-              currentUsedPrice: 180000,
-              depreciationRate: 0.05,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-        ];
-
-        // 既存のデータをフィルタリングして、IDが重複しないように追加
-        for (var dummy in dummyDevices) {
-          final index = _devices.indexWhere((d) => d.id == dummy.id);
-          if (index >= 0) {
-            _devices[index] = dummy;
-          } else {
-            _devices.add(dummy);
-          }
-        }
-      }
-
-      // 寝室のダミーデータを注入
-      final bedroomId = _rooms
-          .firstWhere((r) => r.name.contains('寝室') || r.id.contains('bed'),
-              orElse: () => Room(
-                  id: 'bedroom-01',
-                  name: '寝室',
-                  type: 'bedroom',
-                  floor: 1,
-                  coordinates: RoomCoordinates(x: 0, y: 0, width: 0, height: 0),
-                  devices: []))
-          .id;
-
-      if (bedroomId.isNotEmpty) {
-        final dummyBedroomDevices = [
-          Device(
-            id: 'tv_bed_001',
-            name: 'The Frame 55V型 (壁掛けアートTV)',
-            modelNumber: 'QA55LS03B',
-            category: 'TV',
-            manufacturer: 'SAMSUNG',
-            purchaseDate: '2023-09-10',
-            purchasePrice: 180000,
-            yearsOwned: 2.3,
-            room: bedroomId,
-            location: '壁',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 180000,
-              currentUsedPrice: 110000,
-              depreciationRate: 0.15,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'bed_001',
-            name: 'Arlington ベッド オーク・ファブリック張り',
-            modelNumber: 'Arlington',
-            category: 'Furniture',
-            manufacturer: 'BoConcept',
-            purchaseDate: '2022-04-05',
-            purchasePrice: 285000,
-            yearsOwned: 3.8,
-            room: bedroomId,
-            location: '中央',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 285000,
-              currentUsedPrice: 160000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'light_bed_001',
-            name: 'IC Lights S1 (真鍮/フロストガラス)',
-            modelNumber: 'IC Lights S1',
-            category: 'Lighting',
-            manufacturer: 'FLOS',
-            purchaseDate: '2023-02-14',
-            purchasePrice: 85000,
-            yearsOwned: 3.0,
-            room: bedroomId,
-            location: '天井',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 85000,
-              currentUsedPrice: 60000,
-              depreciationRate: 0.05,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'smart_speaker_bed_001',
-            name: 'HomePod (第2世代) ホワイト',
-            modelNumber: 'MQJ73J/A',
-            category: 'Smart Speaker',
-            manufacturer: 'Apple',
-            purchaseDate: '2024-01-15',
-            purchasePrice: 44800,
-            yearsOwned: 1.0,
-            room: bedroomId,
-            location: 'サイドテーブル',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 44800,
-              currentUsedPrice: 32000,
-              depreciationRate: 0.2,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'cabinet_bed_001',
-            name: 'フロートTVボード オーク',
-            modelNumber: 'Margin Cabinet MA-180',
-            category: 'Furniture',
-            manufacturer: 'Pamouna',
-            purchaseDate: '2023-08-20',
-            purchasePrice: 125000,
-            yearsOwned: 2.5,
-            room: bedroomId,
-            location: '壁',
-            status: 'active',
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 125000,
-              currentUsedPrice: 75000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-        ];
-
-        // 既存のデータをフィルタリングして、IDが重複しないように追加
-        for (var dummy in dummyBedroomDevices) {
-          final index = _devices.indexWhere((d) => d.id == dummy.id);
-          if (index >= 0) {
-            _devices[index] = dummy;
-          } else {
-            _devices.add(dummy);
-          }
-        }
-      }
-
-      // キッチンのダミーデータを注入
-      final kitchenId = _rooms
-          .firstWhere(
-              (r) => r.name.contains('キッチン') || r.id.contains('kitchen'),
-              orElse: () => Room(
-                  id: 'kitchen-01',
-                  name: 'キッチン',
-                  type: 'kitchen',
-                  floor: 1,
-                  coordinates: RoomCoordinates(x: 0, y: 0, width: 0, height: 0),
-                  devices: []))
-          .id;
-
-      if (kitchenId.isNotEmpty) {
-        final dummyKitchenDevices = [
-          Device(
-            id: 'fridge_001',
-            name: 'IoT対応 フルスペック冷蔵庫 600L',
-            modelNumber: 'NR-F608WPX',
-            category: 'Refrigerator',
-            manufacturer: 'Panasonic',
-            purchaseDate: '2022-03-10', // 発売日直後に購入と仮定
-            purchasePrice: 350000,
-            yearsOwned: 3.9,
-            room: kitchenId,
-            location: '冷蔵庫置き場',
-            status: 'active',
-            condition: ItemCondition.newItem,
-            releaseDate: DateTime(2022, 2, 25),
-            originalPrice: 380000,
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 350000,
-              currentUsedPrice: 180000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'oven_001',
-            name: 'ビルトインコンベクションオーブン',
-            modelNumber: 'H 7164 B',
-            category: 'Oven',
-            manufacturer: 'Miele',
-            purchaseDate: '2021-01-20',
-            purchasePrice: 385000,
-            yearsOwned: 5.0,
-            room: kitchenId,
-            location: 'ビルトイン',
-            status: 'active',
-            condition: ItemCondition.newItem,
-            releaseDate: DateTime(2020, 12, 1),
-            originalPrice: 385000,
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 385000,
-              currentUsedPrice: 250000,
-              depreciationRate: 0.08,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'espresso_001',
-            name: 'the Barista Express シーソルト',
-            modelNumber: 'BES875',
-            category: 'Coffee Maker',
-            manufacturer: 'Breville',
-            purchaseDate: '2023-05-15', // 中古購入
-            purchasePrice: 75000,
-            yearsOwned: 2.7,
-            room: kitchenId,
-            location: 'カウンター',
-            status: 'active',
-            condition: ItemCondition.usedItem,
-            releaseDate: DateTime(2021, 6, 1),
-            originalPrice: 130000,
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 75000,
-              currentUsedPrice: 68000,
-              depreciationRate: 0.15,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'rice_cooker_001',
-            name: 'ライスポット 5合炊き ホワイト',
-            modelNumber: 'PH23A-WH',
-            category: 'Rice Cooker',
-            manufacturer: 'Vermicular',
-            purchaseDate: '2017-01-10',
-            purchasePrice: 98800,
-            yearsOwned: 9.0,
-            room: kitchenId,
-            location: 'カウンター',
-            status: 'active',
-            condition: ItemCondition.newItem,
-            releaseDate: DateTime(2016, 12, 1),
-            originalPrice: 98800,
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 98800,
-              currentUsedPrice: 50000,
-              depreciationRate: 0.1,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-          Device(
-            id: 'light_kitchen_001',
-            name: 'アンビット ペンダントランプ',
-            modelNumber: 'Ambit Pendant',
-            category: 'Lighting',
-            manufacturer: 'Muuto',
-            purchaseDate: '2024-02-01', // 中古購入
-            purchasePrice: 25000,
-            yearsOwned: 2.0,
-            room: kitchenId,
-            location: '天井',
-            status: 'active',
-            condition: ItemCondition.usedItem,
-            releaseDate: DateTime(2015, 1, 1), // ロングセラー
-            originalPrice: 48000,
-            consumables: [],
-            photos: [],
-            documents: [],
-            assetValue: AssetValue(
-              purchasePrice: 25000, // 中古購入価格
-              currentUsedPrice: 20000,
-              depreciationRate: 0.05,
-              lastPriceCheck: DateTime.now().toIso8601String(),
-              priceHistory: [],
-            ),
-          ),
-        ];
-
-        // 既存のデータをフィルタリングして、IDが重複しないように追加
-        for (var i = 0; i < dummyKitchenDevices.length; i++) {
-          var device = dummyKitchenDevices[i];
-          // AssetValuationServiceを使って資産価値を再計算
-          try {
-            final valuationService = AssetValuationService();
-            // 発売日がnullの場合は、仮の発売日を設定（購入日の1年前など）して計算精度を確保
-            // ※本来はマスタデータから取得すべき
-            if (device.condition == ItemCondition.usedItem &&
-                device.releaseDate == null) {
-              device = device.copyWith(
-                  releaseDate: DateTime.parse(device.purchaseDate)
-                      .subtract(const Duration(days: 365)));
-            }
-
-            final calculatedValue =
-                await valuationService.calculateAssetValue(device);
-            device = device.copyWith(assetValue: calculatedValue);
-            dummyKitchenDevices[i] = device;
-          } catch (e) {
-            print('Error calculating asset value for ${device.name}: $e');
-            // エラー時はハードコードされた値をそのまま使用
-          }
-
-          final index = _devices.indexWhere((d) => d.id == device.id);
-          if (index >= 0) {
-            _devices[index] = device;
-          } else {
-            _devices.add(device);
-          }
-        }
-      }
-
-      // フォールバック: 部屋データから間取り図を生成
       // (ダミーデータ注入後に実行することで、注入された部屋が反映される)
       if (_rooms.isNotEmpty &&
           (_floorPlan == null || _floorPlan!.rooms.isEmpty)) {
@@ -681,8 +216,10 @@ class DeviceService extends ChangeNotifier {
 
       await MaintenanceCalendarService.saveTasks(_devices);
 
+      await _refreshAllDeviceAssetValues();
+
       // メンテナンス通知のスケジュール
-      NotificationService().scheduleAllMaintenanceNotifications(_devices);
+      _notificationService.scheduleAllMaintenanceNotifications(_devices);
     } catch (e, stackTrace) {
       _errorMessage = 'データの読み込みに失敗しました: $e';
       print('Error loading data: $e');
@@ -694,32 +231,57 @@ class DeviceService extends ChangeNotifier {
   }
 
   Future<void> _persistUserDevices() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userDevices =
-          _devices.where((d) => !_seedDeviceIds.contains(d.id)).toList();
-      final encoded =
-          jsonEncode(userDevices.map((d) => d.toJson()).toList());
-      await prefs.setString(_userDevicesStorageKey, encoded);
-    } catch (e) {
-      print('Error persisting user devices: $e');
+    await _repository.persistUserDevices(_devices);
+  }
+
+  /// 全デバイスの帳簿・市場・表示価値をローカル再計算（API コスト 0）
+  Future<void> _refreshAllDeviceAssetValues() async {
+    var changed = false;
+    for (var i = 0; i < _devices.length; i++) {
+      final device = _devices[i];
+      try {
+        final updated = await _assetRefresh.refresh(device);
+        if (_assetValueChanged(device.assetValue, updated)) {
+          _devices[i] = device.copyWith(assetValue: updated);
+          changed = true;
+        }
+      } catch (e) {
+        print('Asset refresh failed for ${device.id}: $e');
+      }
+    }
+    if (changed) {
+      await _persistUserDevices();
     }
   }
 
-  Future<List<Device>> _loadPersistedUserDevices() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getString(_userDevicesStorageKey);
-      if (stored == null || stored.isEmpty) return [];
+  bool _assetValueChanged(AssetValue? prev, AssetValue next) {
+    if (prev == null) return true;
+    return prev.bookValue != next.bookValue ||
+        prev.marketValue != next.marketValue ||
+        prev.currentUsedPrice != next.currentUsedPrice ||
+        prev.lastPriceCheck != next.lastPriceCheck;
+  }
 
-      final list = jsonDecode(stored) as List<dynamic>;
-      return list
-          .map((e) => Device.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      print('Error loading persisted user devices: $e');
-      return [];
+  /// 1台の資産価値を再計算して永続化（L0〜L2）
+  Future<AssetRefreshResult?> refreshDeviceAssetValue(
+    String deviceId, {
+    required ConfigService config,
+    MarketRefreshMode mode = MarketRefreshMode.local,
+  }) async {
+    final index = _devices.indexWhere((d) => d.id == deviceId);
+    if (index < 0) return null;
+    final result = await _assetRefresh.refreshWithMode(
+      _devices[index],
+      config: config,
+      mode: mode,
+    );
+    _devices[index] =
+        _devices[index].copyWith(assetValue: result.assetValue);
+    if (!_repository.isSeedDevice(deviceId)) {
+      await _persistUserDevices();
     }
+    notifyListeners();
+    return result;
   }
 
   FloorPlan _generateFloorPlanFromRooms() {
@@ -830,7 +392,7 @@ class DeviceService extends ChangeNotifier {
       );
     }
     await MaintenanceCalendarService.saveTasks(_devices);
-    if (!_seedDeviceIds.contains(deviceId)) {
+    if (!_repository.isSeedDevice(deviceId)) {
       await _persistUserDevices();
     }
     notifyListeners();
@@ -841,11 +403,10 @@ class DeviceService extends ChangeNotifier {
     if (index >= 0) {
       _devices[index] = updatedDevice;
       await MaintenanceCalendarService.saveTasks(_devices);
-      if (!_seedDeviceIds.contains(updatedDevice.id)) {
+      if (!_repository.isSeedDevice(updatedDevice.id)) {
         await _persistUserDevices();
       }
-      NotificationService()
-          .scheduleAllMaintenanceNotifications(_devices);
+      _notificationService.scheduleAllMaintenanceNotifications(_devices);
       notifyListeners();
     }
   }
@@ -855,10 +416,10 @@ class DeviceService extends ChangeNotifier {
     final device = getDeviceById(deviceId);
     if (device == null) return;
     await MaintenanceCalendarService.saveTasks(_devices);
-    if (!_seedDeviceIds.contains(deviceId)) {
+    if (!_repository.isSeedDevice(deviceId)) {
       await _persistUserDevices();
     }
-    NotificationService().scheduleAllMaintenanceNotifications(_devices);
+    _notificationService.scheduleAllMaintenanceNotifications(_devices);
     notifyListeners();
   }
 
@@ -870,7 +431,7 @@ class DeviceService extends ChangeNotifier {
     final i = _devices.indexWhere((d) => d.id == deviceId);
     if (i < 0) return;
     _devices[i] = _devices[i].copyWith(manualState: state);
-    if (!_seedDeviceIds.contains(deviceId)) {
+    if (!_repository.isSeedDevice(deviceId)) {
       await _persistUserDevices();
     }
     notifyListeners();
@@ -886,7 +447,7 @@ class DeviceService extends ChangeNotifier {
       manualPdfUrl: manual.url,
       manualState: ManualFetchState.found,
     );
-    if (!_seedDeviceIds.contains(deviceId)) {
+    if (!_repository.isSeedDevice(deviceId)) {
       await _persistUserDevices();
     }
     _pendingUserMessage = ManualSearchService.archiveCompleteMessage;

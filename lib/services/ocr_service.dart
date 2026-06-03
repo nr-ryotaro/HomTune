@@ -27,11 +27,14 @@ class OCRService {
     // 実際の実装では、OCR結果から正規表現で型番パターンを検出
     // 例: "CS-ZX2811", "MacBookPro16,1", "VT-4A" など
     final mockModelNumbers = [
-      'CS-ZX2811',
-      'MacBookPro16,1',
-      'VT-4A',
-      'KDL-55A8H',
-      'WH-1000XM5',
+      'XRJ-65A95K',
+      'NR-F608WPX',
+      'TN-400BT-WA',
+      'SH-C300',
+      'BES875SST',
+      'PH23A-WH',
+      'QA55LS03BW',
+      'OBERON 1 LO',
     ];
     return mockModelNumbers[DateTime.now().millisecond % mockModelNumbers.length];
   }
@@ -40,11 +43,14 @@ class OCRService {
   String _extractManufacturer(File image) {
     // 実際の実装では、OCR結果からメーカー名を検出
     final mockManufacturers = [
-      'ダイキン',
-      'Apple',
-      'Yamaha',
-      'Sony',
+      'SONY',
       'Panasonic',
+      'TEAC',
+      'cado',
+      'DALI',
+      'Breville',
+      'Vermicular',
+      'SAMSUNG',
     ];
     return mockManufacturers[DateTime.now().millisecond % mockManufacturers.length];
   }
@@ -66,11 +72,12 @@ class OCRService {
   String _extractCategory(File image) {
     // 実際の実装では、OCR結果や製品名からカテゴリを推測
     final mockCategories = [
-      'エアコン',
-      'PC',
+      'テレビ',
+      '冷蔵庫',
       'オーディオ',
-      'TV',
-      'ヘッドホン',
+      '加湿器',
+      '炊飯器',
+      'コンロ',
     ];
     return mockCategories[DateTime.now().millisecond % mockCategories.length];
   }

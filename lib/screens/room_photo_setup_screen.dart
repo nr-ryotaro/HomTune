@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../services/config_service.dart';
 import '../services/onboarding_prefs.dart';
+import '../services/room_image_generation_service.dart';
 import '../services/room_photo_service.dart';
 import '../utils/platform_support.dart';
 
@@ -23,6 +26,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
   final Map<String, String> _displayPaths = {};
   int _index = 0;
   bool _loading = true;
+  bool _isGenerating = false;
 
   @override
   void initState() {
@@ -95,6 +99,70 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
       return;
     }
     Navigator.of(context).pop(true);
+  }
+
+  Future<void> _generateWithAi() async {
+    if (_isGenerating) return;
+    final configService = Provider.of<ConfigService>(context, listen: false);
+    final styleController = TextEditingController(
+      text: '自然光が入り、落ち着いた雰囲気の$_currentRoomName',
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('AIで部屋画像を生成'),
+          content: TextField(
+            controller: styleController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: '例: 北欧風、木目、明るいトーン',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('生成'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isGenerating = true);
+    try {
+      final service = RoomImageGenerationService();
+      final generatedPath = await service.generateRoomImage(
+        configService: configService,
+        roomId: _currentRoomId,
+        roomName: _currentRoomName,
+        stylePrompt: styleController.text.trim(),
+      );
+      await RoomPhotoService.setCustomImagePath(_currentRoomId, generatedPath);
+      if (!mounted) return;
+      setState(() {
+        _displayPaths[_currentRoomId] = generatedPath;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI画像を生成して適用しました。')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('AI画像生成に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+    }
   }
 
   Widget _buildPreviewImage(String path) {
@@ -191,6 +259,24 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
                 onPressed: () => _pickImage(ImageSource.gallery),
                 icon: const Icon(Icons.photo_library_outlined),
                 label: const Text('アルバムから選ぶ'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isGenerating ? null : _generateWithAi,
+                icon: _isGenerating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(_isGenerating ? '生成中...' : 'AIで生成'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),

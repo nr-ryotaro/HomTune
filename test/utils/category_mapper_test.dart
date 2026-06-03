@@ -14,8 +14,11 @@ void main() {
       expect(CategoryMapper.normalize('エアコン'), 'エアコン');
     });
 
-    test('returns unknown category unchanged', () {
-      expect(CategoryMapper.normalize('Furniture'), 'Furniture');
+    test('maps furniture and lighting to その他', () {
+      expect(CategoryMapper.normalize('Furniture'), 'その他');
+      expect(CategoryMapper.normalize('Lighting'), 'その他');
+      expect(CategoryMapper.normalize('Rice Cooker'), '炊飯器');
+      expect(CategoryMapper.normalize('Oven'), 'コンロ');
     });
   });
 }

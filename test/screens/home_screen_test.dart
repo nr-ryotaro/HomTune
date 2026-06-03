@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:homtune/screens/home_screen.dart';
+import 'package:homtune/models/asset_refresh_result.dart';
+import 'package:homtune/models/market_refresh_mode.dart';
 import 'package:homtune/services/device_service.dart';
 import 'package:homtune/models/device.dart';
 import 'package:homtune/models/room.dart';
-import 'package:homtune/models/room_card_model.dart';
 import 'package:homtune/services/config_service.dart';
-// Ensure Manual is available. It is in device.dart usually.
+import 'package:homtune/screens/room_devices_screen.dart';
+import 'package:homtune/widgets/device_detail_card.dart';
 
 // Mock DeviceService
 class MockDeviceService extends ChangeNotifier implements DeviceService {
@@ -64,7 +66,7 @@ class MockDeviceService extends ChangeNotifier implements DeviceService {
         purchaseDate: '2025-01-01',
         purchasePrice: 100000,
         yearsOwned: 1.0,
-        room: 'living', // room id
+        room: 'living-room',
         location: 'Wall',
         status: 'active',
         consumables: [],
@@ -130,6 +132,13 @@ class MockDeviceService extends ChangeNotifier implements DeviceService {
   Future<void> deleteDevice(String id) async {}
   @override
   Future<void> refresh() async {}
+  @override
+  Future<AssetRefreshResult?> refreshDeviceAssetValue(
+    String deviceId, {
+    required ConfigService config,
+    MarketRefreshMode mode = MarketRefreshMode.local,
+  }) async =>
+      null;
 }
 
 void main() {
@@ -163,5 +172,39 @@ void main() {
 
     // Verify Living Room (default selected) content is shown
     expect(find.text('Living Room'), findsOneWidget);
+  });
+
+  testWidgets('Room card arrow opens RoomDevicesScreen when room has devices', (
+    WidgetTester tester,
+  ) async {
+    final mockService = MockDeviceService();
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<DeviceService>.value(value: mockService),
+          ChangeNotifierProvider<ConfigService>.value(value: ConfigService()),
+        ],
+        child: const MaterialApp(home: HomeScreen()),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+
+    expect(find.byType(RoomDevicesScreen), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.arrow_forward).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byType(RoomDevicesScreen), findsOneWidget);
+    expect(find.byType(DeviceDetailCard), findsOneWidget);
+    expect(find.text('CS-101'), findsOneWidget);
   });
 }

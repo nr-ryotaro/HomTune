@@ -1,6 +1,9 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/device.dart';
+import '../models/local_response_plan.dart';
 import 'config_service.dart';
+import 'device_query_matcher.dart';
+import 'local_response_planner.dart';
 
 /// AI チャットサービス — Gemini API によるデバイストラブルシューティング
 ///
@@ -9,9 +12,6 @@ import 'config_service.dart';
 /// - 会話履歴の保持（セッション内）
 /// - ダミーモードとリアルAPI モードの切り替え
 class ChatService {
-  static const String _geminiModel = 'gemini-2.0-flash-exp';
-  static const String _apiKeyEnv = 'GEMINI_API_KEY';
-
   final ConfigService _configService;
 
   /// Gemini セッション（会話履歴を保持）
@@ -22,31 +22,13 @@ class ChatService {
 
   ChatService(this._configService);
 
-  /// 環境変数または dart-define から API キーを取得
-  static String? get _geminiApiKey {
-    const key = String.fromEnvironment(
-      _apiKeyEnv,
-      defaultValue: '',
-    );
-    if (key.isNotEmpty) return key;
-    return null;
-  }
-
   /// デバイスコンテキストを設定してセッションを初期化
   Future<void> initializeWithDevices(List<Device> devices) async {
     _contextDevices = devices;
     _chatSession = null; // 新しいコンテキストでリセット
 
     if (_configService.isUsingRealApi) {
-      final apiKey = _geminiApiKey;
-      if (apiKey == null || apiKey.isEmpty) return;
-
-      final model = GenerativeModel(
-        model: _geminiModel,
-        apiKey: apiKey,
-        systemInstruction: Content.text(await _buildSystemPrompt(devices)),
-      );
-      _chatSession = model.startChat();
+      await _openChatSession(devices);
     }
   }
 
@@ -70,9 +52,93 @@ class ChatService {
       return text;
     } catch (e) {
       print('ChatService Error: $e');
-      // API エラー時はローカル応答にフォールバック
+      await _openChatSession(_contextDevices);
+      if (_chatSession != null) {
+        try {
+          final retry = await _chatSession!.sendMessage(
+            Content.text(userMessage),
+          );
+          final retryText = retry.text?.trim() ?? '';
+          if (retryText.isNotEmpty) return retryText;
+        } catch (retryError) {
+          print('ChatService retry error: $retryError');
+        }
+      }
       return _generateLocalResponse(userMessage);
     }
+  }
+
+  /// ローカルテンプレート応答を強制利用（コスト制御向け）
+  String sendLocalMessage(String userMessage) {
+    return _generateLocalResponse(userMessage);
+  }
+
+  /// 登録デバイスに対するローカル回答計画（ルーティング用）
+  LocalResponsePlan planLocalResponse(String userMessage) {
+    return LocalResponsePlanner.plan(userMessage, _contextDevices);
+  }
+
+  static LocalResponsePlan planLocalResponseForDevices(
+    String userMessage,
+    List<Device> devices,
+  ) {
+    return LocalResponsePlanner.plan(userMessage, devices);
+  }
+
+  Future<void> _openChatSession(List<Device> devices) async {
+    final apiKey = _configService.geminiApiKey;
+    if (apiKey.isEmpty) {
+      _chatSession = null;
+      return;
+    }
+
+    final systemPrompt = await _buildSystemPrompt(devices);
+    final primaryModel = _configService.geminiModel;
+
+    try {
+      _chatSession = _createChatSession(
+        apiKey: apiKey,
+        modelId: primaryModel,
+        systemPrompt: systemPrompt,
+      );
+      return;
+    } catch (e) {
+      print('ChatService initialize error ($primaryModel): $e');
+    }
+
+    final probe = await _configService.testCloudConnection();
+    if (!probe.success) {
+      _chatSession = null;
+      return;
+    }
+
+    if (probe.modelId != primaryModel) {
+      await _configService.setGeminiModel(probe.modelId);
+    }
+
+    try {
+      _chatSession = _createChatSession(
+        apiKey: apiKey,
+        modelId: probe.modelId,
+        systemPrompt: systemPrompt,
+      );
+    } catch (e) {
+      _chatSession = null;
+      print('ChatService initialize error (${probe.modelId}): $e');
+    }
+  }
+
+  ChatSession _createChatSession({
+    required String apiKey,
+    required String modelId,
+    required String systemPrompt,
+  }) {
+    final model = GenerativeModel(
+      model: modelId,
+      apiKey: apiKey,
+      systemInstruction: Content.text(systemPrompt),
+    );
+    return model.startChat();
   }
 
   /// システムプロンプトを構築（デバイスコンテキスト注入）
@@ -180,8 +246,17 @@ ${deviceSummaries.join('\n\n')}
 
     final lowerMessage = userMessage.toLowerCase();
 
-    // デバイスコンテキストからの応答
-    final matchedDevice = _findRelevantDevice(lowerMessage);
+    final matchedDevice = DeviceQueryMatcher.findRelevant(
+      userMessage,
+      _contextDevices,
+    );
+
+    if (lowerMessage.contains('何台') ||
+        lowerMessage.contains('何個') ||
+        (lowerMessage.contains('登録') &&
+            (lowerMessage.contains('何') || lowerMessage.contains('一覧')))) {
+      return '現在 ${_contextDevices.length} 台の家電が登録されています。';
+    }
 
     // リコール関連の質問
     if (lowerMessage.contains('リコール') ||
@@ -245,14 +320,10 @@ ${device.manual?.url != null ? '\nマニュアル：${device.manual!.url}' : ''}
     if (lowerMessage.contains('エアコン') ||
         lowerMessage.contains('冷房') ||
         lowerMessage.contains('暖房')) {
-      Device? acDevice;
-      try {
-        acDevice = _contextDevices.firstWhere(
-          (d) => d.category == 'エアコン' || d.category == 'AC',
-        );
-      } catch (_) {
-        acDevice = _firstContextDevice;
-      }
+      final acDevice =
+          DeviceQueryMatcher.findAirConditioner(_contextDevices) ??
+              matchedDevice ??
+              _firstContextDevice;
       if (acDevice == null) return _noDevicesResponse();
 
       if (lowerMessage.contains('フィルター') ||
@@ -366,59 +437,6 @@ ${acDevice.manual?.url != null ? '\n詳細はマニュアルをご確認くだ�
 - 「保証期間はまだ残ってる？」
 
 デバイス名や問題内容を具体的に教えていただければ、より詳しくご案内できます。''';
-  }
-
-  /// ユーザーメッセージから関連するデバイスを検索
-  Device? _findRelevantDevice(String lowerMessage) {
-    // デバイス名で完全一致検索
-    for (final device in _contextDevices) {
-      if (lowerMessage.contains(device.name.toLowerCase())) {
-        return device;
-      }
-    }
-
-    // カテゴリ・キーワードで検索
-    final categoryKeywords = {
-      'エアコン': ['エアコン', 'air', 'クーラー', '冷房', '暖房'],
-      'PC': ['パソコン', 'pc', 'macbook', 'mac', 'ノート', 'デスクトップ'],
-      'テレビ': ['テレビ', 'tv', 'モニター'],
-      '冷蔵庫': ['冷蔵庫', '冷凍', '冷蔵'],
-      '洗濯機': ['洗濯', '乾燥機'],
-      '掃除機': ['掃除機', 'ルンバ', 'クリーナー'],
-    };
-
-    for (final entry in categoryKeywords.entries) {
-      if (entry.value.any((kw) => lowerMessage.contains(kw))) {
-        try {
-          return _contextDevices.firstWhere((d) => d.category == entry.key);
-        } catch (_) {
-          return _firstContextDevice;
-        }
-      }
-    }
-
-    // 部屋名で検索
-    final roomKeywords = {
-      'living-room': ['リビング', 'living'],
-      'study': ['書斎', 'study', '仕事部屋'],
-      'bedroom': ['寝室', 'bedroom', 'bed'],
-      'kitchen': ['キッチン', 'kitchen', '台所'],
-      'entrance': ['玄関', 'entrance', 'genkan'],
-    };
-
-    for (final entry in roomKeywords.entries) {
-      if (entry.value.any((kw) => lowerMessage.contains(kw))) {
-        try {
-          return _contextDevices.firstWhere(
-            (d) => d.room == entry.key || d.room == '${entry.key}-01',
-          );
-        } catch (_) {
-          return _firstContextDevice;
-        }
-      }
-    }
-
-    return null;
   }
 
   /// セッションをリセット

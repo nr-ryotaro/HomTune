@@ -1,6 +1,14 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/chat_route_preview.dart';
 import '../models/device.dart';
+import '../models/ai_usage_policy.dart';
+import '../services/ai_routing_service.dart';
+import '../services/ai_usage_service.dart';
+import '../services/chat_route_preview_builder.dart';
 import '../services/chat_service.dart';
 import '../services/config_service.dart';
 
@@ -24,18 +32,30 @@ class _ChatWidgetState extends State<ChatWidget> {
   ChatService? _chatService;
   bool _isChatReady = false;
   int _deviceCount = 0;
+  String _responseModeLabel = 'ローカル';
+  AiUsageSnapshot? _usageSnapshot;
+  ChatRoutePreview _routePreview = ChatRoutePreview.empty;
+  Timer? _previewDebounce;
 
   @override
   void initState() {
     super.initState();
     _deviceCount = widget.devices.length;
+    _messageController.addListener(_onInputChanged);
     _initChatService();
   }
 
   Future<void> _initChatService() async {
     final configService = Provider.of<ConfigService>(context, listen: false);
     final service = ChatService(configService);
-    await service.initializeWithDevices(widget.devices);
+    AiUsageSnapshot? snapshot;
+    try {
+      await service.initializeWithDevices(widget.devices);
+      snapshot = await AiUsageService.instance.getSnapshot(configService);
+    } catch (e) {
+      // 初期化失敗時もチャット自体は使えるようにする（ローカル専用）
+      print('ChatWidget init error: $e');
+    }
     if (!mounted) {
       service.dispose();
       return;
@@ -43,13 +63,19 @@ class _ChatWidgetState extends State<ChatWidget> {
     setState(() {
       _chatService = service;
       _isChatReady = true;
+      _usageSnapshot = snapshot;
+      _responseModeLabel = 'ローカル';
     });
   }
 
   Future<void> _refreshDeviceContext(List<Device> devices) async {
     final service = _chatService;
     if (service == null || !_isChatReady) return;
-    await service.initializeWithDevices(devices);
+    try {
+      await service.initializeWithDevices(devices);
+    } catch (e) {
+      print('ChatWidget refresh context error: $e');
+    }
   }
 
   @override
@@ -61,8 +87,25 @@ class _ChatWidgetState extends State<ChatWidget> {
     }
   }
 
+  void _onInputChanged() {
+    _previewDebounce?.cancel();
+    _previewDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      final config = Provider.of<ConfigService>(context, listen: false);
+      setState(() {
+        _routePreview = ChatRoutePreviewBuilder.build(
+          message: _messageController.text,
+          devices: widget.devices,
+          config: config,
+        );
+      });
+    });
+  }
+
   @override
   void dispose() {
+    _previewDebounce?.cancel();
+    _messageController.removeListener(_onInputChanged);
     _messageController.dispose();
     _scrollController.dispose();
     _chatService?.dispose();
@@ -85,17 +128,106 @@ class _ChatWidgetState extends State<ChatWidget> {
     });
 
     _messageController.clear();
+    setState(() => _routePreview = ChatRoutePreview.empty);
     _scrollToBottom();
 
     try {
-      final response = await _chatService!.sendMessage(text);
+      final configService = Provider.of<ConfigService>(context, listen: false);
+      // APIキー/モデル/実APIトグルの変更を常に反映するため、
+      // 送信直前にセッションを再初期化する。
+      await _chatService!.initializeWithDevices(widget.devices);
+      final localPlan = _chatService!.planLocalResponse(text);
+      final decision = AiRoutingService.instance.decideChatRoute(
+        text,
+        devices: widget.devices,
+        localPlan: localPlan,
+        subscriptionTier: configService.subscriptionTier,
+      );
+      final routeReason = decision.reason;
+      final requestedCredits = decision.routeType == AiRouteType.localOnly
+          ? 0
+          : decision.estimatedCredits;
+
+      final canUseRealAi =
+          configService.isUsingRealApi && configService.hasGeminiApiKey;
+      final shouldTryAi =
+          decision.shouldUseAi && canUseRealAi && requestedCredits > 0;
+      if (decision.shouldUseAi &&
+          configService.isUsingRealApi &&
+          !configService.hasGeminiApiKey &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('接続情報が未設定のためローカル回答に切替しました。')),
+        );
+      }
+      if (shouldTryAi && decision.needsConfirmation) {
+        final proceed = await _confirmAiExecution(requestedCredits);
+        if (proceed != true) {
+          final localResponse = _chatService!.sendLocalMessage(text);
+          if (!mounted) return;
+          setState(() {
+            _messages.add(ChatMessage(
+              text: localResponse,
+              isUser: false,
+              timestamp: DateTime.now(),
+              responseMode: 'ローカル',
+              routeReason: routeReason,
+            ));
+            _responseModeLabel = 'ローカル';
+            _isLoading = false;
+          });
+          _scrollToBottom();
+          return;
+        }
+      }
+
+      late final String response;
+      late final String responseMode;
+      if (shouldTryAi) {
+        final budgetCheck = await AiUsageService.instance.canRunFeature(
+          configService,
+          feature: AiFeature.chat,
+          requestedCredits: requestedCredits,
+        );
+        if (budgetCheck.allowed) {
+          response = await _chatService!.sendMessage(text);
+          await AiUsageService.instance.recordUsage(
+            configService,
+            feature: AiFeature.chat,
+            consumedCredits: requestedCredits,
+            route: decision.routeType.name,
+          );
+          _usageSnapshot = await AiUsageService.instance.getSnapshot(configService);
+          _responseModeLabel = 'AI';
+          responseMode = 'AI';
+        } else {
+          response = _chatService!.sendLocalMessage(text);
+          _responseModeLabel = 'ローカル';
+          responseMode = 'ローカル';
+          if (mounted && budgetCheck.reason.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${budgetCheck.reason}（ローカル回答に切替）')),
+            );
+          }
+          _usageSnapshot = budgetCheck.snapshot;
+        }
+      } else {
+        response = _chatService!.sendLocalMessage(text);
+        _responseModeLabel = 'ローカル';
+        responseMode = 'ローカル';
+        _usageSnapshot = await AiUsageService.instance.getSnapshot(configService);
+      }
+
       if (mounted) {
         setState(() {
           _messages.add(ChatMessage(
             text: response,
             isUser: false,
             timestamp: DateTime.now(),
+            responseMode: responseMode,
+            routeReason: routeReason,
           ));
+          _routePreview = ChatRoutePreview.empty;
           _isLoading = false;
         });
         _scrollToBottom();
@@ -113,6 +245,30 @@ class _ChatWidgetState extends State<ChatWidget> {
         _scrollToBottom();
       }
     }
+  }
+
+  Future<bool?> _confirmAiExecution(int credits) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('AI回答を使用しますか？'),
+          content: Text(
+            'この質問はAI回答が有効です。約$creditsクレジット消費します。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('ローカル回答'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('AIで回答'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _scrollToBottom() {
@@ -183,81 +339,133 @@ class _ChatWidgetState extends State<ChatWidget> {
             ),
             child: SafeArea(
               top: false,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Column(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      enabled: _isChatReady,
-                      decoration: InputDecoration(
-                        hintText: _getPlaceholderText(),
-                        hintStyle: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF999999),
-                          fontWeight: FontWeight.w300,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE5E5E5),
-                            width: 0.5,
+                        decoration: BoxDecoration(
+                          color: _responseModeLabel == 'AI'
+                              ? const Color(0xFFDBEAFE)
+                              : const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '回答モード: $_responseModeLabel',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF334155),
                           ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE5E5E5),
-                            width: 0.5,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF3b82f6),
-                            width: 1,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFFFAFAFA),
                       ),
-                      maxLines: null,
-                      minLines: 1,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
+                      const Spacer(),
+                      Text(
+                        'AI残量: ${_usageSnapshot?.remainingCredits ?? '--'}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF666666),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: _isLoading || !_isChatReady
-                          ? Colors.grey[300]
-                          : const Color(0xFF3b82f6),
-                      shape: BoxShape.circle,
+                  if (_routePreview.hintLine.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _routePreview.hintLine,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _routePreview.willUseAi
+                              ? const Color(0xFF1D4ED8)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
                     ),
-                    child: IconButton(
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(
-                              Icons.send_rounded,
-                              color: Colors.white,
-                              size: 20,
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          enabled: _isChatReady,
+                          decoration: InputDecoration(
+                            hintText: _getPlaceholderText(),
+                            hintStyle: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF999999),
+                              fontWeight: FontWeight.w300,
                             ),
-                      onPressed:
-                          _isLoading || !_isChatReady ? null : _sendMessage,
-                    ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE5E5E5),
+                                width: 0.5,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE5E5E5),
+                                width: 0.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3b82f6),
+                                width: 1,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFFAFAFA),
+                          ),
+                          maxLines: null,
+                          minLines: 1,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _isLoading || !_isChatReady
+                              ? Colors.grey[300]
+                              : const Color(0xFF3b82f6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                          onPressed:
+                              _isLoading || !_isChatReady ? null : _sendMessage,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -309,13 +517,35 @@ class _ChatWidgetState extends State<ChatWidget> {
                   : const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 14,
-                color: message.isUser ? Colors.white : const Color(0xFF333333),
-                height: 1.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.text,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color:
+                        message.isUser ? Colors.white : const Color(0xFF333333),
+                    height: 1.5,
+                  ),
+                ),
+                if (!message.isUser &&
+                    message.responseMode != null &&
+                    message.responseMode!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    kDebugMode && message.routeReason != null
+                        ? '${message.responseMode} · ${message.routeReason}'
+                        : message.responseMode!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: message.isUser
+                          ? Colors.white70
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -344,10 +574,14 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final String? responseMode;
+  final String? routeReason;
 
   ChatMessage({
     required this.text,
     required this.isUser,
     required this.timestamp,
+    this.responseMode,
+    this.routeReason,
   });
 }

@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "description": "Pro L1 相場参照DB（クライアント同梱・将来はサーバー配信に差し替え）",
+  "monthlyDecayRateDefault": 0.012,
+  "entries": [
+    {
+      "manufacturer": "SONY",
+      "modelNumber": "XRJ-65A95K",
+      "referenceMarketYen": 320000,
+      "referenceAsOf": "2024-06-01"
+    },
+    {
+      "manufacturer": "DALI",
+      "modelNumber": "OBERON 1 LO",
+      "referenceMarketYen": 50000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "TEAC",
+      "modelNumber": "TN-400BT-WA",
+      "referenceMarketYen": 42000,
+      "referenceAsOf": "2023-11-01"
+    },
+    {
+      "manufacturer": "cado",
+      "modelNumber": "SH-C300",
+      "referenceMarketYen": 15000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "Karimoku",
+      "modelNumber": "ZU46",
+      "referenceMarketYen": 180000,
+      "referenceAsOf": "2022-05-01"
+    },
+    {
+      "manufacturer": "SAMSUNG",
+      "modelNumber": "QA55LS03BW",
+      "referenceMarketYen": 110000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "BoConcept",
+      "modelNumber": "Arlington",
+      "referenceMarketYen": 160000,
+      "referenceAsOf": "2023-04-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "NR-F608WPX",
+      "referenceMarketYen": 180000,
+      "referenceAsOf": "2024-03-01"
+    },
+    {
+      "manufacturer": "Miele",
+      "modelNumber": "H 7164 B",
+      "referenceMarketYen": 250000,
+      "referenceAsOf": "2023-06-01"
+    },
+    {
+      "manufacturer": "Breville",
+      "modelNumber": "BES875SST",
+      "referenceMarketYen": 68000,
+      "referenceAsOf": "2024-02-01"
+    },
+    {
+      "manufacturer": "Vermicular",
+      "modelNumber": "PH23A-WH",
+      "referenceMarketYen": 50000,
+      "referenceAsOf": "2023-12-01"
+    }
+  ]
+}

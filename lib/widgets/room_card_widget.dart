@@ -9,13 +9,13 @@ import '../services/room_photo_service.dart';
 
 class RoomCardWidget extends StatelessWidget {
   final RoomCardModel room;
-  final VoidCallback onTap;
+  final VoidCallback? onDetailTap;
   final VoidCallback? onCustomizePhoto;
 
   const RoomCardWidget({
     super.key,
     required this.room,
-    required this.onTap,
+    this.onDetailTap,
     this.onCustomizePhoto,
   });
 
@@ -32,11 +32,9 @@ class RoomCardWidget extends StatelessWidget {
           width: 0.5,
         ),
       ),
-      child: InkWell(
-        onTap: onTap,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: Column(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
@@ -58,70 +56,24 @@ class RoomCardWidget extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Badges
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (room.streakWeeks > 0)
-                            Container(
-                              margin: const EdgeInsets.only(right: 6),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.deepOrange.withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '🔥${room.streakWeeks}週',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: room.maintenanceHealth >= 0.8
-                                  ? Colors.green.withValues(alpha: 0.85)
-                                  : room.maintenanceHealth >= 0.5
-                                      ? Colors.amber.withValues(alpha: 0.9)
-                                      : Colors.red.withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${(room.maintenanceHealth * 100).round()}%',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (room.achievementRate < 1.0) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '今月 ${(room.achievementRate * 100).round()}%',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold),
-                          ),
+                  // Minimal status dot: meaning is explained on room detail screen.
+                  Tooltip(
+                    message: _healthStatusLabel(room.maintenanceHealth),
+                    waitDuration: const Duration(milliseconds: 120),
+                    showDuration: const Duration(milliseconds: 900),
+                    triggerMode: TooltipTriggerMode.tap,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: _healthStatusColor(room.maintenanceHealth),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          width: 1,
                         ),
-                      ],
-                    ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -191,7 +143,7 @@ class RoomCardWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Total Asset',
+                        '部屋の資産合計',
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.grey[500],
@@ -238,30 +190,42 @@ class RoomCardWidget extends StatelessWidget {
                   ),
 
                   // Detail Button (Minimal)
-                  GestureDetector(
-                    onTap: onTap,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFE5E5E5)),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward,
-                        size: 14,
-                        color: Color(0xFF666666),
+                  if (onDetailTap != null)
+                    GestureDetector(
+                      onTap: onDetailTap,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFE5E5E5)),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: Color(0xFF666666),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
           ],
         ),
-        ),
       ),
     );
+  }
+
+  Color _healthStatusColor(double score) {
+    if (score >= 0.8) return const Color(0xFF22C55E);
+    if (score >= 0.5) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  String _healthStatusLabel(double score) {
+    if (score >= 0.8) return '良好';
+    if (score >= 0.5) return '注意';
+    return '要対応';
   }
 
   Widget _buildInfoIcon(IconData icon, String text, Color color) {

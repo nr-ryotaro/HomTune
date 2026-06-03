@@ -58,6 +58,31 @@ void main() {
     expect(presentation.title, 'テレビ');
   });
 
+  test('resolvePresentation maps English TV category to television icon', () async {
+    final device = Device(
+      id: 'd_en',
+      name: 'BRAVIA',
+      modelNumber: 'XRJ-65A95K',
+      category: 'TV',
+      manufacturer: 'SONY',
+      purchaseDate: '2024-01-01',
+      purchasePrice: 10000,
+      yearsOwned: 1,
+      room: 'living-room',
+      location: '',
+      status: 'active',
+      consumables: [],
+      photos: [],
+      documents: [],
+    );
+
+    final presentation =
+        await ApplianceTemplateService.instance.resolvePresentation(device);
+
+    expect(presentation.icon, '📺');
+    expect(presentation.subtitle, 'XRJ-65A95K');
+  });
+
   test('resolvePresentation applies custom display name and icon', () async {
     final device = Device(
       id: 'd3',
