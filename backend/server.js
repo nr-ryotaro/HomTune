@@ -9,6 +9,8 @@ const store = require('./lib/store');
 const remo = require('./lib/remo');
 const switchbot = require('./lib/switchbot');
 const marketReference = require('./lib/market_reference');
+const aiQuota = require('./lib/ai_quota');
+const aiGenerate = require('./lib/ai_generate');
 
 const PORT = process.env.PORT || 8787;
 
@@ -321,6 +323,76 @@ async function handle(req, res) {
         success: true,
         meta: marketReference.catalogMeta(),
       });
+    }
+
+    if (path === '/v1/ai/generate' && req.method === 'POST') {
+      const body = await readBody(req);
+      const pro = isPro(req);
+      const validated = aiGenerate.validateRequest(body);
+      if (!validated.ok) {
+        return json(res, 400, {
+          ok: false,
+          error: {
+            code: 'bad_request',
+            message: validated.message,
+            retryable: false,
+          },
+        });
+      }
+
+      const consume = aiQuota.tryConsume(
+        userId,
+        pro,
+        validated.value.feature,
+        validated.value.requestedCredits,
+      );
+      if (!consume.ok) {
+        const status = consume.code === 'quota_exceeded' ? 429 : 403;
+        return json(res, status, {
+          ok: false,
+          error: {
+            code: consume.code,
+            message: consume.message,
+            retryable: false,
+          },
+          usage: {
+            remainingCredits: consume.remainingCredits,
+            creditLimit: consume.creditLimit,
+          },
+        });
+      }
+
+      try {
+        const result = await aiGenerate.generate(body);
+        return json(res, 200, {
+          ok: true,
+          text: result.text,
+          modelId: result.modelId,
+          feature: result.feature,
+          mocked: result.mocked === true,
+          usage: {
+            creditsCharged: consume.creditsCharged,
+            remainingCredits: consume.remainingCredits,
+            creditLimit: consume.creditLimit,
+            estimatedCostUsd: consume.estimatedCostUsd,
+          },
+        });
+      } catch (e) {
+        aiQuota.refund(userId, consume.creditsCharged);
+        const status = e.status || 502;
+        return json(res, status, {
+          ok: false,
+          error: {
+            code: e.code || 'upstream_error',
+            message: e.message || 'AI upstream error',
+            retryable: status >= 500,
+          },
+          usage: {
+            remainingCredits: aiQuota.remaining(userId, pro),
+            creditLimit: aiQuota.creditLimit(pro),
+          },
+        });
+      }
     }
 
     if (path === '/v1/remote/command' && req.method === 'POST') {

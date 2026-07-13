@@ -12,6 +12,7 @@ class ConfigService extends ChangeNotifier {
   static const String _keySubscriptionTier = 'subscription_tier';
   static const String _keyGeminiApiKey = 'gemini_api_key';
   static const String _keyGeminiModel = 'gemini_model';
+  static const String _keyPreferAiProxy = 'prefer_ai_proxy';
   // 本番ビルドではデフォルト禁止。必要時のみ dart-define で明示許可:
   // --dart-define=ALLOW_CLIENT_SIDE_GEMINI_IN_RELEASE=true
   static const bool _allowClientSideGeminiInRelease = bool.fromEnvironment(
@@ -24,11 +25,17 @@ class ConfigService extends ChangeNotifier {
   SubscriptionTier _subscriptionTier = SubscriptionTier.free;
   String _geminiApiKey = '';
   String _geminiModel = 'gemini-2.5-flash-lite';
+  /// サーバー `/v1/ai/generate` を優先（Phase 1 移行中の切替）
+  bool _preferAiProxy = true;
   bool _loaded = false;
 
   bool get canUseClientSideGemini =>
       !kReleaseMode || _allowClientSideGeminiInRelease;
   bool get isUsingRealApi => _useRealApi && canUseClientSideGemini;
+  bool get preferAiProxy => _preferAiProxy;
+  /// プロキシ経由ならクライアント鍵不要でクラウド推論可能とみなす
+  bool get canUseCloudInference =>
+      preferAiProxy || (isUsingRealApi && hasGeminiApiKey);
   bool get useDetailedMaintenance => _useDetailedMaintenance;
   SubscriptionTier get subscriptionTier => _subscriptionTier;
   String get geminiApiKey => _geminiApiKey;
@@ -83,6 +90,7 @@ class ConfigService extends ChangeNotifier {
         : '';
     _geminiModel =
         prefs.getString(_keyGeminiModel) ?? 'gemini-2.5-flash-lite';
+    _preferAiProxy = prefs.getBool(_keyPreferAiProxy) ?? true;
     if (canUseClientSideGemini && _geminiApiKey.isEmpty) {
       const envKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
       if (envKey.isNotEmpty) {
@@ -142,6 +150,14 @@ class ConfigService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyGeminiModel, normalized);
     _geminiModel = normalized;
+    notifyListeners();
+  }
+
+  Future<void> setPreferAiProxy(bool value) async {
+    if (_preferAiProxy == value) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyPreferAiProxy, value);
+    _preferAiProxy = value;
     notifyListeners();
   }
 

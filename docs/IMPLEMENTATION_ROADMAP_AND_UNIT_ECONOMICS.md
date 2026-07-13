@@ -152,6 +152,7 @@ Flutter App
 | 5 | Gemini モデル | **リリース: `gemini-2.5-flash-lite` デフォルト** — `ConfigService.geminiModelFor` |
 | 6 | L1 相場 | **同梱 JSON + サーバー API** — スクレイピング非採用。詳細 `MARKET_L1_AND_INFRA.md` |
 | 7 | ホスティング | **Cloud Run + Storage（MVP $5〜15/月）** — AI プロキシと統合 |
+| 8 | P0 着手順 | **Gemini プロキシ先行 → 本番 IAP** — 鍵漏洩・改ざんクォータによる原価リスクを先に塞ぐ（`GEMINI_PROXY_SPEC.md`） |
 
 ---
 
@@ -168,9 +169,9 @@ Flutter App
 
 ### P0（本番前）
 
-- [ ] **Store Billing** — Pro サブスク + 追加クレジット IAP + レシート検証
-- [ ] **Gemini サーバープロキシ** — API キー秘匿、`/v1/ai/*`
-- [ ] **サーバー側 AI クォータ DB** — 改ざん対策
+- [ ] **Store Billing** — Pro サブスク + 追加クレジット IAP + レシート検証（**プロキシ後推奨**）
+- [x] **Gemini サーバープロキシ（Phase 0）** — `/v1/ai/generate` + インメモリクォータ + Flutter `AiApiClient`（仕様: `GEMINI_PROXY_SPEC.md`）。各サービスの移行は Phase 1
+- [ ] **サーバー側 AI クォータ DB** — 永続化・Hard Cap（現状はプロセス内メモリ）
 - [ ] **Pro 検証サーバー化** — リモコン・AI 共通
 
 ### P1（黒字安定化）
