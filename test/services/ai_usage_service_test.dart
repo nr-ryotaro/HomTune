@@ -36,7 +36,8 @@ void main() {
       expect(snapshot.estimatedCostUsd, greaterThan(0));
     });
 
-    test('実APIオフ時は利用不可', () async {
+    test('クラウドAIオフ時は利用不可', () async {
+      await configService.setPreferAiProxy(false);
       await configService.setUseRealApi(false);
       final check = await AiUsageService.instance.canRunFeature(
         configService,
@@ -44,7 +45,7 @@ void main() {
         requestedCredits: 1,
       );
       expect(check.allowed, false);
-      expect(check.reason, contains('実APIモード'));
+      expect(check.reason, contains('クラウドAI'));
     });
 
     test('pro tier は free より上限が大きい', () async {
