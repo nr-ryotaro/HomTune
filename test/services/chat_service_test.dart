@@ -2,13 +2,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:homtune/models/device.dart';
 import 'package:homtune/services/chat_service.dart';
 import 'package:homtune/services/config_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('ChatService', () {
     late ConfigService configService;
 
-    setUp(() {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
       configService = ConfigService();
+      await configService.load();
+      // ユニットテストではプロキシ通信を避け、ローカル応答を検証する
+      await configService.setPreferAiProxy(false);
     });
 
     test('local mode returns helpful message when no devices', () async {

@@ -185,13 +185,12 @@ class _ChatWidgetState extends State<ChatWidget> {
           ? 0
           : decision.estimatedCredits;
 
-      final canUseRealAi =
-          configService.isUsingRealApi && configService.hasGeminiApiKey;
+      final canUseRealAi = configService.canUseCloudInference;
       final shouldTryAi =
           decision.shouldUseAi && canUseRealAi && requestedCredits > 0;
       if (decision.shouldUseAi &&
-          configService.isUsingRealApi &&
-          !configService.hasGeminiApiKey &&
+          configService.isCloudAiEnabled &&
+          !configService.canUseCloudInference &&
           mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('接続情報が未設定のためローカル回答に切替しました。')),

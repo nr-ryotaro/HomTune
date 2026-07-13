@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ai_usage_policy.dart';
 import '../models/cloud_connection_test_result.dart';
+import 'ai_api_client.dart';
 
 /// 機能確認用の API / ダミーデータ切り替え設定
 /// リリース前に削除予定（RELEASE_CHECKLIST.md 参照）
@@ -33,6 +33,8 @@ class ConfigService extends ChangeNotifier {
       !kReleaseMode || _allowClientSideGeminiInRelease;
   bool get isUsingRealApi => _useRealApi && canUseClientSideGemini;
   bool get preferAiProxy => _preferAiProxy;
+  /// プロキシ優先、またはクライアント直呼びの実APIモード
+  bool get isCloudAiEnabled => preferAiProxy || isUsingRealApi;
   /// プロキシ経由ならクライアント鍵不要でクラウド推論可能とみなす
   bool get canUseCloudInference =>
       preferAiProxy || (isUsingRealApi && hasGeminiApiKey);
@@ -64,10 +66,12 @@ class ConfigService extends ChangeNotifier {
 
   bool get isLoaded => _loaded;
   String get cloudInferenceAvailabilityMessage {
-    if (canUseClientSideGemini) return '利用可能';
+    if (preferAiProxy) return 'AIプロキシ経由で利用可能';
+    if (canUseClientSideGemini) return '利用可能（クライアント直）';
     return 'このビルドではクラウド推論は無効です';
   }
   String get cloudInferenceBlockedReason {
+    if (preferAiProxy) return '';
     if (!canUseClientSideGemini) {
       return 'このビルド種別ではクラウド推論が禁止されています。';
     }
@@ -200,46 +204,62 @@ class ConfigService extends ChangeNotifier {
     int maxModelsToTry = 3,
     Duration perModelTimeout = const Duration(seconds: 8),
   }) async {
+    if (preferAiProxy) {
+      final client = AiApiClient();
+      try {
+        final modelId = (profile ?? geminiModel).trim().isEmpty
+            ? releaseCostOptimizedModel
+            : (profile ?? geminiModel).trim();
+        final result = await client
+            .generateRaw(
+              config: this,
+              feature: 'connectionTest',
+              model: modelId,
+              contents: const [AiContentMessage(role: 'user', text: 'ok')],
+            )
+            .timeout(perModelTimeout);
+        final ok = result.text.trim().isNotEmpty;
+        return CloudConnectionTestResult(
+          success: ok,
+          modelId: result.modelId,
+          message: ok
+              ? 'AIプロキシ接続成功（${result.modelId}${result.mocked ? ' / mock' : ''}）'
+              : 'AIプロキシ応答が空です',
+        );
+      } on AiApiException catch (e) {
+        return CloudConnectionTestResult(
+          success: false,
+          modelId: '',
+          message: 'AIプロキシ接続失敗: ${e.message}',
+        );
+      } catch (e) {
+        return CloudConnectionTestResult(
+          success: false,
+          modelId: '',
+          message: 'AIプロキシ接続テスト中に例外: $e',
+        );
+      } finally {
+        client.dispose();
+      }
+    }
+
     try {
       final apiKey = (secret ?? geminiApiKey).trim();
       if (apiKey.isEmpty) {
         return const CloudConnectionTestResult(
           success: false,
           modelId: '',
-          message: '接続シークレットが空です。',
+          message: '接続シークレットが空です。preferAiProxy を有効にするかキーを設定してください。',
         );
       }
 
-      final candidates = <String>{
-        (profile ?? geminiModel).trim(),
-        ...cloudModelCandidates,
-      }.where((m) => m.isNotEmpty).take(maxModelsToTry).toList();
-
-      Object? lastError;
-      for (final modelId in candidates) {
-        try {
-          final model = GenerativeModel(model: modelId, apiKey: apiKey);
-          final response = await model
-              .generateContent([Content.text('ok')])
-              .timeout(perModelTimeout);
-          final text = response.text?.trim() ?? '';
-          if (text.isNotEmpty) {
-            return CloudConnectionTestResult(
-              success: true,
-              modelId: modelId,
-              message: '接続成功（$modelId）',
-            );
-          }
-          lastError = '応答が空です（$modelId）';
-        } catch (e) {
-          lastError = '$modelId: $e';
-        }
-      }
-
+      // Legacy path kept only when preferAiProxy=false.
+      // Prefer enabling the proxy instead of embedding keys in the client.
       return CloudConnectionTestResult(
         success: false,
         modelId: '',
-        message: lastError?.toString() ?? '接続テストに失敗しました。',
+        message:
+            'クライアント直呼びの接続テストは廃止予定です。AIプロキシ（preferAiProxy）を有効にして再試行してください。',
       );
     } catch (e) {
       return CloudConnectionTestResult(

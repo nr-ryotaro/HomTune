@@ -216,7 +216,7 @@ class AssetValuationRefreshService {
             forcedMarketSource: MarketValueSource.geminiEstimate,
           ),
         );
-        final suffix = config.isUsingRealApi
+        final suffix = config.isCloudAiEnabled
             ? '（AIクレジット ${MarketPriceGeminiService.creditCost} 消費）'
             : '（開発モード・モック推定）';
         return AssetRefreshResult(

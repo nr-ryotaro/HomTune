@@ -640,7 +640,7 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
       body: Consumer<ConfigService>(
         builder: (context, config, _) {
           final isRealApi = config.isUsingRealApi;
-          final isCloudReady = isRealApi && config.hasGeminiApiKey;
+          final isCloudReady = config.canUseCloudInference;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -1136,13 +1136,43 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () {
+                    config.setPreferAiProxy(!config.preferAiProxy);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          !config.preferAiProxy
+                              ? 'AIプロキシをオフにしました（非推奨）。'
+                              : 'AIプロキシをオンにしました。サーバー経由で推論します。',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.cloud_outlined, size: 18),
+                  label: Text(
+                    config.preferAiProxy
+                        ? 'AIプロキシ: ON（推奨）'
+                        : 'AIプロキシ: OFF',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF333333),
+                    side: const BorderSide(color: Color(0xFFE5E5E5)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
                     config.setUseRealApi(!isRealApi);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
                           !isRealApi
-                              ? '実APIモードに切り替えました。チャットがGemini応答になります。'
-                              : 'ダミーモードに切り替えました。チャットがローカル応答になります。',
+                              ? '実APIフラグをONにしました（プロキシOFF時のレガシー用）。'
+                              : '実APIフラグをOFFにしました。',
                         ),
                         duration: const Duration(seconds: 2),
                       ),
@@ -1150,7 +1180,7 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
                   },
                   icon: const Icon(Icons.swap_horiz_rounded, size: 18),
                   label: Text(
-                    isRealApi ? 'ダミーモードに切り替え' : '実APIモードに切り替え',
+                    isRealApi ? 'レガシー実APIフラグ: ON' : 'レガシー実APIフラグ: OFF',
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF333333),

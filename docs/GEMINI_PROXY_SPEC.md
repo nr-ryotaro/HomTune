@@ -114,21 +114,23 @@ Error:
 - [x] Flutter `AiApiClient` + Config `preferAiProxy`
 - [x] Node ユニットテスト（検証・クォータ・mock）
 
-### Phase 1（次 PR・サービス移行）
+### Phase 1（本 PR・サービス移行）
 
-1. `MarketPriceGeminiService` → プロキシ
-2. `RoomImageGenerationService`（スタイル JSON のみ）
-3. `ScannerService`
-4. `MaintenanceCalendarService`（Gemini 経路）
-5. `ChatService`（履歴を client `contents[]` 化）
-6. `ConfigService.testCloudConnection` → `connectionTest`
-7. リリース経路でクライアント `GEMINI_API_KEY` を不要化
+1. [x] `MarketPriceGeminiService` → プロキシ
+2. [x] `RoomImageGenerationService`（スタイル JSON のみ）
+3. [x] `ScannerService`
+4. [x] `MaintenanceCalendarService`（Gemini 経路）
+5. [x] `ChatService`（履歴を client `contents[]` 化）
+6. [x] `ConfigService.testCloudConnection` → `connectionTest`
+7. [x] リリース経路でクライアント `GEMINI_API_KEY` を不要化（`preferAiProxy=true` 既定）
+8. [x] `google_generative_ai` 依存を削除
 
 ### Phase 2（サーバー正の強化）
 
 - Hard Cap USD・レート制限・キルスイッチ
 - レシート検証と Pro ヘッダー廃止
 - Redis/Postgres 永続化
+- クライアント/サーバー クレジット二重計上の解消（サーバー `usage` を正としてローカル同期）
 
 ---
 

@@ -1,16 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import '../models/ai_usage_policy.dart';
+import 'ai_api_client.dart';
 import 'ai_routing_service.dart';
 import 'ai_usage_service.dart';
 import 'analytics_service.dart';
 import 'config_service.dart';
 
 class RoomImageGenerationService {
+  RoomImageGenerationService({AiApiClient? aiApiClient})
+      : _aiApi = aiApiClient ?? AiApiClient();
+
+  final AiApiClient _aiApi;
+
   Future<String> generateRoomImage({
     required ConfigService configService,
     required String roomId,
@@ -28,16 +33,14 @@ class RoomImageGenerationService {
     if (!budget.allowed) {
       throw RoomImageGenerationException(budget.reason, budget: budget);
     }
-    final apiKey = configService.geminiApiKey;
-    if (apiKey.isEmpty) {
+    if (!configService.canUseCloudInference) {
       throw RoomImageGenerationException(
-        '接続情報が未設定のため、AI画像生成を利用できません。',
+        'クラウドAIが利用できないため、AI画像生成を実行できません。',
       );
     }
 
     final style = await _buildStyleSpec(
-      apiKey: apiKey,
-      modelId: configService.geminiModelFor(AiFeature.roomImage),
+      config: configService,
       roomName: roomName,
       stylePrompt: stylePrompt,
     );
@@ -62,12 +65,10 @@ class RoomImageGenerationService {
   }
 
   Future<Map<String, dynamic>> _buildStyleSpec({
-    required String apiKey,
-    required String modelId,
+    required ConfigService config,
     required String roomName,
     required String stylePrompt,
   }) async {
-    final model = GenerativeModel(model: modelId, apiKey: apiKey);
     final prompt = '''
 あなたはインテリアコンセプトを作るデザイナーです。
 部屋カード向けに、次の条件でJSONだけ返してください。
@@ -82,12 +83,17 @@ class RoomImageGenerationService {
   "motifs": ["家具/家電モチーフ1", "モチーフ2", "モチーフ3"]
 }
 ''';
-    final response = await model.generateContent([Content.text(prompt)]);
-    final text = response.text?.trim() ?? '';
-    if (text.isEmpty) {
-      return _fallbackStyle(roomName);
-    }
     try {
+      final result = await _aiApi.generate(
+        config: config,
+        feature: AiFeature.roomImage,
+        responseFormat: 'json',
+        contents: [AiContentMessage(role: 'user', text: prompt)],
+      );
+      final text = result.text.trim();
+      if (text.isEmpty) {
+        return _fallbackStyle(roomName);
+      }
       var jsonText = text;
       final codeBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
       final match = codeBlock.firstMatch(text);

@@ -170,7 +170,7 @@ Flutter App
 ### P0（本番前）
 
 - [ ] **Store Billing** — Pro サブスク + 追加クレジット IAP + レシート検証（**プロキシ後推奨**）
-- [x] **Gemini サーバープロキシ（Phase 0）** — `/v1/ai/generate` + インメモリクォータ + Flutter `AiApiClient`（仕様: `GEMINI_PROXY_SPEC.md`）。各サービスの移行は Phase 1
+- [x] **Gemini サーバープロキシ（Phase 0–1）** — `/v1/ai/generate` + 全 AI サービス移行 + `google_generative_ai` 削除（仕様: `GEMINI_PROXY_SPEC.md`）
 - [ ] **サーバー側 AI クォータ DB** — 永続化・Hard Cap（現状はプロセス内メモリ）
 - [ ] **Pro 検証サーバー化** — リモコン・AI 共通
 

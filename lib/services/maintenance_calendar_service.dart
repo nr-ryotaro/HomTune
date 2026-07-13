@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'ai_api_client.dart';
 import '../models/device.dart';
 import '../models/ai_usage_policy.dart';
 import '../models/maintenance_task.dart';
@@ -184,7 +184,7 @@ class MaintenanceCalendarService {
 
     try {
       String result;
-      if (configService.isUsingRealApi) {
+      if (configService.isCloudAiEnabled) {
         final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
           AiFeature.maintenance,
         );
@@ -267,21 +267,15 @@ class MaintenanceCalendarService {
         '注意: $safety';
   }
 
-  /// Gemini API でお手入れ手順を生成
+  /// AIプロキシでお手入れ手順を生成
   static Future<String> _generateWithGemini(
     MaintenanceTask task,
     Device device,
     ConfigService configService,
   ) async {
-    final apiKey = configService.geminiApiKey;
-    if (apiKey.isEmpty) {
+    if (!configService.canUseCloudInference) {
       return _generateDummyMethod(task, device);
     }
-
-    final model = GenerativeModel(
-      model: configService.geminiModelFor(AiFeature.maintenance),
-      apiKey: apiKey,
-    );
 
     final prompt = '''あなたは家電のメンテナンス専門家です。
 以下の家電のお手入れ方法を、具体的かつ安全に説明してください。
@@ -304,9 +298,22 @@ class MaintenanceCalendarService {
 4. 200文字以内で簡潔に
 5. 日本語で回答''';
 
-    final response = await model.generateContent([Content.text(prompt)]);
-    final text = response.text?.trim();
-    if (text != null && text.isNotEmpty) return text;
+    try {
+      final client = AiApiClient();
+      try {
+        final result = await client.generate(
+          config: configService,
+          feature: AiFeature.maintenance,
+          contents: [AiContentMessage(role: 'user', text: prompt)],
+        );
+        final text = result.text.trim();
+        if (text.isNotEmpty) return text;
+      } finally {
+        client.dispose();
+      }
+    } catch (e) {
+      print('AI proxy maintenance error: $e');
+    }
 
     return _generateDummyMethod(task, device);
   }

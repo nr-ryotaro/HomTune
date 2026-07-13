@@ -207,10 +207,10 @@ class AiUsageService {
     required int requestedCredits,
   }) async {
     final snapshot = await getSnapshot(configService);
-    if (!configService.isUsingRealApi) {
+    if (!configService.isCloudAiEnabled) {
       return AiBudgetCheck(
         allowed: false,
-        reason: '実APIモードがオフです',
+        reason: 'クラウドAIがオフです（プロキシまたは実APIを有効にしてください）',
         snapshot: snapshot,
         exhaustionReason: AiExhaustionReason.realApiOff,
       );
