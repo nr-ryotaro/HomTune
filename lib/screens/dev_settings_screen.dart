@@ -1218,8 +1218,13 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
           ),
           const SizedBox(height: 6),
           _buildStatusRow(
-            'Pro売上（推定）',
+            'Pro売上（グロス）',
             '\$${e.proRevenueUsd.toStringAsFixed(2)}',
+            true,
+          ),
+          _buildStatusRow(
+            'Pro売上（ネット・手数料30%控除）',
+            '\$${e.proNetRevenueUsd.toStringAsFixed(2)}',
             true,
           ),
           _buildStatusRow(
@@ -1228,9 +1233,14 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
             e.withinTarget,
           ),
           _buildStatusRow(
-            '原価率 / 目標40%以下',
+            '原価率 / グロス目標40%以下',
             '${(e.costRatio * 100).toStringAsFixed(1)}%',
             e.withinTarget,
+          ),
+          _buildStatusRow(
+            '原価率 / ネット目標40%以下',
+            '${(e.netCostRatio * 100).toStringAsFixed(1)}%',
+            e.withinNetTarget,
           ),
           _buildStatusRow('部屋画像', '\$${e.roomImageCostUsd.toStringAsFixed(2)}', true),
           _buildStatusRow('AI相場 L2', '\$${e.marketL2CostUsd.toStringAsFixed(2)}', true),

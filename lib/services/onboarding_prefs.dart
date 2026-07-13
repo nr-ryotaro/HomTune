@@ -50,6 +50,15 @@ class OnboardingPrefs {
     return prefs.getStringList(keySelectedRooms) ?? [];
   }
 
+  static Future<void> setSelectedRoomIds(List<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleaned = ids
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    await prefs.setStringList(keySelectedRooms, cleaned);
+  }
+
   static Future<void> setSelectedArchetypes(
     List<SelectedArchetypeRef> refs,
   ) async {

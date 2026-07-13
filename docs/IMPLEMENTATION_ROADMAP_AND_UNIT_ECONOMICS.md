@@ -175,11 +175,11 @@ Flutter App
 
 ### P1（黒字安定化）
 
-- [ ] **追加クレジット IAP 本番化** — `CreditExhaustionDialog` と連携
-- [ ] **部屋追加 UI** — 上限チェック + Pro 訴求
-- [ ] **L1 クライアント** — オフライン同梱 + オンライン API フォールバック
+- [ ] **追加クレジット IAP 本番化** — `StoreBillingService` 骨格＋debug付与済。本番 `in_app_purchase` 接続が残り
+- [x] **部屋追加 UI** — Home「部屋を追加」＋`RoomFairUseService` 配線＋Pro 訴求
+- [x] **L1 クライアント** — オフライン同梱 + オンライン API フォールバック
 - [ ] **AdMob 実 eCPM 取り込み** — `FREE_ADS_STRATEGY.md` の試算更新
-- [ ] **ストア手数料30%控除後**の試算を `UnitEconomicsService` に追加
+- [x] **ストア手数料30%控除後**の試算を `UnitEconomicsService` に追加
 - [ ] GCP 請求データ週次校正
 
 ### P2
@@ -201,6 +201,7 @@ Flutter App
 | `lib/services/room_image_generation_service.dart` | 部屋画像（低原価実装） |
 | `lib/services/room_fair_use_service.dart` | 部屋数フェアユース |
 | `lib/widgets/ai/credit_exhaustion_dialog.dart` | 枯渇時導線 |
+| `lib/services/billing/store_billing_service.dart` | ストア課金骨格（debug サンドボックス付与） |
 | `lib/services/ad_policy.dart` | 広告 ARPU 試算 |
 | `backend/lib/market_reference.js` | L1 相場 API |
 

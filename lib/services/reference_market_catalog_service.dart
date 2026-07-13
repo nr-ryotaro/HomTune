@@ -3,8 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
+import '../config/remote_api_config.dart';
+import '../models/ai_usage_policy.dart';
 import '../models/device.dart';
+import 'config_service.dart';
 
 class ReferenceMarketEntry {
   final String manufacturer;
@@ -22,14 +26,18 @@ class ReferenceMarketEntry {
   });
 }
 
-/// Pro L1: 同梱相場参照DB（将来サーバー配信に差し替え可能）
+/// Pro L1: 同梱相場参照DB + オンライン API フォールバック
 class ReferenceMarketCatalogService {
-  ReferenceMarketCatalogService._();
-  static final ReferenceMarketCatalogService instance =
+  ReferenceMarketCatalogService._({http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
+
+  static ReferenceMarketCatalogService instance =
       ReferenceMarketCatalogService._();
 
+  final http.Client _http;
   Map<String, ReferenceMarketEntry>? _byModelKey;
   double _defaultDecay = 0.012;
+  Duration remoteTimeout = const Duration(seconds: 3);
 
   Future<void> _ensureLoaded() async {
     if (_byModelKey != null) return;
@@ -44,19 +52,9 @@ class ReferenceMarketCatalogService {
       for (final item in list) {
         if (item is! Map) continue;
         final m = item.cast<String, dynamic>();
-        final model = m['modelNumber']?.toString().trim() ?? '';
-        if (model.isEmpty) continue;
-        final asOfRaw = m['referenceAsOf']?.toString() ?? '2024-01-01';
-        final asOf = DateTime.tryParse(asOfRaw) ?? DateTime(2024, 1, 1);
-        final entry = ReferenceMarketEntry(
-          manufacturer: m['manufacturer']?.toString().trim() ?? '',
-          modelNumber: model,
-          referenceMarketYen: (m['referenceMarketYen'] as num?)?.toInt() ?? 0,
-          referenceAsOf: asOf,
-          monthlyDecayRate:
-              (m['monthlyDecayRate'] as num?)?.toDouble() ?? _defaultDecay,
-        );
-        map[_modelKey(model)] = entry;
+        final entry = _entryFromJson(m, defaultDecay: _defaultDecay);
+        if (entry == null) continue;
+        map[_modelKey(entry.modelNumber)] = entry;
       }
       _byModelKey = map;
     } catch (_) {
@@ -64,15 +62,45 @@ class ReferenceMarketCatalogService {
     }
   }
 
+  static ReferenceMarketEntry? _entryFromJson(
+    Map<String, dynamic> m, {
+    required double defaultDecay,
+  }) {
+    final model = m['modelNumber']?.toString().trim() ?? '';
+    if (model.isEmpty) return null;
+    final asOfRaw = m['referenceAsOf']?.toString() ?? '2024-01-01';
+    final asOf = DateTime.tryParse(asOfRaw) ?? DateTime(2024, 1, 1);
+    return ReferenceMarketEntry(
+      manufacturer: m['manufacturer']?.toString().trim() ?? '',
+      modelNumber: model,
+      referenceMarketYen: (m['referenceMarketYen'] as num?)?.toInt() ?? 0,
+      referenceAsOf: asOf,
+      monthlyDecayRate:
+          (m['monthlyDecayRate'] as num?)?.toDouble() ??
+              (m['monthlyDecayRateDefault'] as num?)?.toDouble() ??
+              defaultDecay,
+    );
+  }
+
   static String _modelKey(String modelNumber) =>
       modelNumber.trim().toLowerCase();
 
-  /// 型番一致で参照相場（経過月の減価適用後）を返す
-  Future<int?> lookupAdjustedPrice(Device device, {DateTime? asOf}) async {
+  /// 型番一致で参照相場（経過月の減価適用後）を返す。
+  /// [config] が Pro ならオンライン API を優先し、失敗時は同梱 JSON へフォールバック。
+  Future<int?> lookupAdjustedPrice(
+    Device device, {
+    DateTime? asOf,
+    ConfigService? config,
+  }) async {
     await _ensureLoaded();
     final key = _modelKey(device.modelNumber);
     if (key.isEmpty) return null;
-    final entry = _byModelKey![key];
+
+    ReferenceMarketEntry? entry;
+    if (config != null && config.subscriptionTier == SubscriptionTier.pro) {
+      entry = await _lookupRemoteEntry(device, config);
+    }
+    entry ??= _byModelKey![key];
     if (entry == null || entry.referenceMarketYen <= 0) return null;
 
     final now = asOf ?? DateTime.now();
@@ -80,6 +108,42 @@ class ReferenceMarketCatalogService {
     final factor = math.pow(1 - entry.monthlyDecayRate, months);
     final adjusted = (entry.referenceMarketYen * factor).round();
     return math.max(1000, adjusted);
+  }
+
+  Future<ReferenceMarketEntry?> _lookupRemoteEntry(
+    Device device,
+    ConfigService config,
+  ) async {
+    try {
+      final uri = Uri.parse('${RemoteApiConfig.baseUrl}/v1/market/reference')
+          .replace(queryParameters: {
+        'manufacturer': device.manufacturer,
+        'modelNumber': device.modelNumber,
+      });
+      final res = await _http
+          .get(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-HomTune-User-Id': RemoteApiConfig.devUserId,
+              'X-HomTune-Pro': 'true',
+            },
+          )
+          .timeout(remoteTimeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) return null;
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      final raw = decoded['entry'];
+      if (raw is! Map) return null;
+      final entry = _entryFromJson(
+        raw.cast<String, dynamic>(),
+        defaultDecay: _defaultDecay,
+      );
+      if (entry == null) return null;
+      _byModelKey![_modelKey(entry.modelNumber)] = entry;
+      return entry;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> hasEntryFor(Device device) async {
@@ -92,7 +156,10 @@ class ReferenceMarketCatalogService {
   }
 
   @visibleForTesting
-  void resetForTest() {
+  void resetForTest({http.Client? httpClient}) {
     _byModelKey = null;
+    if (httpClient != null) {
+      instance = ReferenceMarketCatalogService._(httpClient: httpClient);
+    }
   }
 }

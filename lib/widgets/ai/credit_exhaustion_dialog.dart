@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import '../../models/ai_usage_policy.dart';
 import '../../screens/plan_screen.dart';
 import '../../services/ai_usage_service.dart';
+import '../../services/billing/store_billing_service.dart';
 import '../../services/config_service.dart';
 import '../ads/pro_upgrade_dialog.dart';
 
 /// クレジット枯渇時の統一導線
 /// - Free → Pro プランへ
-/// - Pro → 追加クレジット購入（IAP 準備中）
+/// - Pro → 追加クレジット購入（IAP 準備中 / debug サンドボックス付与）
 Future<void> showCreditExhaustionDialog(
   BuildContext context, {
   required ConfigService config,
@@ -63,14 +64,18 @@ Future<void> showCreditExhaustionDialog(
                 trailing: const Icon(Icons.add_shopping_cart_outlined, size: 20),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  _showAddonPurchasePlaceholder(context, pack);
+                  _purchaseAddonCredits(context, config, pack);
                 },
               ),
             ],
             const SizedBox(height: 8),
-            const Text(
-              'ストア課金は準備中です。開発ビルドでは開発者設定から追加クレジットを試せます。',
-              style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
+            Text(
+              StoreBillingService.instance.isStoreBillingAvailable
+                  ? 'App Store / Google Play から購入できます。'
+                  : StoreBillingService.instance.canUseSandboxPurchase
+                      ? 'ストア課金は準備中です。開発ビルドではサンドボックス付与が使えます。'
+                      : 'ストア課金は準備中です。リリース後に App Store / Google Play から購入できます。',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
             ),
           ],
         ),
@@ -122,14 +127,28 @@ Future<void> showCreditExhaustionDialog(
   await showProUpgradeDialog(context, upsellContext: upsellContext);
 }
 
-void _showAddonPurchasePlaceholder(BuildContext context, CreditAddonPack pack) {
-  showDialog<void>(
+Future<void> _purchaseAddonCredits(
+  BuildContext context,
+  ConfigService config,
+  CreditAddonPack pack,
+) async {
+  final result =
+      await StoreBillingService.instance.purchaseAddonCredits(config, pack);
+  if (!context.mounted) return;
+
+  if (result.isSuccess) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+    return;
+  }
+
+  await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('追加クレジット'),
       content: Text(
-        '${pack.credits} クレジット（¥${pack.priceJpy}）の購入は準備中です。\n'
-        'リリース後は App Store / Google Play から購入できます。',
+        result.message,
         style: const TextStyle(fontSize: 13, height: 1.45),
       ),
       actions: [

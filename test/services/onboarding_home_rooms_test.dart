@@ -21,6 +21,17 @@ void main() {
     expect(ids, ['living-room', 'kitchen-01', 'entrance']);
   });
 
+  test('setSelectedRoomIds persists cleaned ids', () async {
+    SharedPreferences.setMockInitialValues({});
+    await OnboardingPrefs.setSelectedRoomIds([
+      'living-room',
+      '  ',
+      'entrance',
+    ]);
+    final ids = await OnboardingPrefs.getSelectedRoomIds();
+    expect(ids, ['living-room', 'entrance']);
+  });
+
   test('OnboardingRoomCatalog has entrance and study cards', () {
     expect(OnboardingRoomCatalog.cardById.containsKey('entrance'), isTrue);
     expect(OnboardingRoomCatalog.cardById.containsKey('study'), isTrue);

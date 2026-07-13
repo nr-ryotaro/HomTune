@@ -192,7 +192,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await prefs.setBool(OnboardingPrefs.keyCompleted, true);
     final selectedRoomIds =
         _rooms.where((r) => r.selected).map((r) => r.id).toList();
-    await prefs.setStringList(OnboardingPrefs.keySelectedRooms, selectedRoomIds);
+    await OnboardingPrefs.setSelectedRoomIds(selectedRoomIds);
     if (_selectedHousingType != null) {
       await prefs.setString(
           OnboardingPrefs.keyHousingType, _selectedHousingType!.name);

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../screens/plan_screen.dart';
 import 'package:go_router/go_router.dart';
 
-enum ProUpsellContext { general, remoteControl, valuation, roomImage }
+enum ProUpsellContext { general, remoteControl, valuation, roomImage, rooms }
 
 /// Pro プラン訴求
 Future<void> showProUpgradeDialog(
@@ -15,13 +15,16 @@ Future<void> showProUpgradeDialog(
   final isRemote = upsellContext == ProUpsellContext.remoteControl;
   final isValuation = upsellContext == ProUpsellContext.valuation;
   final isRoomImage = upsellContext == ProUpsellContext.roomImage;
+  final isRooms = upsellContext == ProUpsellContext.rooms;
   final headline = isRemote && deviceName != null && deviceName.isNotEmpty
       ? '$deviceName をスマホから操作'
       : isValuation
           ? 'より正確な資産価値を把握'
           : isRoomImage
               ? '部屋画像をもっと自由に'
-              : 'HomTune Pro';
+              : isRooms
+                  ? '部屋をもっと増やせます'
+                  : 'HomTune Pro';
 
   await showDialog<void>(
     context: context,
@@ -89,6 +92,21 @@ Future<void> showProUpgradeDialog(
             const Text('その他の Pro 特典:'),
             const SizedBox(height: 4),
             const Text('• 広告なしの快適な画面'),
+            const Text('• 相場DB・スマートリモコン連携'),
+          ] else if (isRooms) ...[
+            const Text(
+              'Free では最大5部屋までです。Pro なら最大10部屋まで登録でき、部屋ごとに月2回までAI画像を生成できます。',
+              style: TextStyle(fontSize: 13, height: 1.45),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Pro で広がること:',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text('• 登録部屋数 最大10'),
+            const Text('• 部屋画像の再生成（月2回/部屋）'),
+            const Text('• AIクレジット拡大・広告なし'),
             const Text('• 相場DB・スマートリモコン連携'),
           ] else ...[
             const Text('月額 490円（税込）で次が使えます:'),
