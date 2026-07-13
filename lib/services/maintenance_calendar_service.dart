@@ -279,7 +279,7 @@ class MaintenanceCalendarService {
     }
 
     final model = GenerativeModel(
-      model: configService.geminiModel,
+      model: configService.geminiModelFor(AiFeature.maintenance),
       apiKey: apiKey,
     );
 

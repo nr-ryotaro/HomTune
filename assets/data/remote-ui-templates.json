@@ -6,6 +6,8 @@
       "id": "aircon_default",
       "label": "標準エアコン",
       "profile": "aircon",
+      "skin": "physicalAircon",
+      "themeKey": "generic",
       "manufacturers": [],
       "modelPatterns": [],
       "groups": [
@@ -51,6 +53,8 @@
       "id": "aircon_panasonic",
       "label": "パナソニック エアコン",
       "profile": "aircon",
+      "skin": "physicalAircon",
+      "themeKey": "panasonic",
       "manufacturers": ["Panasonic", "パナソニック", "panasonic"],
       "modelPatterns": ["^CS-", "^CW-", "^E-", "^F-"],
       "groups": [
@@ -89,6 +93,8 @@
       "id": "aircon_daikin",
       "label": "ダイキン エアコン",
       "profile": "aircon",
+      "skin": "physicalAircon",
+      "themeKey": "daikin",
       "manufacturers": ["DAIKIN", "ダイキン", "Daikin"],
       "modelPatterns": ["^FTX", "^FTK", "^S\\d", "^R\\d"],
       "groups": [
@@ -125,6 +131,8 @@
       "id": "aircon_mitsubishi",
       "label": "三菱 エアコン",
       "profile": "aircon",
+      "skin": "physicalAircon",
+      "themeKey": "mitsubishi",
       "manufacturers": ["Mitsubishi", "三菱", "三菱電機"],
       "modelPatterns": ["^MSZ", "^MUZ", "^MLZ"],
       "groups": [
@@ -158,9 +166,89 @@
       ]
     },
     {
+      "id": "aircon_hitachi",
+      "label": "日立 エアコン",
+      "profile": "aircon",
+      "skin": "physicalAircon",
+      "themeKey": "hitachi",
+      "manufacturers": ["HITACHI", "Hitachi", "日立"],
+      "modelPatterns": ["^RAS-", "^RAK-", "^RPK-"],
+      "groups": [
+        {
+          "id": "power",
+          "title": "電源",
+          "buttons": [
+            { "id": "power_off", "label": "オフ", "icon": "power_off", "commandType": "powerOff", "variant": "danger", "pinByDefault": true }
+          ]
+        },
+        {
+          "id": "mode",
+          "title": "運転モード",
+          "buttons": [
+            { "id": "cool", "label": "冷房", "icon": "ac_unit", "commandType": "airconCool", "variant": "cool", "pinByDefault": true },
+            { "id": "warm", "label": "暖房", "icon": "whatshot", "commandType": "airconWarm", "variant": "warm", "pinByDefault": true },
+            { "id": "dry", "label": "除湿", "icon": "water_drop", "commandType": "airconDry", "variant": "dry" },
+            { "id": "fan", "label": "送風", "icon": "air", "commandType": "airconFan", "variant": "fan" },
+            { "id": "auto", "label": "自動", "icon": "eco", "commandType": "airconAuto" }
+          ]
+        },
+        {
+          "id": "temp",
+          "title": "温度",
+          "buttons": [
+            { "id": "temp_up", "label": "温度＋", "icon": "add", "commandType": "tempUp", "pinByDefault": true },
+            { "id": "temp_down", "label": "温度－", "icon": "remove", "commandType": "tempDown", "pinByDefault": true },
+            { "id": "stainless", "label": "ステンレス清潔", "icon": "eco", "commandType": "sendSignal", "signalKey": "stainless_clean" },
+            { "id": "timer", "label": "タイマー", "icon": "timer", "commandType": "airconTimer", "signalKey": "timer" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aircon_toshiba",
+      "label": "東芝 エアコン",
+      "profile": "aircon",
+      "skin": "physicalAircon",
+      "themeKey": "toshiba",
+      "manufacturers": ["TOSHIBA", "Toshiba", "東芝"],
+      "modelPatterns": ["^RAS-", "^RK-"],
+      "groups": [
+        {
+          "id": "power",
+          "title": "電源",
+          "buttons": [
+            { "id": "power_off", "label": "オフ", "icon": "power_off", "commandType": "powerOff", "variant": "danger", "pinByDefault": true }
+          ]
+        },
+        {
+          "id": "mode",
+          "title": "運転モード",
+          "buttons": [
+            { "id": "cool", "label": "冷房", "icon": "ac_unit", "commandType": "airconCool", "variant": "cool", "pinByDefault": true },
+            { "id": "warm", "label": "暖房", "icon": "whatshot", "commandType": "airconWarm", "variant": "warm", "pinByDefault": true },
+            { "id": "dry", "label": "除湿", "icon": "water_drop", "commandType": "airconDry", "variant": "dry" },
+            { "id": "fan", "label": "送風", "icon": "air", "commandType": "airconFan", "variant": "fan" },
+            { "id": "auto", "label": "自動", "icon": "eco", "commandType": "airconAuto" }
+          ]
+        },
+        {
+          "id": "temp",
+          "title": "温度",
+          "buttons": [
+            { "id": "temp_up", "label": "温度＋", "icon": "add", "commandType": "tempUp", "pinByDefault": true },
+            { "id": "temp_down", "label": "温度－", "icon": "remove", "commandType": "tempDown", "pinByDefault": true },
+            { "id": "plasma", "label": "プラズマ空清", "icon": "air", "commandType": "sendSignal", "signalKey": "plasma" },
+            { "id": "timer", "label": "タイマー", "icon": "timer", "commandType": "airconTimer", "signalKey": "timer" }
+          ]
+        }
+      ]
+    },
+    {
       "id": "tv_default",
       "label": "標準テレビ",
       "profile": "tv",
+      "skin": "physicalTv",
+      "themeKey": "generic",
       "manufacturers": [],
       "modelPatterns": [],
       "groups": [
@@ -215,6 +303,8 @@
       "id": "tv_sony_bravia",
       "label": "SONY BRAVIA",
       "profile": "tv",
+      "skin": "physicalTv",
+      "themeKey": "sony",
       "manufacturers": ["SONY", "Sony", "ソニー"],
       "modelPatterns": ["^XRJ", "^KJ-", "^XBR", "^KD"],
       "groups": [
@@ -269,6 +359,8 @@
       "id": "tv_panasonic_viera",
       "label": "パナソニック VIERA",
       "profile": "tv",
+      "skin": "physicalTv",
+      "themeKey": "panasonic",
       "manufacturers": ["Panasonic", "パナソニック"],
       "modelPatterns": ["^TH-", "^VIERA"],
       "groups": [
@@ -313,6 +405,8 @@
       "id": "tv_sharp_aquos",
       "label": "シャープ AQUOS",
       "profile": "tv",
+      "skin": "physicalTv",
+      "themeKey": "sharp",
       "manufacturers": ["SHARP", "Sharp", "シャープ"],
       "modelPatterns": ["^4T-", "^2T-", "^LC"],
       "groups": [
@@ -351,9 +445,64 @@
       ]
     },
     {
+      "id": "tv_toshiba_regza",
+      "label": "東芝 REGZA",
+      "profile": "tv",
+      "skin": "physicalTv",
+      "themeKey": "toshiba",
+      "manufacturers": ["TOSHIBA", "Toshiba", "東芝"],
+      "modelPatterns": ["^55M", "^43M", "^REGZA", "^32S"],
+      "groups": [
+        {
+          "id": "power",
+          "title": "電源",
+          "buttons": [
+            { "id": "power_on", "label": "オン", "icon": "power_settings_new", "commandType": "powerOn", "variant": "primary" },
+            { "id": "power_off", "label": "オフ", "icon": "power_off", "commandType": "powerOff", "variant": "danger", "pinByDefault": true }
+          ]
+        },
+        {
+          "id": "volume",
+          "title": "音量",
+          "buttons": [
+            { "id": "vol_up", "label": "音量＋", "icon": "volume_up", "commandType": "volumeUp", "pinByDefault": true },
+            { "id": "vol_down", "label": "音量－", "icon": "volume_down", "commandType": "volumeDown", "pinByDefault": true },
+            { "id": "mute", "label": "消音", "icon": "volume_off", "commandType": "tvMute" }
+          ]
+        },
+        {
+          "id": "channel",
+          "title": "チャンネル",
+          "buttons": [
+            { "id": "ch_up", "label": "CH＋", "icon": "keyboard_arrow_up", "commandType": "channelUp" },
+            { "id": "ch_down", "label": "CH－", "icon": "keyboard_arrow_down", "commandType": "channelDown" }
+          ]
+        },
+        {
+          "id": "input",
+          "title": "入力",
+          "buttons": [
+            { "id": "hdmi1", "label": "HDMI1", "icon": "input", "commandType": "tvInput", "parameters": { "input": "hdmi1" }, "signalKey": "hdmi1" },
+            { "id": "hdmi2", "label": "HDMI2", "icon": "input", "commandType": "tvInput", "parameters": { "input": "hdmi2" }, "signalKey": "hdmi2" },
+            { "id": "tv", "label": "地デジ", "icon": "tv", "commandType": "tvInput", "parameters": { "input": "tv" }, "signalKey": "tv" }
+          ]
+        },
+        {
+          "id": "streaming",
+          "title": "アプリ",
+          "buttons": [
+            { "id": "netflix", "label": "Netflix", "icon": "play_circle", "commandType": "tvApp", "parameters": { "app": "netflix" }, "signalKey": "netflix" },
+            { "id": "youtube", "label": "YouTube", "icon": "play_circle", "commandType": "tvApp", "parameters": { "app": "youtube" }, "signalKey": "youtube" }
+          ]
+        }
+      ]
+    },
+    {
       "id": "light_default",
       "label": "照明",
       "profile": "light",
+      "skin": "physicalLight",
+      "themeKey": "generic",
       "manufacturers": [],
       "modelPatterns": [],
       "groups": [
@@ -371,6 +520,8 @@
       "id": "bot_default",
       "label": "SwitchBot Bot",
       "profile": "bot",
+      "skin": "physicalSimple",
+      "themeKey": "generic",
       "manufacturers": [],
       "modelPatterns": [],
       "groups": [
@@ -387,6 +538,8 @@
       "id": "curtain_default",
       "label": "カーテン",
       "profile": "curtain",
+      "skin": "physicalSimple",
+      "themeKey": "generic",
       "manufacturers": [],
       "modelPatterns": [],
       "groups": [

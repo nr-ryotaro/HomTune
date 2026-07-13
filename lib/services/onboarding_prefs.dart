@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/appliance_archetype.dart';
+import 'room_name_service.dart';
 
 /// 初回LP（オンボーディング）の永続化キーと操作
 class OnboardingPrefs {
@@ -11,6 +12,7 @@ class OnboardingPrefs {
   static const String keySelectedArchetypes = 'selected_archetypes';
   static const String keyHousingType = 'housing_type';
   static const String keyShowOnLaunch = 'show_onboarding_on_launch';
+  static const String keyIncludeDemoSeed = 'include_demo_seed_devices';
   static Future<bool> isCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(keyCompleted) ?? false;
@@ -65,6 +67,16 @@ class OnboardingPrefs {
         .where((r) => r.archetypeId.isNotEmpty)
         .toList();
   }
+
+  static Future<bool> includeDemoSeedDevices() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(keyIncludeDemoSeed) ?? false;
+  }
+
+  static Future<void> setIncludeDemoSeedDevices(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(keyIncludeDemoSeed, value);
+  }
 }
 /// ホーム画面の部屋カード表示用メタデータ
 class OnboardingRoomCatalog {
@@ -76,25 +88,42 @@ class OnboardingRoomCatalog {
     'kitchen-01',
   ];
 
+  static const Map<String, String> _japaneseTitles = {
+    'living-room': 'リビング',
+    'bedroom-01': '寝室',
+    'kitchen-01': 'キッチン',
+    'entrance': '玄関',
+    'study': '書斎',
+  };
+
+  /// カスタム名称がないときのフォールバック（テンプレート向けの旧名称）
+  static String fallbackTitleFor(String roomId) =>
+      _japaneseTitles[roomId] ??
+      cardById[roomId]?.title ??
+      roomId;
+
+  static String displayTitleFor(String roomId) =>
+      RoomNameService.instance.displayNameFor(roomId);
+
   static const Map<String, ({String title, String imagePath})> cardById = {
     'living-room': (
-      title: 'Living Room',
+      title: 'リビング',
       imagePath: 'assets/images/Living_sample.jpg',
     ),
     'bedroom-01': (
-      title: 'Bedroom',
+      title: '寝室',
       imagePath: 'assets/images/Bedroom_sample.jpg',
     ),
     'kitchen-01': (
-      title: 'Kitchen',
+      title: 'キッチン',
       imagePath: 'assets/images/Kitchen_sample.jpg',
     ),
     'entrance': (
-      title: 'Entrance',
+      title: '玄関',
       imagePath: 'assets/images/Living_sample.jpg',
     ),
     'study': (
-      title: 'Study',
+      title: '書斎',
       imagePath: 'assets/images/Bedroom_sample.jpg',
     ),
   };

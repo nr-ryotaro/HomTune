@@ -26,7 +26,7 @@ class RoomImageGenerationService {
       requestedCredits: credits,
     );
     if (!budget.allowed) {
-      throw RoomImageGenerationException(budget.reason);
+      throw RoomImageGenerationException(budget.reason, budget: budget);
     }
     final apiKey = configService.geminiApiKey;
     if (apiKey.isEmpty) {
@@ -37,7 +37,7 @@ class RoomImageGenerationService {
 
     final style = await _buildStyleSpec(
       apiKey: apiKey,
-      modelId: configService.geminiModel,
+      modelId: configService.geminiModelFor(AiFeature.roomImage),
       roomName: roomName,
       stylePrompt: stylePrompt,
     );
@@ -208,7 +208,9 @@ class RoomImageGenerationService {
 
 class RoomImageGenerationException implements Exception {
   final String message;
-  RoomImageGenerationException(this.message);
+  final AiBudgetCheck? budget;
+
+  RoomImageGenerationException(this.message, {this.budget});
 
   @override
   String toString() => message;

@@ -4,11 +4,13 @@ import '../models/appliance_archetype.dart';
 import '../services/appliance_template_service.dart';
 import '../services/device_service.dart';
 import '../services/onboarding_prefs.dart';
+import '../services/first_launch_guide_service.dart';
 import '../services/room_photo_service.dart';
 import '../utils/platform_support.dart';
 import '../widgets/appliance_compact_card.dart';
 import '../widgets/appliance_registration_option.dart';
 import 'add_device_screen.dart';
+import 'manufacturer_bundle_picker_screen.dart';
 import 'scan_screen.dart';
 import 'web_unsupported_feature_screen.dart';
 
@@ -27,6 +29,7 @@ class _AddApplianceScreenState extends State<AddApplianceScreen> {
       _suggestions = [];
   bool _loading = true;
   bool _applianceSetupDone = false;
+  SetupProgress? _progress;
 
   @override
   void initState() {
@@ -37,6 +40,16 @@ class _AddApplianceScreenState extends State<AddApplianceScreen> {
   Future<void> _init() async {
     _applianceSetupDone = await RoomPhotoService.isApplianceSetupDone();
     await _loadSuggestions();
+    await _refreshProgress();
+  }
+
+  Future<void> _refreshProgress() async {
+    final deviceService = Provider.of<DeviceService>(context, listen: false);
+    final progress = await FirstLaunchGuideService.instance.loadProgress(
+      devices: deviceService.devices,
+    );
+    if (!mounted) return;
+    setState(() => _progress = progress);
   }
 
   Future<void> _loadSuggestions() async {
@@ -69,6 +82,22 @@ class _AddApplianceScreenState extends State<AddApplianceScreen> {
     final deviceService = Provider.of<DeviceService>(context, listen: false);
     await deviceService.loadData();
     await _loadSuggestions();
+    await _refreshProgress();
+    if (!mounted || _applianceSetupDone) return;
+    final progress = _progress;
+    if (progress != null && progress.userDeviceCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${progress.applianceProgressCurrent}/${progress.applianceProgressTarget} 台登録済み',
+          ),
+          action: SnackBarAction(
+            label: '登録完了へ',
+            onPressed: _finishRegistrationPhase,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _openScan() async {
@@ -164,6 +193,24 @@ class _AddApplianceScreenState extends State<AddApplianceScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  ApplianceRegistrationOption(
+                    icon: Icons.apps_outlined,
+                    title: 'メーカーセットで追加',
+                    subtitle: 'パナソニック・SONY・ダイキンなど代表機種を一括登録',
+                    isRecommended: false,
+                    onTap: () async {
+                      final registered = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const ManufacturerBundlePickerScreen(),
+                        ),
+                      );
+                      if (registered == true && mounted) {
+                        await _afterRegistration();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   if (PlatformSupport.supportsSmartIngester) ...[
                     ApplianceRegistrationOption(
                       icon: Icons.qr_code_scanner,
@@ -182,6 +229,24 @@ class _AddApplianceScreenState extends State<AddApplianceScreen> {
                         : 'Web プレビューではこちらから登録',
                     isRecommended: !PlatformSupport.supportsSmartIngester,
                     onTap: () => _openManualEntry(),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text(
+                    'メーカーセット',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF333333),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '主要メーカーのエアコン・テレビ・キッチン家電などをまとめて登録',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                  ),
+                  const SizedBox(height: 12),
+                  ManufacturerBundleQuickRow(
+                    onRegistered: _afterRegistration,
                   ),
                   if (_suggestions.isNotEmpty) ...[
                     const SizedBox(height: 32),
@@ -220,18 +285,42 @@ class _AddApplianceScreenState extends State<AddApplianceScreen> {
                       ),
                     ),
                   ],
-                  if (!_applianceSetupDone) ...[
-                    const SizedBox(height: 24),
-                    Center(
-                      child: TextButton(
-                        onPressed: _finishRegistrationPhase,
-                        child: const Text('登録はいったん完了 →'),
+                  if (_progress != null && !_applianceSetupDone) ...[
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(
+                      value: _progress!.applianceProgressRatio,
+                      backgroundColor: const Color(0xFFE5E5E5),
+                      color: const Color(0xFF333333),
+                      minHeight: 6,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '登録進捗: ${_progress!.applianceProgressCurrent}/${_progress!.applianceProgressTarget}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF888888),
                       ),
                     ),
                   ],
                 ],
               ),
             ),
+      bottomNavigationBar: !_applianceSetupDone
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: FilledButton(
+                  onPressed: _finishRegistrationPhase,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1a1a1a),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('登録完了 → 部屋の写真へ'),
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

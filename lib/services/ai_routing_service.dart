@@ -187,7 +187,7 @@ class AiRoutingService {
       case AiFeature.chat:
         return 2;
       case AiFeature.roomImage:
-        return 8;
+        return AiUsagePolicy.roomImageCreditsPerGeneration;
       case AiFeature.scanner:
         return 3;
       case AiFeature.maintenance:

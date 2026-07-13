@@ -58,21 +58,22 @@ void main() {
       final first = await AiUsageService.instance.canRunRoomImage(
         configService,
         roomId: 'living-room',
-        requestedCredits: 8,
+        requestedCredits: 2,
       );
       expect(first.allowed, true);
       await AiUsageService.instance.recordRoomImageUsage(
         configService,
         roomId: 'living-room',
-        consumedCredits: 8,
+        consumedCredits: 2,
       );
       final second = await AiUsageService.instance.canRunRoomImage(
         configService,
         roomId: 'living-room',
-        requestedCredits: 8,
+        requestedCredits: 2,
       );
       expect(second.allowed, false);
       expect(second.reason, contains('初回1回'));
+      expect(second.exhaustionReason, AiExhaustionReason.roomQuotaFree);
     });
 
     test('Pro は部屋画像が月2回まで', () async {
@@ -81,22 +82,30 @@ void main() {
         final check = await AiUsageService.instance.canRunRoomImage(
           configService,
           roomId: 'kitchen-01',
-          requestedCredits: 8,
+          requestedCredits: 2,
         );
         expect(check.allowed, true);
         await AiUsageService.instance.recordRoomImageUsage(
           configService,
           roomId: 'kitchen-01',
-          consumedCredits: 8,
+          consumedCredits: 2,
         );
       }
       final third = await AiUsageService.instance.canRunRoomImage(
         configService,
         roomId: 'kitchen-01',
-        requestedCredits: 8,
+        requestedCredits: 2,
       );
       expect(third.allowed, false);
       expect(third.reason, contains('月2回'));
+      expect(third.exhaustionReason, AiExhaustionReason.roomQuotaPro);
+    });
+
+    test('bonus credits extend monthly limit', () async {
+      await configService.setSubscriptionTier(SubscriptionTier.pro);
+      await AiUsageService.instance.grantBonusCredits(30);
+      final snapshot = await AiUsageService.instance.getSnapshot(configService);
+      expect(snapshot.creditLimit, 150);
     });
   });
 }

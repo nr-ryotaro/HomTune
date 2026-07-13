@@ -7,8 +7,11 @@ import 'package:provider/provider.dart';
 import '../services/config_service.dart';
 import '../services/onboarding_prefs.dart';
 import '../services/room_image_generation_service.dart';
+import '../services/room_name_service.dart';
 import '../services/room_photo_service.dart';
 import '../utils/platform_support.dart';
+import '../widgets/ads/pro_upgrade_dialog.dart';
+import '../widgets/ai/credit_exhaustion_dialog.dart';
 
 /// 家電登録後に部屋の写真を設定するフロー
 class RoomPhotoSetupScreen extends StatefulWidget {
@@ -35,6 +38,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
   }
 
   Future<void> _init() async {
+    await RoomNameService.instance.load();
     final ids = await OnboardingPrefs.getSelectedRoomIds();
     _roomIds = ids
         .where((id) => OnboardingRoomCatalog.cardById.containsKey(id))
@@ -53,7 +57,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
   String get _currentRoomId => _roomIds[_index];
 
   String get _currentRoomName =>
-      OnboardingRoomCatalog.cardById[_currentRoomId]?.title ?? _currentRoomId;
+      OnboardingRoomCatalog.displayTitleFor(_currentRoomId);
 
   Future<void> _pickImage(ImageSource source) async {
     if (!PlatformSupport.supportsDevicePhotoPick && source == ImageSource.camera) {
@@ -71,10 +75,12 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
       final file = await _picker.pickImage(source: source, imageQuality: 85);
       if (file == null) return;
       await RoomPhotoService.setCustomImagePath(_currentRoomId, file.path);
+      await RoomPhotoService.markFirstRoomPhotoIfNeeded();
       if (!mounted) return;
       setState(() {
         _displayPaths[_currentRoomId] = file.path;
       });
+      _showPhotoAppliedFeedback(fromGallery: source == ImageSource.gallery);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -101,6 +107,27 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
     Navigator.of(context).pop(true);
   }
 
+  void _showPhotoAppliedFeedback({required bool fromGallery}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          fromGallery
+              ? '写真を設定しました。必要ならAIで雰囲気を整えられます。'
+              : '写真を設定しました。',
+        ),
+        action: SnackBarAction(
+          label: 'AIで整える',
+          onPressed: _generateWithAi,
+        ),
+      ),
+    );
+  }
+
+  bool get _hasCustomPhoto {
+    final path = _displayPaths[_currentRoomId] ?? '';
+    return path.isNotEmpty && !RoomPhotoService.isAssetPath(path);
+  }
+
   Future<void> _generateWithAi() async {
     if (_isGenerating) return;
     final configService = Provider.of<ConfigService>(context, listen: false);
@@ -111,15 +138,29 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('AIで部屋画像を生成'),
-          content: TextField(
-            controller: styleController,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: '例: 北欧風、木目、明るいトーン',
-              border: OutlineInputBorder(),
-            ),
+          title: const Text('AIで雰囲気を整える'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_hasCustomPhoto)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '選んだ写真をもとに、部屋の雰囲気を調整します。',
+                    style: TextStyle(fontSize: 13, height: 1.45),
+                  ),
+                ),
+              TextField(
+                controller: styleController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: '例: 北欧風、木目、明るいトーン',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -146,6 +187,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
         stylePrompt: styleController.text.trim(),
       );
       await RoomPhotoService.setCustomImagePath(_currentRoomId, generatedPath);
+      await RoomPhotoService.markFirstRoomPhotoIfNeeded();
       if (!mounted) return;
       setState(() {
         _displayPaths[_currentRoomId] = generatedPath;
@@ -155,8 +197,26 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      if (e is RoomImageGenerationException && e.budget != null) {
+        final config = context.read<ConfigService>();
+        await showCreditExhaustionDialog(
+          context,
+          config: config,
+          check: e.budget!,
+          upsellContext: ProUpsellContext.roomImage,
+        );
+        return;
+      }
+      final message = e is RoomImageGenerationException ? e.message : '$e';
+      if (message.contains('Freeプラン') || message.contains('クレジット')) {
+        await showProUpgradeDialog(
+          context,
+          upsellContext: ProUpsellContext.roomImage,
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('AI画像生成に失敗しました: $e')),
+        SnackBar(content: Text('AI画像生成に失敗しました: $message')),
       );
     } finally {
       if (mounted) {
@@ -220,7 +280,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
             const SizedBox(height: 8),
             const Text(
               'いつものお部屋の写真を登録すると、ホーム画面があなたの住まいらしくなります。\n'
-              '今はサンプル画像が表示されています。',
+              'まずは撮影するか、アルバムから選んでください。',
               style: TextStyle(
                 fontSize: 14,
                 height: 1.6,
@@ -264,24 +324,22 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isGenerating ? null : _generateWithAi,
-                icon: _isGenerating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(_isGenerating ? '生成中...' : 'AIで生成'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+            if (_hasCustomPhoto) ...[
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _isGenerating ? null : _generateWithAi,
+                  icon: _isGenerating
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome, size: 18),
+                  label: Text(_isGenerating ? '生成中...' : 'AIで雰囲気を整える（任意）'),
                 ),
               ),
-            ),
+            ],
             const SizedBox(height: 16),
             Center(
               child: TextButton(

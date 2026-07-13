@@ -7,6 +7,7 @@ class ApplianceCompactCard extends StatelessWidget {
 
   final String icon;
   final String title;
+  final String? subtitle;
   final VoidCallback? onTap;
   final bool showAlertDot;
 
@@ -14,6 +15,7 @@ class ApplianceCompactCard extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
+    this.subtitle,
     this.onTap,
     this.showAlertDot = false,
   });
@@ -47,15 +49,32 @@ class ApplianceCompactCard extends StatelessWidget {
                   Expanded(
                     child: Align(
                       alignment: Alignment.topLeft,
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.2,
-                          color: Color(0xFF333333),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: subtitle == null ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.2,
+                              color: Color(0xFF333333),
+                            ),
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF999999),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),

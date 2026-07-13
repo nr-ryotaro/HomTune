@@ -60,7 +60,7 @@ class MarketPriceGeminiService {
     final prompt = _buildPrompt(device);
     try {
       final model = GenerativeModel(
-        model: config.geminiModel,
+        model: config.geminiModelFor(AiFeature.marketValuation),
         apiKey: apiKey,
       );
       final response = await model.generateContent([

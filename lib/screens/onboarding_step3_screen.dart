@@ -5,7 +5,7 @@ import 'add_device_screen.dart';
 import 'scan_screen.dart';
 import 'web_unsupported_feature_screen.dart';
 
-/// Step 4: ホームへ進み、そこで家電登録（部屋写真は登録後）
+/// Step 4: 家電登録（スキップ可）→ ホームへ
 class OnboardingStep3Screen extends StatelessWidget {
   final String? initialRoomId;
   final bool isFinishing;
@@ -64,7 +64,7 @@ class OnboardingStep3Screen extends StatelessWidget {
         children: [
           const SizedBox(height: 24),
           const Text(
-            'ホームで家電を登録',
+            '家電を登録しましょう',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w200,
@@ -74,9 +74,8 @@ class OnboardingStep3Screen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '選んだ家電の型番やお手入れ情報は、\n'
-            '「家電を追加」からいつでも登録できます。\n'
-            '部屋の写真は、登録が一通り終わってから設定します。',
+            '型番を登録すると、メンテナンスや資産価値の管理が始まります。\n'
+            'あとからホーム画面でも登録できます。',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w300,
@@ -84,28 +83,9 @@ class OnboardingStep3Screen extends StatelessWidget {
               height: 1.6,
             ),
           ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isFinishing ? null : onComplete,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF333333),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-              child: const Text(
-                'ホームへ進む',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           const Text(
-            '先に1台だけ登録する',
+            '登録方法を選ぶ',
             style: TextStyle(
               fontSize: 13,
               color: Color(0xFF999999),
@@ -132,18 +112,59 @@ class OnboardingStep3Screen extends StatelessWidget {
             isRecommended: !PlatformSupport.supportsSmartIngester,
             onTap: () => _openManualEntry(context),
           ),
-          const SizedBox(height: 24),
-          Center(
-            child: TextButton(
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.workspace_premium_outlined,
+                    size: 20, color: Color(0xFF666666)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Pro ならリモコン操作・相場DB・広告なしなどが使えます。まずは無料で家電登録から始められます。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF666666),
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
               onPressed: isFinishing ? null : onSkip,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                side: const BorderSide(color: Color(0xFFE5E5E5)),
+              ),
               child: const Text(
-                'スキップしてホームへ →',
+                '今は登録しない',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF999999),
+                  color: Color(0xFF666666),
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Center(
+            child: Text(
+              'ホーム画面からいつでも登録できます',
+              style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
             ),
           ),
           const SizedBox(height: 24),

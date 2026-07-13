@@ -31,5 +31,6 @@ void main() {
 
     expect(find.text('登録方法を選ぶ'), findsOneWidget);
     expect(find.text('型番を入力'), findsOneWidget);
+    expect(find.text('メーカーセットで追加'), findsOneWidget);
   });
 }

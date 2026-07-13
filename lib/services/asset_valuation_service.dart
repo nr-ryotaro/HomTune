@@ -236,34 +236,22 @@ class AssetValuationService {
     return math.max(0, value.round());
   }
 
-  /// グラフ用データを生成
-  /// 期間: 購入日 -> 1年後
-  /// 戻り値: { 'bookValue': List<FlSpot>, 'marketValue': List<FlSpot> }
+  /// グラフ用データを生成（旧API・後方互換）
   Map<String, List<FlSpot>> generateGraphData(Device device) {
     final purchaseDate =
         DateTime.tryParse(device.purchaseDate) ?? DateTime.now();
     final now = DateTime.now();
     final oneYearLater = now.add(const Duration(days: 365));
 
-    // X軸の範囲: 購入日を0とし、1年後までの月数
-    // しかしグラフは「時系列」で見せたいので、X軸は「購入日からの月数」とするのが一般的
-    // 過去データ（購入日〜現在）と未来予測（現在〜1年後）
-
     final bookValueSpots = <FlSpot>[];
     final marketValueSpots = <FlSpot>[];
 
-    // グラフの開始点（購入日）から終了点（1年後）までの総月数
     final totalMonths = _calculateMonthsDifference(purchaseDate, oneYearLater);
 
-    // データポイント作成（1ヶ月刻み）
-    for (int i = 0; i <= totalMonths; i++) {
+    for (int i = 0; i <= totalMonths.ceil(); i++) {
       final targetDate = _addMonths(purchaseDate, i);
-
-      // 帳簿価値
       final bookVal = calculateBookValue(device, targetDate: targetDate);
       bookValueSpots.add(FlSpot(i.toDouble(), bookVal.toDouble()));
-
-      // 市場価値
       final marketVal = simulateMarketValue(device, targetDate: targetDate);
       marketValueSpots.add(FlSpot(i.toDouble(), marketVal.toDouble()));
     }
@@ -272,6 +260,59 @@ class AssetValuationService {
       'bookValue': bookValueSpots,
       'marketValue': marketValueSpots,
     };
+  }
+
+  /// ダッシュボード表示と整合したグラフデータ（帳簿=タイムラインと法定の平均）
+  Future<AssetGraphData> buildAlignedGraphData(Device device) async {
+    final purchaseDate =
+        DateTime.tryParse(device.purchaseDate) ?? DateTime.now();
+    final now = DateTime.now();
+    final oneYearLater = now.add(const Duration(days: 365));
+    final totalMonths =
+        _calculateMonthsDifference(purchaseDate, oneYearLater).ceil();
+    final todayIndex = _calculateMonthsDifference(purchaseDate, now);
+    final usefulLife = await getUsefulLife(device.category);
+
+    final bookSpots = <FlSpot>[];
+    final marketSpots = <FlSpot>[];
+
+    for (var i = 0; i <= totalMonths; i++) {
+      final targetDate = _addMonths(purchaseDate, i);
+      final timeline = calculateBookValue(device, targetDate: targetDate);
+      final elapsed =
+          _calculateMonthsDifference(purchaseDate, targetDate) / 12.0;
+      final statutory = calculateStatutoryBookValue(
+        device.purchasePrice,
+        usefulLife,
+        elapsed,
+      );
+      final bookVal = ((timeline + statutory) / 2).round();
+      bookSpots.add(FlSpot(i.toDouble(), bookVal.toDouble()));
+
+      final isToday = (i - todayIndex).abs() < 0.6;
+      final marketVal = isToday && device.assetValue?.marketValue != null
+          ? device.assetValue!.marketValue!
+          : simulateMarketValue(device, targetDate: targetDate);
+      marketSpots.add(FlSpot(i.toDouble(), marketVal.toDouble()));
+    }
+
+    final historySpots = <FlSpot>[];
+    for (final h in device.assetValue?.priceHistory ?? []) {
+      final dt = DateTime.tryParse(h.date);
+      if (dt == null) continue;
+      final monthIdx = _calculateMonthsDifference(purchaseDate, dt);
+      if (monthIdx >= 0 && monthIdx <= totalMonths) {
+        historySpots.add(FlSpot(monthIdx, h.price.toDouble()));
+      }
+    }
+
+    return AssetGraphData(
+      bookValueSpots: bookSpots,
+      marketValueSpots: marketSpots,
+      historySpots: historySpots,
+      todayMonthIndex: todayIndex,
+      maxX: totalMonths.toDouble(),
+    );
   }
 
   DateTime _addMonths(DateTime date, int monthsToAdd) {
@@ -322,4 +363,21 @@ class AssetValuationService {
       valuationInsight: insight,
     );
   }
+}
+
+/// 資産グラフ用の整合データセット
+class AssetGraphData {
+  final List<FlSpot> bookValueSpots;
+  final List<FlSpot> marketValueSpots;
+  final List<FlSpot> historySpots;
+  final double todayMonthIndex;
+  final double maxX;
+
+  const AssetGraphData({
+    required this.bookValueSpots,
+    required this.marketValueSpots,
+    required this.historySpots,
+    required this.todayMonthIndex,
+    required this.maxX,
+  });
 }

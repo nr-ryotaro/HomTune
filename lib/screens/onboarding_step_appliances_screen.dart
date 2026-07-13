@@ -24,6 +24,13 @@ class _OnboardingStepAppliancesScreenState
   final Set<String> _selectedIds = {};
   bool _loading = true;
   List<ApplianceArchetype> _archetypes = [];
+  String _loadedRoomKey = '';
+
+  List<RoomOption> get _selectedRooms =>
+      widget.rooms.where((r) => r.selected).toList();
+
+  String get _selectedRoomKey =>
+      _selectedRooms.map((r) => r.id).join(',');
 
   @override
   void initState() {
@@ -31,15 +38,28 @@ class _OnboardingStepAppliancesScreenState
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant OnboardingStepAppliancesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_selectedRoomKey != _loadedRoomKey) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
-    final roomIds =
-        widget.rooms.where((r) => r.selected).map((r) => r.id).toList();
+    final roomIds = _selectedRooms.map((r) => r.id).toList();
+    if (!mounted) return;
+    setState(() => _loading = true);
+
     final list =
         await ApplianceTemplateService.instance.getArchetypesForRooms(roomIds);
     if (!mounted) return;
     setState(() {
       _archetypes = list;
-      _selectedIds.addAll(list.map((a) => a.id));
+      _selectedIds
+        ..clear()
+        ..addAll(list.map((a) => a.id));
+      _loadedRoomKey = _selectedRoomKey;
       _loading = false;
     });
   }
@@ -73,9 +93,8 @@ class _OnboardingStepAppliancesScreenState
       byRoom.putIfAbsent(a.roomId, () => []).add(a);
     }
 
-    final roomNameById = {
-      for (final r in widget.rooms) r.id: r.name,
-    };
+    final selectedRooms = _selectedRooms;
+    final roomCount = selectedRooms.length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -93,11 +112,10 @@ class _OnboardingStepAppliancesScreenState
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '各部屋で管理したい家電のテンプレートを表示しています。\n'
-            '不要なものはチェックを外してください。\n'
-            '家電はいつでも登録できます。',
-            style: TextStyle(
+          Text(
+            '先ほど選んだ$roomCount部屋ごとに、管理したい家電を選んでください。\n'
+            '不要なものはチェックを外せます。実際の登録は次の画面から行います。',
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w300,
               color: Color(0xFF999999),
@@ -105,9 +123,9 @@ class _OnboardingStepAppliancesScreenState
             ),
           ),
           const SizedBox(height: 20),
-          for (final roomId in byRoom.keys) ...[
+          for (final room in selectedRooms) ...[
             Text(
-              roomNameById[roomId] ?? roomId,
+              '${room.icon} ${room.name}',
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -115,20 +133,29 @@ class _OnboardingStepAppliancesScreenState
               ),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final a in byRoom[roomId]!)
-                  FilterChip(
-                    label: Text('${a.icon} ${a.displayName}'),
-                    selected: _selectedIds.contains(a.id),
-                    onSelected: (_) => _toggle(a.id),
-                    selectedColor: const Color(0xFFE8F4EA),
-                    checkmarkColor: const Color(0xFF2D6A4F),
-                  ),
-              ],
-            ),
+            if ((byRoom[room.id] ?? []).isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'この部屋の家電は、登録画面で自由に追加できます。',
+                  style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA)),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final a in byRoom[room.id]!)
+                    FilterChip(
+                      label: Text('${a.icon} ${a.displayName}'),
+                      selected: _selectedIds.contains(a.id),
+                      onSelected: (_) => _toggle(a.id),
+                      selectedColor: const Color(0xFFE8F4EA),
+                      checkmarkColor: const Color(0xFF2D6A4F),
+                    ),
+                ],
+              ),
             const SizedBox(height: 20),
           ],
           SizedBox(

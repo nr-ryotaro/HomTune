@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/first_launch_guide_service.dart';
 import '../services/onboarding_prefs.dart';
+import '../services/room_name_service.dart';
 import '../services/room_photo_service.dart';
 import 'home_screen.dart';
 import 'onboarding_step1_screen.dart';
@@ -49,50 +51,66 @@ extension HousingTypeExtension on HousingType {
     }
   }
 
-  /// 住居タイプに応じたデフォルト部屋（家電の多いメインゾーン中心）
+  /// 住居タイプに応じたデフォルト部屋（内部IDはテンプレート用、表示名は部屋1,2…）
   List<RoomOption> get defaultRooms {
     switch (this) {
       case HousingType.studio:
-        return [
-          RoomOption(id: 'living-room', name: 'リビング', icon: '🛋️'),
-          RoomOption(id: 'kitchen-01', name: 'キッチン', icon: '🍳'),
-        ];
+        return _defaultRoomOptions(const [
+          ('living-room', 'リビング・居室', '🛋️'),
+          ('kitchen-01', 'キッチン', '🍳'),
+        ]);
       case HousingType.oneLDK:
-        return [
-          RoomOption(id: 'living-room', name: 'リビング', icon: '🛋️'),
-          RoomOption(id: 'kitchen-01', name: 'キッチン', icon: '🍳'),
-          RoomOption(id: 'bedroom-01', name: '寝室', icon: '🛏️'),
-        ];
+        return _defaultRoomOptions(const [
+          ('living-room', 'リビング', '🛋️'),
+          ('kitchen-01', 'キッチン', '🍳'),
+          ('bedroom-01', '寝室', '🛏️'),
+        ]);
       case HousingType.twoLDK:
-        return [
-          RoomOption(id: 'living-room', name: 'リビング', icon: '🛋️'),
-          RoomOption(id: 'kitchen-01', name: 'キッチン', icon: '🍳'),
-          RoomOption(id: 'bedroom-01', name: '寝室', icon: '🛏️'),
-          RoomOption(id: 'entrance', name: '玄関', icon: '🚪'),
-        ];
+        return _defaultRoomOptions(const [
+          ('living-room', 'リビング', '🛋️'),
+          ('kitchen-01', 'キッチン', '🍳'),
+          ('bedroom-01', '寝室', '🛏️'),
+          ('entrance', '玄関', '🚪'),
+        ]);
       case HousingType.threeLDK:
       case HousingType.house:
-        return [
-          RoomOption(id: 'living-room', name: 'リビング', icon: '🛋️'),
-          RoomOption(id: 'kitchen-01', name: 'キッチン', icon: '🍳'),
-          RoomOption(id: 'bedroom-01', name: '寝室', icon: '🛏️'),
-          RoomOption(id: 'entrance', name: '玄関', icon: '🚪'),
-          RoomOption(id: 'study', name: '書斎', icon: '📚'),
-        ];
+        return _defaultRoomOptions(const [
+          ('living-room', 'リビング', '🛋️'),
+          ('kitchen-01', 'キッチン', '🍳'),
+          ('bedroom-01', '寝室', '🛏️'),
+          ('entrance', '玄関', '🚪'),
+          ('study', '書斎', '📚'),
+        ]);
     }
+  }
+
+  static List<RoomOption> _defaultRoomOptions(
+    List<(String id, String suggestion, String icon)> specs,
+  ) {
+    return [
+      for (var i = 0; i < specs.length; i++)
+        RoomOption(
+          id: specs[i].$1,
+          name: RoomNameService.defaultNameForIndex(i),
+          icon: specs[i].$3,
+          suggestedLabel: '例: ${specs[i].$2}',
+        ),
+    ];
   }
 }
 
 class RoomOption {
   final String id;
-  final String name;
+  String name;
   final String icon;
+  final String? suggestedLabel;
   bool selected;
 
   RoomOption({
     required this.id,
     required this.name,
     required this.icon,
+    this.suggestedLabel,
     this.selected = true,
   });
 }
@@ -180,6 +198,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           OnboardingPrefs.keyHousingType, _selectedHousingType!.name);
     }
     await OnboardingPrefs.setSelectedArchetypes(_selectedArchetypes);
+    final selectedRooms = _rooms.where((r) => r.selected).toList();
+    await RoomNameService.instance.saveFromRoomOptions(
+      selectedRooms.map((r) => (id: r.id, name: r.name)),
+    );
   }
 
   /// プレビュー時は保存せず前の画面へ戻る
@@ -218,6 +240,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await _persistOnboardingPrefs();
       await RoomPhotoService.setApplianceSetupDone(false);
       await RoomPhotoService.setRoomPhotosConfigured(false);
+      if (!widget.isPreview) {
+        await FirstLaunchGuideService.instance.scheduleWelcomeAfterOnboarding();
+      }
       if (!mounted) return;
 
       if (widget.isPreview) {
@@ -315,7 +340,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   TextButton(
                     onPressed: _isFinishing ? null : _onHeaderAction,
                     child: Text(
-                      widget.isPreview ? '閉じる' : 'スキップ',
+                      widget.isPreview ? '閉じる' : 'セットアップをスキップ',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF999999),

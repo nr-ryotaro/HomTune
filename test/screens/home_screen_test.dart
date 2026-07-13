@@ -5,6 +5,7 @@ import 'package:homtune/screens/home_screen.dart';
 import 'package:homtune/models/asset_refresh_result.dart';
 import 'package:homtune/models/market_refresh_mode.dart';
 import 'package:homtune/services/device_service.dart';
+import 'package:homtune/models/manufacturer_bundle.dart';
 import 'package:homtune/models/device.dart';
 import 'package:homtune/models/room.dart';
 import 'package:homtune/services/config_service.dart';
@@ -108,6 +109,10 @@ class MockDeviceService extends ChangeNotifier implements DeviceService {
   // Stubs for unused methods
   @override
   Future<void> addDevice(Device device, {String? archetypeId}) async {}
+
+  @override
+  Future<List<Device>> addDevices(List<BundleRegistrationItem> items) async =>
+      [];
   @override
   Future<void> updateDeviceManualState(
     String deviceId,
@@ -171,7 +176,7 @@ void main() {
     expect(find.text('My Rooms'), findsOneWidget);
 
     // Verify Living Room (default selected) content is shown
-    expect(find.text('Living Room'), findsOneWidget);
+    expect(find.text('リビング'), findsOneWidget);
   });
 
   testWidgets('Room card arrow opens RoomDevicesScreen when room has devices', (

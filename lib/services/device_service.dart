@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../data/repositories/device_repository.dart';
 import '../models/device.dart';
+import '../models/manufacturer_bundle.dart';
 import '../models/maintenance_task.dart';
 import '../models/room.dart';
 import '../models/room.dart' as room_models;
@@ -15,6 +16,7 @@ import 'notification_service.dart';
 import 'manual_link_resolver.dart';
 import 'manual_search_service.dart';
 import 'appliance_template_service.dart';
+import 'onboarding_prefs.dart';
 
 class DeviceService extends ChangeNotifier {
   DeviceService({
@@ -53,6 +55,22 @@ class DeviceService extends ChangeNotifier {
     final msg = _pendingUserMessage;
     _pendingUserMessage = null;
     return msg;
+  }
+
+  /// 複数デバイスを一括追加（バンドル登録用）
+  Future<List<Device>> addDevices(
+    List<BundleRegistrationItem> items,
+  ) async {
+    final added = <Device>[];
+    for (final item in items) {
+      await addDevice(item.device, archetypeId: item.archetypeId);
+      final stored = _devices.lastWhere(
+        (d) => d.id == item.device.id,
+        orElse: () => item.device,
+      );
+      added.add(stored);
+    }
+    return added;
   }
 
   /// デバイスを追加（[archetypeId] 指定時は部屋別テンプレのケア項目をマージ）
@@ -182,7 +200,9 @@ class DeviceService extends ChangeNotifier {
         }
       }
 
-      _devices = await _repository.applySeedDevices(_devices, _rooms);
+      if (await OnboardingPrefs.includeDemoSeedDevices()) {
+        _devices = await _repository.applySeedDevices(_devices, _rooms);
+      }
 
       // (ダミーデータ注入後に実行することで、注入された部屋が反映される)
       if (_rooms.isNotEmpty &&

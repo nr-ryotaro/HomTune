@@ -1,0 +1,333 @@
+{
+  "version": 1,
+  "description": "主要メーカー別の代表家電セット（ワンタップ一括登録用）",
+  "bundles": [
+    {
+      "id": "panasonic_living_core",
+      "label": "パナソニック リビング",
+      "manufacturer": "Panasonic",
+      "tagline": "エアコン・テレビ・空気清浄機",
+      "icon": "❄️",
+      "accentColor": "#005BAC",
+      "primaryRoomId": "living-room",
+      "devices": [
+        {
+          "archetypeId": "living_ac",
+          "roomId": "living-room",
+          "name": "ルームエアコン Eolia",
+          "modelNumber": "CS-X876C-W",
+          "manufacturer": "Panasonic",
+          "category": "エアコン",
+          "purchasePrice": 248000,
+          "monthsAgoPurchase": 14,
+          "location": "リビング壁面",
+          "icon": "❄️"
+        },
+        {
+          "archetypeId": "living_tv",
+          "roomId": "living-room",
+          "name": "4K液晶テレビ VIERA",
+          "modelNumber": "TH-55LX1000",
+          "manufacturer": "Panasonic",
+          "category": "テレビ",
+          "purchasePrice": 198000,
+          "monthsAgoPurchase": 20,
+          "location": "テレビボード",
+          "icon": "📺"
+        },
+        {
+          "archetypeId": "living_air_purifier",
+          "roomId": "living-room",
+          "name": "空気清浄機 F-PX",
+          "modelNumber": "F-PXU1C-W",
+          "manufacturer": "Panasonic",
+          "category": "空気清浄機",
+          "purchasePrice": 98000,
+          "monthsAgoPurchase": 10,
+          "location": "リビング隅",
+          "icon": "🌬️"
+        }
+      ]
+    },
+    {
+      "id": "sony_living_entertainment",
+      "label": "SONY リビング",
+      "manufacturer": "SONY",
+      "tagline": "BRAVIA・サウンドバー・加湿器",
+      "icon": "📺",
+      "accentColor": "#000000",
+      "primaryRoomId": "living-room",
+      "devices": [
+        {
+          "archetypeId": "living_tv",
+          "roomId": "living-room",
+          "name": "BRAVIA 65V型 有機EL",
+          "modelNumber": "XRJ-65A95K",
+          "manufacturer": "SONY",
+          "category": "テレビ",
+          "purchasePrice": 450000,
+          "monthsAgoPurchase": 30,
+          "location": "リビングボード",
+          "icon": "📺"
+        },
+        {
+          "archetypeId": "living_audio",
+          "roomId": "living-room",
+          "name": "サウンドバー HT-A",
+          "modelNumber": "HT-A3000",
+          "manufacturer": "SONY",
+          "category": "オーディオ",
+          "purchasePrice": 88000,
+          "monthsAgoPurchase": 18,
+          "location": "テレビ下",
+          "icon": "🔊"
+        },
+        {
+          "archetypeId": "living_humidifier",
+          "roomId": "living-room",
+          "name": "超音波式加湿器",
+          "modelNumber": "SH-C300",
+          "manufacturer": "cado",
+          "category": "加湿器",
+          "purchasePrice": 28000,
+          "monthsAgoPurchase": 8,
+          "location": "サイドテーブル",
+          "icon": "💧"
+        }
+      ]
+    },
+    {
+      "id": "daikin_living_climate",
+      "label": "ダイキン 空調",
+      "manufacturer": "DAIKIN",
+      "tagline": "エアコン・空気清浄機",
+      "icon": "❄️",
+      "accentColor": "#00A0E9",
+      "primaryRoomId": "living-room",
+      "devices": [
+        {
+          "archetypeId": "living_ac",
+          "roomId": "living-room",
+          "name": "ルームエアコン うるさらX",
+          "modelNumber": "S28YTES-W",
+          "manufacturer": "DAIKIN",
+          "category": "エアコン",
+          "purchasePrice": 268000,
+          "monthsAgoPurchase": 12,
+          "location": "リビング壁面",
+          "icon": "❄️"
+        },
+        {
+          "archetypeId": "living_air_purifier",
+          "roomId": "living-room",
+          "name": "ストリーマ空気清浄機",
+          "modelNumber": "MCZ70U2-W",
+          "manufacturer": "DAIKIN",
+          "category": "空気清浄機",
+          "purchasePrice": 128000,
+          "monthsAgoPurchase": 16,
+          "location": "リビング",
+          "icon": "🌬️"
+        }
+      ]
+    },
+    {
+      "id": "toshiba_living_tv",
+      "label": "東芝 REGZA",
+      "manufacturer": "TOSHIBA",
+      "tagline": "テレビ・レコーダー",
+      "icon": "📺",
+      "accentColor": "#E60012",
+      "primaryRoomId": "living-room",
+      "devices": [
+        {
+          "archetypeId": "living_tv",
+          "roomId": "living-room",
+          "name": "REGZA 55V型 4K液晶",
+          "modelNumber": "55Z670L",
+          "manufacturer": "TOSHIBA",
+          "category": "テレビ",
+          "purchasePrice": 168000,
+          "monthsAgoPurchase": 22,
+          "location": "テレビボード",
+          "icon": "📺"
+        },
+        {
+          "archetypeId": "living_vacuum",
+          "roomId": "living-room",
+          "name": "コードレススティック掃除機",
+          "modelNumber": "TC-FS1MC",
+          "manufacturer": "TOSHIBA",
+          "category": "掃除機",
+          "purchasePrice": 68000,
+          "monthsAgoPurchase": 9,
+          "location": "リビング収納",
+          "icon": "🧹"
+        }
+      ]
+    },
+    {
+      "id": "mitsubishi_living_ac",
+      "label": "三菱 エアコン",
+      "manufacturer": "MITSUBISHI",
+      "tagline": "霧ヶ峰エアコン",
+      "icon": "❄️",
+      "accentColor": "#E60012",
+      "primaryRoomId": "living-room",
+      "devices": [
+        {
+          "archetypeId": "living_ac",
+          "roomId": "living-room",
+          "name": "ルームエアコン 霧ヶ峰",
+          "modelNumber": "MSZ-KXV2823-W",
+          "manufacturer": "MITSUBISHI",
+          "category": "エアコン",
+          "purchasePrice": 238000,
+          "monthsAgoPurchase": 15,
+          "location": "リビング壁面",
+          "icon": "❄️"
+        }
+      ]
+    },
+    {
+      "id": "hitachi_living_ac",
+      "label": "日立 空調",
+      "manufacturer": "HITACHI",
+      "tagline": "白くまくんエアコン",
+      "icon": "❄️",
+      "accentColor": "#E60027",
+      "primaryRoomId": "living-room",
+      "devices": [
+        {
+          "archetypeId": "living_ac",
+          "roomId": "living-room",
+          "name": "ルームエアコン 白くまくん",
+          "modelNumber": "RAS-XJ28M-W",
+          "manufacturer": "HITACHI",
+          "category": "エアコン",
+          "purchasePrice": 228000,
+          "monthsAgoPurchase": 11,
+          "location": "リビング壁面",
+          "icon": "❄️"
+        }
+      ]
+    },
+    {
+      "id": "panasonic_kitchen_core",
+      "label": "パナソニック キッチン",
+      "manufacturer": "Panasonic",
+      "tagline": "冷蔵庫・レンジ・炊飯器",
+      "icon": "🧊",
+      "accentColor": "#005BAC",
+      "primaryRoomId": "kitchen-01",
+      "devices": [
+        {
+          "archetypeId": "kitchen_fridge",
+          "roomId": "kitchen-01",
+          "name": "冷蔵庫 600L",
+          "modelNumber": "NR-F608WPX",
+          "manufacturer": "Panasonic",
+          "category": "冷蔵庫",
+          "purchasePrice": 298000,
+          "monthsAgoPurchase": 24,
+          "location": "キッチン",
+          "icon": "🧊"
+        },
+        {
+          "archetypeId": "kitchen_microwave",
+          "roomId": "kitchen-01",
+          "name": "スチームオーブンレンジ",
+          "modelNumber": "NE-FL1C",
+          "manufacturer": "Panasonic",
+          "category": "電子レンジ",
+          "purchasePrice": 128000,
+          "monthsAgoPurchase": 18,
+          "location": "キッチンカウンター",
+          "icon": "📻"
+        },
+        {
+          "archetypeId": "kitchen_rice_cooker",
+          "roomId": "kitchen-01",
+          "name": "IHジャー炊飯器",
+          "modelNumber": "SR-VSX101",
+          "manufacturer": "Panasonic",
+          "category": "炊飯器",
+          "purchasePrice": 88000,
+          "monthsAgoPurchase": 12,
+          "location": "キッチン",
+          "icon": "🍚"
+        }
+      ]
+    },
+    {
+      "id": "sharp_kitchen_core",
+      "label": "シャープ キッチン",
+      "manufacturer": "SHARP",
+      "tagline": "冷蔵庫・オーブンレンジ",
+      "icon": "🧊",
+      "accentColor": "#E60012",
+      "primaryRoomId": "kitchen-01",
+      "devices": [
+        {
+          "archetypeId": "kitchen_fridge",
+          "roomId": "kitchen-01",
+          "name": "冷蔵庫 プラズマクラスター",
+          "modelNumber": "SJ-MF55P",
+          "manufacturer": "SHARP",
+          "category": "冷蔵庫",
+          "purchasePrice": 268000,
+          "monthsAgoPurchase": 20,
+          "location": "キッチン",
+          "icon": "🧊"
+        },
+        {
+          "archetypeId": "kitchen_microwave",
+          "roomId": "kitchen-01",
+          "name": "ヘルシオ オーブンレンジ",
+          "modelNumber": "AX-RS1C",
+          "manufacturer": "SHARP",
+          "category": "電子レンジ",
+          "purchasePrice": 158000,
+          "monthsAgoPurchase": 14,
+          "location": "キッチンカウンター",
+          "icon": "📻"
+        }
+      ]
+    },
+    {
+      "id": "panasonic_bedroom_climate",
+      "label": "パナソニック 寝室",
+      "manufacturer": "Panasonic",
+      "tagline": "エアコン・加湿器",
+      "icon": "🛏️",
+      "accentColor": "#005BAC",
+      "primaryRoomId": "bedroom-01",
+      "devices": [
+        {
+          "archetypeId": "bedroom_ac",
+          "roomId": "bedroom-01",
+          "name": "寝室用エアコン",
+          "modelNumber": "CS-225CFR-W",
+          "manufacturer": "Panasonic",
+          "category": "エアコン",
+          "purchasePrice": 148000,
+          "monthsAgoPurchase": 16,
+          "location": "寝室壁面",
+          "icon": "❄️"
+        },
+        {
+          "archetypeId": "bedroom_humidifier",
+          "roomId": "bedroom-01",
+          "name": "加湿器 F-YKT",
+          "modelNumber": "F-YKT60-W",
+          "manufacturer": "Panasonic",
+          "category": "加湿器",
+          "purchasePrice": 38000,
+          "monthsAgoPurchase": 6,
+          "location": "寝室",
+          "icon": "💧"
+        }
+      ]
+    }
+  ]
+}

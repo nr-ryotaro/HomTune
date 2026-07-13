@@ -171,14 +171,19 @@ void main() {
     await tester.tap(find.text('次へ'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('スキップしてホームへ →'),
+      find.text('今は登録しない'),
       200,
       scrollable: find.byType(Scrollable).last,
     );
-    await tester.tap(find.text('スキップしてホームへ →'));
+    await tester.tap(find.text('今は登録しない'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(seconds: 2));
+
+    if (tester.any(find.text('あとで'))) {
+      await tester.tap(find.text('あとで').last);
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('open'), findsOneWidget);
     await tester.tap(find.text('open'));

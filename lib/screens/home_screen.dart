@@ -2,9 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/device_service.dart';
+import '../services/first_launch_guide_service.dart';
 import '../services/onboarding_prefs.dart';
+import '../services/room_name_service.dart';
 import '../services/room_photo_service.dart';
 import 'room_photo_setup_screen.dart';
+import 'plan_screen.dart';
+import 'manufacturer_bundle_picker_screen.dart';
 import '../services/maintenance_calendar_service.dart';
 import '../models/device.dart';
 import '../services/appliance_template_service.dart';
@@ -23,7 +27,13 @@ import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
 import 'maintenance_calendar_screen.dart';
 import 'room_devices_screen.dart';
+import '../widgets/onboarding/first_launch_welcome_sheet.dart';
+import '../widgets/onboarding/home_usage_coach_overlay.dart';
+import '../widgets/onboarding/setup_progress_banner.dart';
 import '../widgets/ads/free_plan_ad_body.dart';
+import '../widgets/ads/pro_upgrade_dialog.dart';
+import '../services/config_service.dart';
+import '../models/ai_usage_policy.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +50,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _applianceSetupDone = false;
   bool _roomPhotosConfigured = false;
   bool _roomPhotoPromptShown = false;
+  SetupProgress? _setupProgress;
+  bool _welcomeChecked = false;
+  bool _coachChecked = false;
+  bool _showHomeCoach = false;
   Map<String, AppliancePresentation> _presentationByDeviceId = {};
 
   @override
@@ -72,13 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadRoomPhotoPhase() async {
     final applianceDone = await RoomPhotoService.isApplianceSetupDone();
     final photosDone = await RoomPhotoService.isRoomPhotosConfigured();
+    final hasCustom = await RoomPhotoService.hasAnyCustomPhoto(_homeRoomIds);
     if (!mounted) return;
     setState(() {
       _applianceSetupDone = applianceDone;
-      _roomPhotosConfigured = photosDone;
+      _roomPhotosConfigured = photosDone || hasCustom;
     });
     await _reloadRoomImagePaths();
-    if (applianceDone && !photosDone) {
+    if (!_roomPhotosConfigured) {
       _maybePromptRoomPhotoSetup();
     }
   }
@@ -107,54 +122,144 @@ class _HomeScreenState extends State<HomeScreen> {
     await deviceService.loadData();
     await _loadDevicePresentations(deviceService.devices);
     await _loadRoomPhotoPhase();
+    await _refreshSetupProgress(deviceService);
     if (finished == true && !_roomPhotosConfigured) {
       _maybePromptRoomPhotoSetup();
     }
   }
 
+  Future<void> _refreshSetupProgress(DeviceService deviceService) async {
+    final progress = await FirstLaunchGuideService.instance.loadProgress(
+      devices: deviceService.devices,
+    );
+    if (!mounted) return;
+    setState(() => _setupProgress = progress);
+    if (progress.shouldPromptRoomPhotos) {
+      _maybePromptRoomPhotoSetup();
+    }
+    await _maybeShowProIntro();
+  }
+
+  Future<void> _maybeShowWelcomeSheet() async {
+    if (_welcomeChecked) return;
+    _welcomeChecked = true;
+    final pending =
+        await FirstLaunchGuideService.instance.consumePendingWelcome();
+    if (!pending || !mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => FirstLaunchWelcomeSheet(
+        onStartRoomPhoto: () => _openRoomPhotoSetup(isFirstLaunch: true),
+        onStartApplianceRegistration: _openAddAppliance,
+        onOpenManufacturerBundles: () async {
+          final registered = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => const ManufacturerBundlePickerScreen(),
+            ),
+          );
+          if (registered == true && mounted) {
+            final deviceService =
+                Provider.of<DeviceService>(context, listen: false);
+            await deviceService.loadData();
+            await _refreshSetupProgress(deviceService);
+          }
+        },
+        onSkip: () {},
+      ),
+    );
+    if (mounted) await _maybeShowHomeCoach();
+  }
+
+  Future<void> _maybeShowHomeCoach() async {
+    if (_coachChecked || _showHomeCoach) return;
+    _coachChecked = true;
+    final pending =
+        await FirstLaunchGuideService.instance.consumePendingHomeCoach();
+    if (!pending || !mounted) return;
+    final hasCustom = await RoomPhotoService.hasAnyCustomPhoto(_homeRoomIds);
+    if (hasCustom) return;
+    setState(() => _showHomeCoach = true);
+  }
+
+  void _dismissHomeCoach() {
+    FirstLaunchGuideService.instance.dismissHomeCoachPermanently();
+    if (!mounted) return;
+    setState(() => _showHomeCoach = false);
+  }
+
+  Future<void> _renameRoom(String roomId) async {
+    final current = _getRoomName(roomId);
+    final controller = TextEditingController(text: current);
+    final next = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('部屋の名称を変更'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '例: リビング、寝室、書斎',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (next == null || next.isEmpty || !mounted) return;
+    await RoomNameService.instance.setDisplayName(roomId, next);
+    setState(() {});
+  }
+
+  Future<void> _maybeShowProIntro() async {
+    final should = await FirstLaunchGuideService.instance.shouldShowProIntro();
+    if (!should || !mounted) return;
+    final config = Provider.of<ConfigService>(context, listen: false);
+    if (config.subscriptionTier == SubscriptionTier.pro) {
+      await FirstLaunchGuideService.instance.markProIntroShown();
+      return;
+    }
+    await FirstLaunchGuideService.instance.markProIntroShown();
+    if (!mounted) return;
+    await showProUpgradeDialog(
+      context,
+      upsellContext: ProUpsellContext.general,
+    );
+  }
+
   void _maybePromptRoomPhotoSetup() {
     if (_roomPhotosConfigured || _roomPhotoPromptShown) return;
     _roomPhotoPromptShown = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('部屋の写真を設定'),
-          content: const Text(
-            '家電の登録、おつかれさまでした。\n'
-            '次は、お部屋の写真を登録してホーム画面を自分の住まいらしくしましょう。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('あとで'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('写真を設定する'),
-            ),
-          ],
-        ),
-      );
-      if (go == true && mounted) {
-        await _openRoomPhotoSetup();
-      }
-    });
   }
 
-  Future<void> _openRoomPhotoSetup() async {
+  Future<void> _openRoomPhotoSetup({bool isFirstLaunch = false}) async {
     final done = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => const RoomPhotoSetupScreen(),
+        builder: (_) => RoomPhotoSetupScreen(isFirstLaunchFlow: isFirstLaunch),
       ),
     );
     if (done == true && mounted) {
       await _loadRoomPhotoPhase();
+      final deviceService = Provider.of<DeviceService>(context, listen: false);
+      await _refreshSetupProgress(deviceService);
     }
   }
 
   Future<void> _loadOnboardingRoomPrefs() async {
+    await RoomNameService.instance.load();
     final ids = await OnboardingPrefs.getSelectedRoomIds();
     if (!mounted) return;
     if (ids.isNotEmpty) {
@@ -194,23 +299,27 @@ class _HomeScreenState extends State<HomeScreen> {
       final deviceService = Provider.of<DeviceService>(context, listen: false);
 
       if (deviceService.devices.isNotEmpty && !deviceService.isLoading) {
-        if (mounted) {
-          await _loadOnboardingRoomPrefs();
-          await _loadDevicePresentations(deviceService.devices);
-          setState(() => _applyInitialRoomSelection(deviceService));
-          _maybeShowPendingMessage(deviceService);
-        }
-        return;
-      }
-
-      await deviceService.loadData();
-
       if (mounted) {
         await _loadOnboardingRoomPrefs();
         await _loadDevicePresentations(deviceService.devices);
         setState(() => _applyInitialRoomSelection(deviceService));
         _maybeShowPendingMessage(deviceService);
+        await _refreshSetupProgress(deviceService);
+        await _maybeShowWelcomeSheet();
       }
+      return;
+    }
+
+    await deviceService.loadData();
+
+    if (mounted) {
+      await _loadOnboardingRoomPrefs();
+      await _loadDevicePresentations(deviceService.devices);
+      setState(() => _applyInitialRoomSelection(deviceService));
+      _maybeShowPendingMessage(deviceService);
+      await _refreshSetupProgress(deviceService);
+      await _maybeShowWelcomeSheet();
+    }
     } catch (e) {
       print('Error loading devices in HomeScreen: $e');
       if (mounted) {
@@ -368,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final id in effectiveIds)
         createRoomCard(
           id: id,
-          title: OnboardingRoomCatalog.cardById[id]!.title,
+          title: OnboardingRoomCatalog.displayTitleFor(id),
           imagePath: _roomImagePaths[id] ??
               OnboardingRoomCatalog.cardById[id]!.imagePath,
         ),
@@ -426,7 +535,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       appBar: AppBar(
         title: const Text(
           'HomTune',
@@ -473,6 +584,16 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               tooltip: '開発者設定',
             ),
+          IconButton(
+            icon: const Icon(Icons.workspace_premium_outlined,
+                color: Color(0xFF333333)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PlanScreen()),
+              );
+            },
+            tooltip: 'プラン',
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
@@ -503,13 +624,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       children: [
                         _buildMaintenanceBanner(deviceService),
+                        if (_setupProgress != null &&
+                            (!_setupProgress!.applianceGoalMet ||
+                                !_setupProgress!.roomPhotosConfigured)) ...[
+                          SetupProgressBanner(
+                            progress: _setupProgress!,
+                            onAddAppliance: _openAddAppliance,
+                            onSetupRoomPhotos: () =>
+                                _openRoomPhotoSetup(isFirstLaunch: true),
+                            onLearnPro: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const PlanScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         if (PlatformSupport.isWebUiPreview)
                           _buildRemotePreviewBanner(context),
                         RemoteSetupReminderBanner(
                           allDevices: deviceService.devices,
                           placement: 'home',
                         ),
-                        if (_applianceSetupDone && !_roomPhotosConfigured) ...[
+                        if (!_roomPhotosConfigured) ...[
                           _buildRoomPhotoPromptBanner(context),
                           const SizedBox(height: 16),
                         ],
@@ -530,6 +669,16 @@ class _HomeScreenState extends State<HomeScreen> {
           return FreePlanAdBody(placement: 'home', child: content);
         },
       ),
+        ),
+        if (_showHomeCoach)
+          HomeUsageCoachOverlay(
+            onStartRoomPhoto: () {
+              _dismissHomeCoach();
+              _openRoomPhotoSetup(isFirstLaunch: true);
+            },
+            onDismiss: _dismissHomeCoach,
+          ),
+      ],
     );
   }
 
@@ -754,8 +903,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRoomCardsCarousel(
       BuildContext context, DeviceService deviceService) {
     final rooms = _getRooms(deviceService);
-    final showPhotoSetupCard =
-        _applianceSetupDone && !_roomPhotosConfigured;
+    final showPhotoSetupCard = !_roomPhotosConfigured;
     final itemCount = rooms.length + (showPhotoSetupCard ? 1 : 0);
 
     return Column(
@@ -803,10 +951,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           rooms[index].id,
                           rooms[index].title,
                         ),
-                        onCustomizePhoto: _applianceSetupDone &&
-                                !_roomPhotosConfigured
-                            ? _openRoomPhotoSetup
+                        onCustomizePhoto: !_roomPhotosConfigured
+                            ? () => _openRoomPhotoSetup(isFirstLaunch: true)
                             : null,
+                        onRename: () => _renameRoom(rooms[index].id),
                       ),
                       )
                     : _buildRoomPhotoSetupCard(context),
@@ -895,28 +1043,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getRoomName(String roomId) {
-    if (roomId == 'living-room' || roomId == 'living') {
-      return 'Living Room';
-    }
-    if (roomId == 'bedroom-01' || roomId == 'bedroom') {
-      return 'Bedroom';
-    }
-    if (roomId == 'kitchen-01' || roomId == 'kitchen') {
-      return 'Kitchen';
-    }
-    if (roomId == 'entrance') {
-      return 'Entrance';
-    }
-    if (roomId == 'study') {
-      return 'Study';
-    }
-
-    final deviceService = Provider.of<DeviceService>(context, listen: false);
-    try {
-      final room = deviceService.rooms.firstWhere((r) => r.id == roomId);
-      return room.name;
-    } catch (e) {
-      return roomId;
-    }
+    return OnboardingRoomCatalog.displayTitleFor(roomId);
   }
 }

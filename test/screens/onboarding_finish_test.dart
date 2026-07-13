@@ -14,7 +14,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('スキップしてホームへで遷移しクラッシュしない', (tester) async {
+  testWidgets('今は登録しないで遷移しクラッシュしない', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -42,14 +42,14 @@ void main() {
     await tester.tap(find.text('次へ'));
     await tester.pumpAndSettle();
 
-    expect(find.text('スキップしてホームへ →'), findsOneWidget);
-    await tester.tap(find.text('スキップしてホームへ →'));
+    expect(find.text('今は登録しない'), findsOneWidget);
+    await tester.tap(find.text('今は登録しない'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(seconds: 2));
 
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('スキップしてホームへ →'), findsNothing);
+    expect(find.text('今は登録しない'), findsNothing);
 
     for (var i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 200));

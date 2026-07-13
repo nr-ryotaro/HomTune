@@ -164,6 +164,8 @@ class RemoteUiTemplateService {
     return RemoteUiResolvedLayout(
       templateId: template.id,
       templateLabel: template.label,
+      skin: template.skin,
+      themeKey: template.themeKey,
       groups: groups,
       pinnedButtons: pinned,
     );

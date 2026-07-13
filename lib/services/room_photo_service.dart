@@ -55,5 +55,17 @@ class RoomPhotoService {
         'assets/images/Living_sample.jpg';
   }
 
+  static Future<bool> hasAnyCustomPhoto(Iterable<String> roomIds) async {
+    for (final id in roomIds) {
+      final custom = await getCustomImagePath(id);
+      if (custom != null && custom.isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  static Future<void> markFirstRoomPhotoIfNeeded() async {
+    await setRoomPhotosConfigured(true);
+  }
+
   static bool isAssetPath(String path) => path.startsWith('assets/');
 }

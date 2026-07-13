@@ -5,7 +5,7 @@ import 'analytics_service.dart';
 class BillingControlService {
   static const double _defaultFxJpyPerUsd = 155.0;
   static const int _proPriceJpy = 490;
-  static const double _targetCostRatio = 0.45; // cost / revenue
+  static const double _targetCostRatio = 0.40; // 粗利率60%（実コスト/売上）
   static const double _minScale = 0.5;
   static const double _maxScale = 1.1;
 

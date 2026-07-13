@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../models/device_remote_link.dart';
 import '../../models/remote_appliance.dart';
+import '../../models/remote_ui_skin.dart';
 import '../../models/remote_ui_template.dart';
+import 'skins/aircon_physical_remote.dart';
+import 'skins/light_physical_remote.dart';
+import 'skins/simple_physical_remote.dart';
+import 'skins/tv_physical_remote.dart';
 
 typedef RemoteCommandCallback = void Function(
   RemoteCommandType type, {
@@ -31,8 +36,13 @@ class RemoteControlTemplatePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = RemoteSkinTheme.forTemplate(
+      layout.templateId,
+      themeKey: layout.themeKey,
+    );
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
@@ -51,6 +61,14 @@ class RemoteControlTemplatePanel extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 8),
+            Icon(
+              layout.skin == RemoteUiSkinType.grid
+                  ? Icons.grid_view
+                  : Icons.settings_remote,
+              size: 14,
+              color: const Color(0xFF94A3B8),
+            ),
             const Spacer(),
             if (onCustomize != null && interactive)
               TextButton.icon(
@@ -65,8 +83,88 @@ class RemoteControlTemplatePanel extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildRemoteBody(theme),
+        if (sending)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRemoteBody(RemoteSkinTheme theme) {
+    switch (layout.skin) {
+      case RemoteUiSkinType.physicalAircon:
+        return AirconPhysicalRemote(
+          layout: layout,
+          theme: theme,
+          link: link,
+          sending: sending,
+          interactive: interactive,
+          onCommand: onCommand,
+        );
+      case RemoteUiSkinType.physicalTv:
+        return TvPhysicalRemote(
+          layout: layout,
+          theme: theme,
+          link: link,
+          sending: sending,
+          interactive: interactive,
+          onCommand: onCommand,
+        );
+      case RemoteUiSkinType.physicalLight:
+        return LightPhysicalRemote(
+          layout: layout,
+          theme: theme,
+          link: link,
+          sending: sending,
+          interactive: interactive,
+          onCommand: onCommand,
+        );
+      case RemoteUiSkinType.physicalSimple:
+        return SimplePhysicalRemote(
+          layout: layout,
+          theme: theme,
+          link: link,
+          sending: sending,
+          interactive: interactive,
+          onCommand: onCommand,
+        );
+      case RemoteUiSkinType.grid:
+        return _GridRemoteLayout(
+          layout: layout,
+          link: link,
+          sending: sending,
+          interactive: interactive,
+          onCommand: onCommand,
+        );
+    }
+  }
+}
+
+class _GridRemoteLayout extends StatelessWidget {
+  final RemoteUiResolvedLayout layout;
+  final DeviceRemoteLink? link;
+  final bool sending;
+  final bool interactive;
+  final RemoteCommandCallback? onCommand;
+
+  const _GridRemoteLayout({
+    required this.layout,
+    this.link,
+    this.sending = false,
+    this.interactive = true,
+    this.onCommand,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         if (layout.pinnedButtons.isNotEmpty) ...[
-          const SizedBox(height: 12),
           const Text(
             'よく使う',
             style: TextStyle(
@@ -105,11 +203,6 @@ class RemoteControlTemplatePanel extends StatelessWidget {
             children: group.buttons.map(_buildButton).toList(),
           ),
         ],
-        if (sending)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: LinearProgressIndicator(minHeight: 2),
-          ),
       ],
     );
   }

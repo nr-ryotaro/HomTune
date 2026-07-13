@@ -16,42 +16,44 @@ import 'services/onboarding_prefs.dart';
 import 'services/ad_service.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await initializeDateFormatting('ja_JP');
-  } catch (e) {
-    debugPrint('Date formatting init failed, using default locale: $e');
-    try {
-      await initializeDateFormatting('en_US');
-    } catch (_) {}
-  }
-  final configService = ConfigService();
-  await configService.load();
-
-  final showOnboarding = await OnboardingPrefs.shouldShowOnLaunch();
-
-  final notificationService = NotificationService();
-  await notificationService.initialize();
-
-  final manualLinkResolver = ManualLinkResolver(configService);
-  ManualLinkResolver.bind(manualLinkResolver);
-
-  await AdService.instance.initialize();
-
   runZonedGuarded(
-    () {
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
       FlutterError.onError = (FlutterErrorDetails details) {
         if (kDebugMode) {
           FlutterError.presentError(details);
         }
-        print('Flutter Error: ${details.exception}');
-        print('Stack trace: ${details.stack}');
+        debugPrint('Flutter Error: ${details.exception}');
+        debugPrint('Stack trace: ${details.stack}');
       };
       PlatformDispatcher.instance.onError = (error, stack) {
-        print('Platform Error: $error');
-        print('Stack trace: $stack');
+        debugPrint('Platform Error: $error');
+        debugPrint('Stack trace: $stack');
         return true;
       };
+
+      try {
+        await initializeDateFormatting('ja_JP');
+      } catch (e) {
+        debugPrint('Date formatting init failed, using default locale: $e');
+        try {
+          await initializeDateFormatting('en_US');
+        } catch (_) {}
+      }
+      final configService = ConfigService();
+      await configService.load();
+
+      final showOnboarding = await OnboardingPrefs.shouldShowOnLaunch();
+
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+
+      final manualLinkResolver = ManualLinkResolver(configService);
+      ManualLinkResolver.bind(manualLinkResolver);
+
+      await AdService.instance.initialize();
+
       runApp(HomTuneApp(
         configService: configService,
         notificationService: notificationService,
@@ -60,8 +62,8 @@ Future<void> main() async {
       ));
     },
     (error, stack) {
-      print('Uncaught error: $error');
-      print('Stack trace: $stack');
+      debugPrint('Uncaught error: $error');
+      debugPrint('Stack trace: $stack');
     },
   );
 }

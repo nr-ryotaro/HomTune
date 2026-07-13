@@ -6,6 +6,7 @@ import '../models/ai_usage_policy.dart';
 import '../models/cloud_connection_test_result.dart';
 import '../services/ai_usage_service.dart';
 import '../services/billing_control_service.dart';
+import '../services/unit_economics_service.dart';
 import '../services/config_service.dart';
 import '../services/onboarding_prefs.dart';
 import 'onboarding_screen.dart';
@@ -194,6 +195,31 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
                 next == SubscriptionTier.pro
                     ? 'Pro に切り替えました（広告非表示・Pro機能ON）'
                     : 'Free に切り替えました（下部バナー表示）',
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          FutureBuilder<bool>(
+            future: OnboardingPrefs.includeDemoSeedDevices(),
+            builder: (context, snap) {
+              final enabled = snap.data ?? false;
+              return SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'デモ家電をホームに表示',
+                  style: TextStyle(fontSize: 13),
+                ),
+                subtitle: const Text(
+                  '初回ユーザーにはオフ推奨。デモ用シードデータを注入します。',
+                  style: TextStyle(fontSize: 11),
+                ),
+                value: enabled,
+                onChanged: (v) async {
+                  await OnboardingPrefs.setIncludeDemoSeedDevices(v);
+                  if (!mounted) return;
+                  _showSnack(v ? 'デモ家電を有効にしました' : 'デモ家電を無効にしました');
+                  setState(() {});
+                },
               );
             },
           ),
@@ -950,6 +976,48 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
 
                 const SizedBox(height: 24),
 
+                const Text(
+                  'ユニットエコノミクス試算（Pro 1人・上限利用想定）',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FutureBuilder<ProUserCostEstimate>(
+                  future: UnitEconomicsService.instance
+                      .estimateFromEffectivePolicy(roomCount: 3, deviceCount: 10),
+                  builder: (context, snap) {
+                    if (!snap.hasData) {
+                      return const LinearProgressIndicator();
+                    }
+                    final e = snap.data!;
+                    return _buildUnitEconomicsCard(e);
+                  },
+                ),
+                const SizedBox(height: 8),
+                FutureBuilder<ProUserCostEstimate>(
+                  future: UnitEconomicsService.instance
+                      .estimateFromEffectivePolicy(roomCount: 5, deviceCount: 20),
+                  builder: (context, snap) {
+                    if (!snap.hasData) return const SizedBox.shrink();
+                    final e = snap.data!;
+                    return Text(
+                      '5部屋・家電20台の上限利用: 推定 \$${e.totalEstimatedCostUsd.toStringAsFixed(2)} '
+                      '(${e.withinTarget ? "黒字圏内" : "要調整"})',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: e.withinTarget
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFB45309),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
                 // --- 実請求ベース自動調整 ---
                 const Text(
                   '実請求ベース自動調整',
@@ -1128,6 +1196,45 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnitEconomicsCard(ProUserCostEstimate e) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${e.roomCount}部屋・家電${e.deviceCount}台',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          _buildStatusRow(
+            'Pro売上（推定）',
+            '\$${e.proRevenueUsd.toStringAsFixed(2)}',
+            true,
+          ),
+          _buildStatusRow(
+            'AI原価合計（推定）',
+            '\$${e.totalEstimatedCostUsd.toStringAsFixed(2)}',
+            e.withinTarget,
+          ),
+          _buildStatusRow(
+            '原価率 / 目標40%以下',
+            '${(e.costRatio * 100).toStringAsFixed(1)}%',
+            e.withinTarget,
+          ),
+          _buildStatusRow('部屋画像', '\$${e.roomImageCostUsd.toStringAsFixed(2)}', true),
+          _buildStatusRow('AI相場 L2', '\$${e.marketL2CostUsd.toStringAsFixed(2)}', true),
+          _buildStatusRow('チャット', '\$${e.chatCostUsd.toStringAsFixed(2)}', true),
         ],
       ),
     );

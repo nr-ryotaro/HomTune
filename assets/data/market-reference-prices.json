@@ -68,6 +68,102 @@
       "modelNumber": "PH23A-WH",
       "referenceMarketYen": 50000,
       "referenceAsOf": "2023-12-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "CS-X876C-W",
+      "referenceMarketYen": 185000,
+      "referenceAsOf": "2024-04-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "TH-55LX1000",
+      "referenceMarketYen": 145000,
+      "referenceAsOf": "2024-02-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "F-PXU1C-W",
+      "referenceMarketYen": 72000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "SONY",
+      "modelNumber": "HT-A3000",
+      "referenceMarketYen": 62000,
+      "referenceAsOf": "2024-03-01"
+    },
+    {
+      "manufacturer": "DAIKIN",
+      "modelNumber": "S28YTES-W",
+      "referenceMarketYen": 198000,
+      "referenceAsOf": "2024-05-01"
+    },
+    {
+      "manufacturer": "DAIKIN",
+      "modelNumber": "MCZ70U2-W",
+      "referenceMarketYen": 95000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "TOSHIBA",
+      "modelNumber": "55Z670L",
+      "referenceMarketYen": 125000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "MITSUBISHI",
+      "modelNumber": "MSZ-KXV2823-W",
+      "referenceMarketYen": 175000,
+      "referenceAsOf": "2024-03-01"
+    },
+    {
+      "manufacturer": "HITACHI",
+      "modelNumber": "RAS-XJ28M-W",
+      "referenceMarketYen": 168000,
+      "referenceAsOf": "2024-02-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "NE-FL1C",
+      "referenceMarketYen": 95000,
+      "referenceAsOf": "2023-10-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "SR-VSX101",
+      "referenceMarketYen": 65000,
+      "referenceAsOf": "2023-11-01"
+    },
+    {
+      "manufacturer": "SHARP",
+      "modelNumber": "SJ-MF55P",
+      "referenceMarketYen": 155000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "SHARP",
+      "modelNumber": "AX-RS1C",
+      "referenceMarketYen": 118000,
+      "referenceAsOf": "2023-12-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "CS-225CFR-W",
+      "referenceMarketYen": 98000,
+      "referenceAsOf": "2024-01-01"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "modelNumber": "F-YKT60-W",
+      "referenceMarketYen": 28000,
+      "referenceAsOf": "2024-02-01"
+    },
+    {
+      "manufacturer": "TOSHIBA",
+      "modelNumber": "TC-FS1MC",
+      "referenceMarketYen": 48000,
+      "referenceAsOf": "2024-03-01"
     }
   ]
 }

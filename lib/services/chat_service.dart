@@ -1,4 +1,5 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/ai_usage_policy.dart';
 import '../models/device.dart';
 import '../models/local_response_plan.dart';
 import 'config_service.dart';
@@ -93,7 +94,7 @@ class ChatService {
     }
 
     final systemPrompt = await _buildSystemPrompt(devices);
-    final primaryModel = _configService.geminiModel;
+    final primaryModel = _configService.geminiModelFor(AiFeature.chat);
 
     try {
       _chatSession = _createChatSession(

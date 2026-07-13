@@ -17,6 +17,49 @@ class OnboardingStep2Screen extends StatefulWidget {
 }
 
 class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
+  Future<void> _renameRoom(RoomOption room) async {
+    final controller = TextEditingController(text: room.name);
+    final next = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('部屋の名称を変更'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '例: リビング、寝室、書斎',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (room.suggestedLabel != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                room.suggestedLabel!,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (next == null || next.isEmpty || !mounted) return;
+    setState(() => room.name = next);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -36,8 +79,8 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'いまはサンプルの部屋画像が表示されます。\n'
-            '写真は、家電の登録が終わってから設定できます。\n'
+            '部屋名は「部屋1」のように仮の名前です。タップして変更できます。\n'
+            'あとからホーム画面でも名称変更できます。\n'
             '使わない部屋はチェックを外してください。',
             style: TextStyle(
               fontSize: 14,
@@ -47,8 +90,6 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
             ),
           ),
           const SizedBox(height: 32),
-
-          // Room toggle list
           Expanded(
             child: ListView.separated(
               itemCount: widget.rooms.length,
@@ -62,14 +103,12 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
                       room.selected = !room.selected;
                     });
                   },
+                  onRename: () => _renameRoom(room),
                 );
               },
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Confirm button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -106,8 +145,13 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
 class _RoomToggleCard extends StatelessWidget {
   final RoomOption room;
   final VoidCallback onToggle;
+  final VoidCallback onRename;
 
-  const _RoomToggleCard({required this.room, required this.onToggle});
+  const _RoomToggleCard({
+    required this.room,
+    required this.onToggle,
+    required this.onRename,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -140,16 +184,44 @@ class _RoomToggleCard extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Text(
-                  room.name,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: room.selected
-                        ? const Color(0xFF333333)
-                        : const Color(0xFFBBBBBB),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      room.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: room.selected
+                            ? const Color(0xFF333333)
+                            : const Color(0xFFBBBBBB),
+                      ),
+                    ),
+                    if (room.suggestedLabel != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        room.suggestedLabel!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: room.selected
+                              ? const Color(0xFF999999)
+                              : const Color(0xFFCCCCCC),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+              ),
+              IconButton(
+                onPressed: room.selected ? onRename : null,
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: room.selected
+                      ? const Color(0xFF666666)
+                      : const Color(0xFFCCCCCC),
+                ),
+                tooltip: '名称を変更',
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),

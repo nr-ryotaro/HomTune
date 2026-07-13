@@ -11,6 +11,29 @@ enum AiFeature {
   marketValuation,
 }
 
+/// AI利用不可の理由（Free→Pro / Pro→追加クレジット導線用）
+enum AiExhaustionReason {
+  none,
+  realApiOff,
+  hardCap,
+  monthlyCredits,
+  roomQuotaFree,
+  roomQuotaPro,
+}
+
+/// Pro 専用の追加クレジットパック（IAP 連携前の定義）
+class CreditAddonPack {
+  final String id;
+  final int credits;
+  final int priceJpy;
+
+  const CreditAddonPack({
+    required this.id,
+    required this.credits,
+    required this.priceJpy,
+  });
+}
+
 class AiUsagePolicy {
   final int freeMonthlyCredits;
   final int proMonthlyCredits;
@@ -25,21 +48,45 @@ class AiUsagePolicy {
   final double marketValuationCreditCostUsd;
   /// Pro: L1 相場DB参照の月間回数（AIクレジットとは別枠）
   final int proMonthlyMarketLookups;
+  /// Free で登録できる最大部屋数（13LDK 等の悪用防止）
+  final int maxRoomsFree;
+  /// Pro で登録できる最大部屋数（追加部屋は枠内で画像クォータ適用）
+  final int maxRoomsPro;
+
+  /// 部屋画像は Gemini テキスト1回＋端末内描画（Imagen 等は未使用）
+  static const int roomImageCreditsPerGeneration = 2;
+
+  /// Pro 専用追加クレジット（Free は Pro へ誘導）
+  static const List<CreditAddonPack> proAddonPacks = [
+    CreditAddonPack(id: 'addon_50', credits: 50, priceJpy: 350),
+    CreditAddonPack(id: 'addon_120', credits: 120, priceJpy: 780),
+  ];
 
   const AiUsagePolicy({
     this.freeMonthlyCredits = 40,
     this.proMonthlyCredits = 120,
     this.freeRoomImageLifetimePerRoom = 1,
     this.proRoomImagePerRoomMonthly = 2,
-    this.softMonthlyCostWarnUsd = 1.2,
-    this.hardMonthlyCostCapUsd = 2.0,
+    this.softMonthlyCostWarnUsd = 0.95,
+    this.hardMonthlyCostCapUsd = 1.25,
     this.chatCreditCostUsd = 0.010,
-    this.roomImageCreditCostUsd = 0.050,
+    this.roomImageCreditCostUsd = 0.012,
     this.scannerCreditCostUsd = 0.020,
     this.maintenanceCreditCostUsd = 0.015,
     this.marketValuationCreditCostUsd = 0.010,
     this.proMonthlyMarketLookups = 10,
+    this.maxRoomsFree = 5,
+    this.maxRoomsPro = 10,
   });
+
+  int maxRoomsForTier(SubscriptionTier tier) {
+    switch (tier) {
+      case SubscriptionTier.pro:
+        return maxRoomsPro;
+      case SubscriptionTier.free:
+        return maxRoomsFree;
+    }
+  }
 
   int monthlyCreditLimit(SubscriptionTier tier) {
     switch (tier) {
@@ -150,10 +197,12 @@ class AiBudgetCheck {
   final bool allowed;
   final String reason;
   final AiUsageSnapshot snapshot;
+  final AiExhaustionReason exhaustionReason;
 
   const AiBudgetCheck({
     required this.allowed,
     required this.reason,
     required this.snapshot,
+    this.exhaustionReason = AiExhaustionReason.none,
   });
 }

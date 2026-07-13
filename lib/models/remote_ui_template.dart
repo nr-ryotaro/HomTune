@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'device_remote_link.dart';
 import 'remote_appliance.dart';
+import 'remote_ui_skin.dart';
 
 /// リモコン UI ボタンの見た目
 enum RemoteUiButtonVariant {
@@ -116,6 +117,8 @@ class RemoteUiTemplate {
   final String id;
   final String label;
   final RemoteCapabilityProfile profile;
+  final RemoteUiSkinType skin;
+  final String themeKey;
   final List<String> manufacturers;
   final List<String> modelPatterns;
   final List<RemoteUiGroupDef> groups;
@@ -124,6 +127,8 @@ class RemoteUiTemplate {
     required this.id,
     required this.label,
     required this.profile,
+    this.skin = RemoteUiSkinType.grid,
+    this.themeKey = '',
     this.manufacturers = const [],
     this.modelPatterns = const [],
     required this.groups,
@@ -137,6 +142,8 @@ class RemoteUiTemplate {
         (e) => e.name == json['profile'],
         orElse: () => RemoteCapabilityProfile.genericIr,
       ),
+      skin: remoteUiSkinTypeFromJson(json['skin']?.toString()),
+      themeKey: json['themeKey']?.toString() ?? '',
       manufacturers: (json['manufacturers'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
@@ -157,12 +164,16 @@ class RemoteUiTemplate {
 class RemoteUiResolvedLayout {
   final String templateId;
   final String templateLabel;
+  final RemoteUiSkinType skin;
+  final String themeKey;
   final List<RemoteUiGroupDef> groups;
   final List<RemoteUiButtonDef> pinnedButtons;
 
   const RemoteUiResolvedLayout({
     required this.templateId,
     required this.templateLabel,
+    this.skin = RemoteUiSkinType.grid,
+    this.themeKey = '',
     required this.groups,
     this.pinnedButtons = const [],
   });

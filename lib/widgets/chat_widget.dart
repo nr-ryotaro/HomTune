@@ -5,14 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_route_preview.dart';
 import '../models/device.dart';
+import '../widgets/ads/pro_upgrade_dialog.dart';
+import '../widgets/ai/credit_exhaustion_dialog.dart';
 import '../models/ai_usage_policy.dart';
+import '../services/config_service.dart';
 import '../services/ai_routing_service.dart';
 import '../services/ai_usage_service.dart';
 import '../services/remote_control/remote_command_intent_parser.dart';
 import '../services/remote_control/remote_control_service.dart';
 import '../services/chat_route_preview_builder.dart';
 import '../services/chat_service.dart';
-import '../services/config_service.dart';
 
 class ChatWidget extends StatefulWidget {
   final List<Device> devices;
@@ -145,6 +147,7 @@ class _ChatWidgetState extends State<ChatWidget> {
           widget.devices,
         );
         if (remoteReply != null && mounted) {
+          final isProRemoteUpsell = remoteReply.contains('Pro プラン');
           setState(() {
             _messages.add(ChatMessage(
               text: remoteReply,
@@ -156,6 +159,12 @@ class _ChatWidgetState extends State<ChatWidget> {
             _responseModeLabel = 'リモコン';
             _isLoading = false;
           });
+          if (isProRemoteUpsell) {
+            await showProUpgradeDialog(
+              context,
+              upsellContext: ProUpsellContext.remoteControl,
+            );
+          }
           _scrollToBottom();
           return;
         }
@@ -234,7 +243,20 @@ class _ChatWidgetState extends State<ChatWidget> {
           responseMode = 'ローカル';
           if (mounted && budgetCheck.reason.isNotEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${budgetCheck.reason}（ローカル回答に切替）')),
+              SnackBar(
+                content: Text('${budgetCheck.reason}（ローカル回答に切替）'),
+                action: SnackBarAction(
+                  label: configService.subscriptionTier == SubscriptionTier.free
+                      ? 'Proを見る'
+                      : 'クレジット追加',
+                  onPressed: () => showCreditExhaustionDialog(
+                    context,
+                    config: configService,
+                    check: budgetCheck,
+                    upsellContext: ProUpsellContext.general,
+                  ),
+                ),
+              ),
             );
           }
           _usageSnapshot = budgetCheck.snapshot;

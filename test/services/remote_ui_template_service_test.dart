@@ -4,6 +4,7 @@ import 'package:homtune/models/device.dart';
 import 'package:homtune/models/device_remote_link.dart';
 import 'package:homtune/models/remote_appliance.dart';
 import 'package:homtune/models/remote_ui_template.dart';
+import 'package:homtune/models/remote_ui_skin.dart';
 import 'package:homtune/services/remote_control/remote_ui_preferences_service.dart';
 import 'package:homtune/services/remote_control/remote_ui_template_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,8 @@ void main() {
         modelNumber: 'CS-ZX2811',
       );
       expect(template.id, 'aircon_panasonic');
+      expect(template.skin, RemoteUiSkinType.physicalAircon);
+      expect(template.themeKey, 'panasonic');
       expect(
         template.allButtons.any((b) => b.label == 'ナノイー'),
         isTrue,
@@ -40,6 +43,7 @@ void main() {
         modelNumber: 'XRJ-65A95K',
       );
       expect(template.id, 'tv_sony_bravia');
+      expect(template.skin, RemoteUiSkinType.physicalTv);
       expect(
         template.allButtons.any((b) => b.label == 'Netflix'),
         isTrue,
@@ -53,6 +57,17 @@ void main() {
         modelNumber: 'XYZ-999',
       );
       expect(template.id, 'aircon_default');
+      expect(template.skin, RemoteUiSkinType.physicalAircon);
+    });
+
+    test('resolves Hitachi aircon by manufacturer', () async {
+      final template = await service.resolveTemplate(
+        profile: RemoteCapabilityProfile.aircon,
+        manufacturer: '日立',
+        modelNumber: 'RAS-AJ25L',
+      );
+      expect(template.id, 'aircon_hitachi');
+      expect(template.themeKey, 'hitachi');
     });
 
     test('resolveLayoutForDevice applies pinned defaults', () async {

@@ -139,7 +139,7 @@ class ScannerService {
 
     try {
       final model = GenerativeModel(
-        model: _configService.geminiModel,
+        model: _configService.geminiModelFor(AiFeature.scanner),
         apiKey: apiKey,
       );
       final fullPrompt = '$systemPrompt\n\n$userPromptPrefix$rawText$userPromptSuffix';
@@ -261,7 +261,9 @@ $rawText
 
       try {
         final model =
-            GenerativeModel(model: _configService.geminiModel, apiKey: apiKey);
+            GenerativeModel(
+                model: _configService.geminiModelFor(AiFeature.scanner),
+                apiKey: apiKey);
         final response = await model.generateContent([Content.text('$systemPrompt\n\n$userPrompt')]);
         
         final text = response.text?.trim() ?? '';

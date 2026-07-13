@@ -23,7 +23,7 @@ class ConfigService extends ChangeNotifier {
   bool _useDetailedMaintenance = false; // デフォルトは「ずぼら」モード（シンプル）
   SubscriptionTier _subscriptionTier = SubscriptionTier.free;
   String _geminiApiKey = '';
-  String _geminiModel = 'gemini-2.5-flash';
+  String _geminiModel = 'gemini-2.5-flash-lite';
   bool _loaded = false;
 
   bool get canUseClientSideGemini =>
@@ -33,6 +33,15 @@ class ConfigService extends ChangeNotifier {
   SubscriptionTier get subscriptionTier => _subscriptionTier;
   String get geminiApiKey => _geminiApiKey;
   String get geminiModel => _geminiModel;
+
+  /// リリース断面のコスパ最適モデル（全テキスト系 AI 機能で共通）
+  static const String releaseCostOptimizedModel = 'gemini-2.5-flash-lite';
+
+  /// 機能ごとの推論モデル（現状は同一モデル。将来 feature 別に切替可能）
+  String geminiModelFor(AiFeature feature) {
+    if (_geminiModel.isNotEmpty) return _geminiModel;
+    return releaseCostOptimizedModel;
+  }
   bool get hasGeminiApiKey =>
       canUseClientSideGemini && _geminiApiKey.trim().isNotEmpty;
 
@@ -73,7 +82,7 @@ class ConfigService extends ChangeNotifier {
         ? (prefs.getString(_keyGeminiApiKey) ?? '')
         : '';
     _geminiModel =
-        prefs.getString(_keyGeminiModel) ?? 'gemini-2.5-flash';
+        prefs.getString(_keyGeminiModel) ?? 'gemini-2.5-flash-lite';
     if (canUseClientSideGemini && _geminiApiKey.isEmpty) {
       const envKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
       if (envKey.isNotEmpty) {
@@ -85,7 +94,7 @@ class ConfigService extends ChangeNotifier {
       _useRealApi = false;
     }
     if (_geminiModel.isEmpty) {
-      _geminiModel = 'gemini-2.5-flash';
+      _geminiModel = 'gemini-2.5-flash-lite';
     }
     _loaded = true;
     notifyListeners();
@@ -162,11 +171,11 @@ class ConfigService extends ChangeNotifier {
   }
 
   static const List<String> cloudModelCandidates = [
-    'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-1.5-flash',
-    'gemini-3.1-flash-lite',
   ];
 
   Future<CloudConnectionTestResult> testCloudConnection({

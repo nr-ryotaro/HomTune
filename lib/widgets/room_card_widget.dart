@@ -11,12 +11,14 @@ class RoomCardWidget extends StatelessWidget {
   final RoomCardModel room;
   final VoidCallback? onDetailTap;
   final VoidCallback? onCustomizePhoto;
+  final VoidCallback? onRename;
 
   const RoomCardWidget({
     super.key,
     required this.room,
     this.onDetailTap,
     this.onCustomizePhoto,
+    this.onRename,
   });
 
   @override
@@ -45,17 +47,32 @@ class RoomCardWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
-                      room.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w300, // Thin font
-                        letterSpacing: 0.5,
-                        color: Color(0xFF333333),
+                    child: GestureDetector(
+                      onLongPress: onRename,
+                      child: Text(
+                        room.title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: 0.5,
+                          color: Color(0xFF333333),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  if (onRename != null)
+                    IconButton(
+                      onPressed: onRename,
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      color: const Color(0xFF999999),
+                      tooltip: '名称を変更',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                  const SizedBox(width: 4),
                   // Minimal status dot: meaning is explained on room detail screen.
                   Tooltip(
                     message: _healthStatusLabel(room.maintenanceHealth),

@@ -70,4 +70,5 @@ flutter:
     - assets/data/market-reference-prices.json
     - assets/data/remote-compatibility-catalog.json
     - assets/data/remote-ui-templates.json
+    - assets/data/manufacturer-bundles.json
     - assets/images/

@@ -21,6 +21,7 @@ import 'device_detail/device_recall_section.dart';
 import 'device_detail/device_sell_advisor_section.dart';
 import 'device_detail/remote_control_section.dart';
 import 'registration/remote_setup_reminder_banner.dart';
+import '../widgets/ads/pro_upgrade_dialog.dart';
 import '../screens/maintenance_detail_screen.dart';
 import '../screens/maintenance_calendar_screen.dart';
 
@@ -341,7 +342,7 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
                     _buildProMarketActions(context, assetDevice),
                     const SizedBox(height: 24),
                     SizedBox(
-                      height: 200,
+                      height: 230,
                       width: double.infinity,
                       child: AssetValueChart(device: assetDevice),
                     ),
@@ -633,9 +634,49 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
             ),
             const SizedBox(height: 8),
             if (!isPro) ...[
-              const Text(
-                '無料: 上の更新ボタンで端末内再計算（L0）\nPro: 相場DB・AI相場推定が利用できます',
-                style: TextStyle(fontSize: 11, color: Color(0xFF888888)),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  '無料: 上の更新ボタンで端末内再計算（L0）\n市場価値は推定精度が低めです',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF888888)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _refreshingAsset
+                    ? null
+                    : () => showProUpgradeDialog(
+                          context,
+                          upsellContext: ProUpsellContext.valuation,
+                          deviceName: device.name,
+                          deviceCategoryLabel: device.category,
+                        ),
+                icon: const Icon(Icons.lock_outline, size: 16),
+                label: const Text('相場DBを調べる（Pro）'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF2E7D32),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _refreshingAsset
+                    ? null
+                    : () => showProUpgradeDialog(
+                          context,
+                          upsellContext: ProUpsellContext.valuation,
+                          deviceName: device.name,
+                        ),
+                icon: const Icon(Icons.lock_outline, size: 16),
+                label: const Text('AI相場推定（Pro）'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1565C0),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
               ),
             ] else ...[
               OutlinedButton.icon(

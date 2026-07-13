@@ -108,6 +108,26 @@ DeviceRegistrationRemotePromptScreen
 - 設定 → **スマートリモコン連携**（アカウント・紐付けウィザード）
 - Free: ロック表示 + Pro 訴求
 
+### 物理リモコン風スキン（メーカー別）
+
+型番・メーカーからテンプレートを解決し、**実機リモコンに近いレイアウト**で描画する。
+
+| カテゴリ | スキン | 対応メーカー（例） |
+|----------|--------|-------------------|
+| エアコン | `physicalAircon` | Panasonic / DAIKIN / 三菱 / 日立 / 東芝 / 標準 |
+| テレビ | `physicalTv` | SONY BRAVIA / VIERA / AQUOS / REGZA / 標準 |
+| 照明 | `physicalLight` | 丸型 ON/OFF トグル |
+| Bot・カーテン | `physicalSimple` | 大型アクションボタン |
+
+各スキンの特徴:
+
+- **エアコン**: ブランド帯 + 擬似 LCD + 丸型電源 + 運転モード行 + 温度ダイヤル
+- **テレビ**: ブランド帯 + D-pad（CH/VOL）+ HDMI 行 + Netflix 等の色分けボタン
+- **照明**: ランプ型の丸ボタン ON/OFF
+- **テーマ**: `RemoteSkinTheme` がメーカー配色（Sony はダークボディ等）を担当
+
+実装: `lib/widgets/remote_control/skins/`
+
 ## メーカー別リモコン UI テンプレート
 
 型番・メーカーから UI レイアウトを自動選択し、家電詳細のリモコン欄に反映する。

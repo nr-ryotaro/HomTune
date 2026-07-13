@@ -7,6 +7,18 @@ import 'config_service.dart';
 class AdPolicy {
   AdPolicy._();
 
+  /// 計画用バナー eCPM（USD）— 日本ユーティリティアプリの保守値
+  static const double planningBannerEcpmUsd = 1.0;
+  /// 1 DAU あたりの想定バナー表示回数/日（ホーム・一覧の往復）
+  static const int planningImpressionsPerDauDay = 4;
+
+  /// 月間広告 ARPU 試算（USD）— Free 原価回収モデル用
+  static double estimatedMonthlyAdArpuUsd({
+    double ecpmUsd = planningBannerEcpmUsd,
+    int impressionsPerDauDay = planningImpressionsPerDauDay,
+  }) =>
+      impressionsPerDauDay * 30 * ecpmUsd / 1000;
+
   static bool _enabledInTests = true;
 
   @visibleForTesting

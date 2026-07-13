@@ -15,6 +15,8 @@ class AiUsageService {
   static const String _roomImageMonthlyKey = 'ai_room_image_monthly_v1';
   static const String _policyOverrideKey = 'ai_policy_override_v1';
 
+  static const String _bonusCreditsKey = 'ai_bonus_credits_v1';
+
   final AiUsagePolicy _policy = const AiUsagePolicy();
   SharedPreferences? _prefs;
   bool _loaded = false;
@@ -24,6 +26,7 @@ class AiUsageService {
   Map<String, dynamic> _roomImageLifetime = <String, dynamic>{};
   Map<String, dynamic> _roomImageMonthly = <String, dynamic>{};
   Map<String, dynamic> _policyOverride = <String, dynamic>{};
+  Map<String, dynamic> _bonusCredits = <String, dynamic>{};
 
   void resetForTest() {
     _prefs = null;
@@ -33,6 +36,7 @@ class AiUsageService {
     _roomImageLifetime = <String, dynamic>{};
     _roomImageMonthly = <String, dynamic>{};
     _policyOverride = <String, dynamic>{};
+    _bonusCredits = <String, dynamic>{};
   }
 
   Future<void> _ensureLoaded() async {
@@ -43,6 +47,7 @@ class AiUsageService {
     final roomImageLifetimeRaw = _prefs!.getString(_roomImageLifetimeKey);
     final roomImageMonthlyRaw = _prefs!.getString(_roomImageMonthlyKey);
     final policyOverrideRaw = _prefs!.getString(_policyOverrideKey);
+    final bonusCreditsRaw = _prefs!.getString(_bonusCreditsKey);
     if (usageRaw != null && usageRaw.isNotEmpty) {
       _usage = jsonDecode(usageRaw) as Map<String, dynamic>;
     }
@@ -59,6 +64,9 @@ class AiUsageService {
     }
     if (policyOverrideRaw != null && policyOverrideRaw.isNotEmpty) {
       _policyOverride = jsonDecode(policyOverrideRaw) as Map<String, dynamic>;
+    }
+    if (bonusCreditsRaw != null && bonusCreditsRaw.isNotEmpty) {
+      _bonusCredits = jsonDecode(bonusCreditsRaw) as Map<String, dynamic>;
     }
     _loaded = true;
   }
@@ -84,6 +92,31 @@ class AiUsageService {
       _policyOverrideKey,
       jsonEncode(_policyOverride),
     );
+    await _prefs?.setString(_bonusCreditsKey, jsonEncode(_bonusCredits));
+  }
+
+  Future<int> getBonusCredits() async {
+    await _ensureLoaded();
+    final monthKey = _monthKey(DateTime.now());
+    return (_bonusCredits[monthKey] as num?)?.toInt() ?? 0;
+  }
+
+  /// 追加クレジット付与（IAP 検証後 or 開発者設定）
+  Future<void> grantBonusCredits(int credits) async {
+    if (credits <= 0) return;
+    await _ensureLoaded();
+    final monthKey = _monthKey(DateTime.now());
+    final current = (_bonusCredits[monthKey] as num?)?.toInt() ?? 0;
+    _bonusCredits[monthKey] = current + credits;
+    await _save();
+  }
+
+  Future<int> effectiveCreditLimit(ConfigService configService) async {
+    await _ensureLoaded();
+    final tier = _tierFromConfig(configService);
+    final policy = _effectivePolicy();
+    final bonus = await getBonusCredits();
+    return policy.monthlyCreditLimit(tier) + bonus;
   }
 
   AiUsagePolicy _effectivePolicy() {
@@ -138,7 +171,7 @@ class AiUsageService {
       case AiFeature.chat:
         return 2;
       case AiFeature.roomImage:
-        return 8;
+        return AiUsagePolicy.roomImageCreditsPerGeneration;
       case AiFeature.scanner:
         return 3;
       case AiFeature.maintenance:
@@ -157,10 +190,11 @@ class AiUsageService {
         <String, dynamic>{};
     final usedCredits = (record['usedCredits'] as num?)?.toInt() ?? 0;
     final estimatedCostUsd = (record['estimatedCostUsd'] as num?)?.toDouble() ?? 0.0;
+    final bonus = await getBonusCredits();
     return AiUsageSnapshot(
       monthKey: monthKey,
       usedCredits: usedCredits,
-      creditLimit: policy.monthlyCreditLimit(tier),
+      creditLimit: policy.monthlyCreditLimit(tier) + bonus,
       estimatedCostUsd: estimatedCostUsd,
       overSoftWarnThreshold: estimatedCostUsd >= policy.softMonthlyCostWarnUsd,
       overHardCap: estimatedCostUsd >= policy.hardMonthlyCostCapUsd,
@@ -178,6 +212,7 @@ class AiUsageService {
         allowed: false,
         reason: '実APIモードがオフです',
         snapshot: snapshot,
+        exhaustionReason: AiExhaustionReason.realApiOff,
       );
     }
     if (snapshot.overHardCap) {
@@ -185,6 +220,7 @@ class AiUsageService {
         allowed: false,
         reason: '月次のコスト上限に到達しました',
         snapshot: snapshot,
+        exhaustionReason: AiExhaustionReason.hardCap,
       );
     }
     if (snapshot.usedCredits + requestedCredits > snapshot.creditLimit) {
@@ -192,6 +228,7 @@ class AiUsageService {
         allowed: false,
         reason: '今月のAIクレジットが不足しています',
         snapshot: snapshot,
+        exhaustionReason: AiExhaustionReason.monthlyCredits,
       );
     }
     return AiBudgetCheck(
@@ -224,6 +261,7 @@ class AiUsageService {
           allowed: false,
           reason: 'Freeプランでは部屋ごとに初回1回までです',
           snapshot: base.snapshot,
+          exhaustionReason: AiExhaustionReason.roomQuotaFree,
         );
       }
     } else {
@@ -236,6 +274,7 @@ class AiUsageService {
           allowed: false,
           reason: 'Proプランでは部屋ごとに月2回までです',
           snapshot: base.snapshot,
+          exhaustionReason: AiExhaustionReason.roomQuotaPro,
         );
       }
     }

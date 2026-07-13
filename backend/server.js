@@ -8,6 +8,7 @@ const { URL } = require('url');
 const store = require('./lib/store');
 const remo = require('./lib/remo');
 const switchbot = require('./lib/switchbot');
+const marketReference = require('./lib/market_reference');
 
 const PORT = process.env.PORT || 8787;
 
@@ -293,6 +294,33 @@ async function handle(req, res) {
       if (!creds) return json(res, 401, { success: false, message: 'SwitchBot未連携' });
       const appliances = await switchbot.listAppliances(creds.token, creds.secret);
       return json(res, 200, { success: true, appliances });
+    }
+
+    if (path === '/v1/market/reference' && req.method === 'GET') {
+      if (!requirePro(req, res)) return;
+      const manufacturer = url.searchParams.get('manufacturer') ?? '';
+      const modelNumber = url.searchParams.get('modelNumber') ?? '';
+      if (!manufacturer || !modelNumber) {
+        return json(res, 400, {
+          success: false,
+          message: 'manufacturer and modelNumber are required',
+        });
+      }
+      const hit = marketReference.lookup(manufacturer, modelNumber);
+      if (!hit) {
+        return json(res, 404, {
+          success: false,
+          message: '型番が相場DBに未登録です',
+        });
+      }
+      return json(res, 200, { success: true, entry: hit });
+    }
+
+    if (path === '/v1/market/meta' && req.method === 'GET') {
+      return json(res, 200, {
+        success: true,
+        meta: marketReference.catalogMeta(),
+      });
     }
 
     if (path === '/v1/remote/command' && req.method === 'POST') {
