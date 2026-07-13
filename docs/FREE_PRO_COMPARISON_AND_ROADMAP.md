@@ -52,3 +52,7 @@
 - Freeはローカル体験を強化し、AIは「価値を体験できる最小量」に固定
 - Proは「時短価値」を明確化（画像再生成、高度診断、履歴比較）
 - 高原価機能（画像生成）は段階課金に分離して粗利を守る
+
+## 目標 vs 実装ギャップ
+
+現行コードが KPI（500 MAU・転換≥5% 等）に対してどこが合致／不足かは [`POLICY_IMPLEMENTATION_AUDIT.md`](./POLICY_IMPLEMENTATION_AUDIT.md) を参照。

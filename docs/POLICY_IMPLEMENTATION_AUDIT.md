@@ -50,7 +50,7 @@
 | H2 | セットアップ導線が**AI/撮影を強く誘導** | ウェルカム・コーチ・写真後「AIで整える」SnackBar | Freeは「このままでOK」優先。AIは1回明示トライアル、使用後は Pro CTA |
 | H3 | `preferAiProxy=true` 既定で Free も**スキャン/メンテがクラウド課金しやすい** | scanner / maintenance はクラウドONで自動消費。chat以外に local-first が弱い | Free: ローカル抽出/テンプレ優先。クラウドは確認 or 月次キャップ（例 scan 1回） |
 | H4 | **RoomFairUse（Free5/Pro10）がUI未配線** | サービスはあるが画面から未使用（onboardingが偶然≤5） | 部屋追加UI接続＋超過時 Pro 訴求 |
-| H5 | README / FREE_PRO / AI_PRICING が「**1回/部屋**」のまま | 実装と乖離 | 「アカウント生涯1回」に統一（本作業で修正） |
+| H5 | README / FREE_PRO / AI_PRICING が「**1回/部屋**」のまま | 実装と乖離 | 「アカウント生涯1回」に統一（**本ブランチで修正済**） |
 
 ### Medium
 

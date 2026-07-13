@@ -37,7 +37,7 @@ class CreditAddonPack {
 class AiUsagePolicy {
   final int freeMonthlyCredits;
   final int proMonthlyCredits;
-  final int freeRoomImageLifetimePerRoom;
+  final int freeRoomImageLifetimePerRoom; // legacy（未使用・互換用）。正は freeRoomImageLifetimeAccount
   /// Free: アカウント全体で使える AI 部屋画像の生涯回数（一部屋体験用）
   final int freeRoomImageLifetimeAccount;
   final int proRoomImagePerRoomMonthly;

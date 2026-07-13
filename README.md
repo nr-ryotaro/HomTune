@@ -302,10 +302,9 @@ flutter run --dart-define=GEMINI_API_KEY=your_api_key_here
 
 - **Free**: 0円 / 月間 40 credits（AI部屋画像はアカウント生涯1回＝1部屋体験。他はデフォルト画像）
 - **Pro**: 490円 / 月間 120 credits（部屋画像は最大10部屋・月2回/部屋まで、追加クレジット購入可）
-- **Pro**: 490円 / 月間 120 credits（部屋画像は2回/部屋/月）
 - **超過時**: ローカル回答へフォールバック（または追加クレジット購入）
 
-詳細な料金設計・請求確認・インフラ制御は [AI_PRICING_AND_BILLING.md](docs/AI_PRICING_AND_BILLING.md) を参照してください。
+詳細な料金設計・請求確認・インフラ制御は [AI_PRICING_AND_BILLING.md](docs/AI_PRICING_AND_BILLING.md)。目標 vs 実装ギャップは [POLICY_IMPLEMENTATION_AUDIT.md](docs/POLICY_IMPLEMENTATION_AUDIT.md) を参照。
 
 ## ライセンス
 
