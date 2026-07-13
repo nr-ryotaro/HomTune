@@ -177,9 +177,9 @@ Flutter App
 
 ### P1（黒字安定化）
 
-- [ ] **追加クレジット IAP 本番化** — `CreditExhaustionDialog` と連携
-- [ ] **部屋追加 UI** — 上限チェック + Pro 訴求
-- [ ] **L1 クライアント** — オフライン同梱 + オンライン API フォールバック
+- [ ] **追加クレジット IAP 本番化** — `CreditExhaustionDialog` と連携（`_showAddonPurchasePlaceholder` 置換）
+- [ ] **部屋追加 UI** — `RoomFairUseService.canRegisterRoomCount` を配線 + Pro 訴求（サービス済・画面未接続）
+- [ ] **L1 クライアント** — オフライン同梱 + オンライン API フォールバック（サーバー API 済・クライアント未使用）
 - [ ] **AdMob 実 eCPM 取り込み** — `FREE_ADS_STRATEGY.md` の試算更新
 - [ ] **ストア手数料30%控除後**の試算を `UnitEconomicsService` に追加
 - [ ] GCP 請求データ週次校正
