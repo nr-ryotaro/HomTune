@@ -255,11 +255,15 @@ class AiUsageService {
     final monthKey = _monthKey(DateTime.now());
 
     if (tier == SubscriptionTier.free) {
-      final current = (_roomImageLifetime[roomId] as num?)?.toInt() ?? 0;
-      if (current >= policy.freeRoomImageLifetimePerRoom) {
+      final accountUsed = _roomImageLifetime.values.fold<int>(
+        0,
+        (sum, value) => sum + ((value as num?)?.toInt() ?? 0),
+      );
+      if (accountUsed >= policy.freeRoomImageLifetimeAccount) {
         return AiBudgetCheck(
           allowed: false,
-          reason: 'Freeプランでは部屋ごとに初回1回までです',
+          reason:
+              'FreeプランではAI部屋画像は1部屋・1回までです。ほかの部屋や再生成は Pro で利用できます。',
           snapshot: base.snapshot,
           exhaustionReason: AiExhaustionReason.roomQuotaFree,
         );
