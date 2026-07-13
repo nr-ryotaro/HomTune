@@ -13,9 +13,14 @@ class ProUserCostEstimate {
   final double maintenanceCostUsd;
   final double totalEstimatedCostUsd;
   final double proRevenueUsd;
+  /// ストア手数料30%控除後の実収入
+  final double proNetRevenueUsd;
   final double targetMaxCostUsd;
   final double costRatio;
+  /// ネット売上に対する原価率
+  final double netCostRatio;
   final bool withinTarget;
+  final bool withinNetTarget;
 
   const ProUserCostEstimate({
     required this.roomCount,
@@ -27,9 +32,12 @@ class ProUserCostEstimate {
     required this.maintenanceCostUsd,
     required this.totalEstimatedCostUsd,
     required this.proRevenueUsd,
+    required this.proNetRevenueUsd,
     required this.targetMaxCostUsd,
     required this.costRatio,
+    required this.netCostRatio,
     required this.withinTarget,
+    required this.withinNetTarget,
   });
 }
 
@@ -87,8 +95,11 @@ class UnitEconomicsService {
     // 実運用では Hard Cap が先に効くため、黒字判定はキャップ後コストを用いる
     final total = uncappedTotal.clamp(0.0, policy.hardMonthlyCostCapUsd);
     final revenue = proRevenueUsd(fxJpyPerUsd: fxJpyPerUsd);
+    final netRevenue = proNetRevenueUsd(fxJpyPerUsd: fxJpyPerUsd);
     final target = targetMaxAiCostUsd(fxJpyPerUsd: fxJpyPerUsd);
+    final netTarget = netRevenue * targetMaxCostRatio;
     final ratio = revenue > 0 ? total / revenue : 0.0;
+    final netRatio = netRevenue > 0 ? total / netRevenue : 0.0;
 
     return ProUserCostEstimate(
       roomCount: roomCount,
@@ -100,9 +111,12 @@ class UnitEconomicsService {
       maintenanceCostUsd: maintenanceCost,
       totalEstimatedCostUsd: total,
       proRevenueUsd: revenue,
+      proNetRevenueUsd: netRevenue,
       targetMaxCostUsd: target,
       costRatio: ratio,
+      netCostRatio: netRatio,
       withinTarget: total <= target,
+      withinNetTarget: total <= netTarget,
     );
   }
 
@@ -110,8 +124,11 @@ class UnitEconomicsService {
   int breakEvenProSubscribers({
     required double totalMonthlyAiCostUsd,
     double fxJpyPerUsd = defaultFxJpyPerUsd,
+    bool afterStoreFee = false,
   }) {
-    final contribution = targetMaxAiCostUsd(fxJpyPerUsd: fxJpyPerUsd);
+    final contribution = afterStoreFee
+        ? proNetRevenueUsd(fxJpyPerUsd: fxJpyPerUsd) * targetMaxCostRatio
+        : targetMaxAiCostUsd(fxJpyPerUsd: fxJpyPerUsd);
     if (contribution <= 0) return 0;
     return (totalMonthlyAiCostUsd / contribution).ceil();
   }

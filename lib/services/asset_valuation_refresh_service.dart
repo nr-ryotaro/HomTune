@@ -168,7 +168,10 @@ class AssetValuationRefreshService {
           );
         }
 
-        final refPrice = await _referenceCatalog.lookupAdjustedPrice(device);
+        final refPrice = await _referenceCatalog.lookupAdjustedPrice(
+          device,
+          config: config,
+        );
         if (refPrice == null) {
           throw AssetRefreshPolicyException(
             'この型番は相場DBに未登録です。AI相場推定をお試しください',

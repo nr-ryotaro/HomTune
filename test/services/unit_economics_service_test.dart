@@ -38,5 +38,32 @@ void main() {
       expect(subs, greaterThan(0));
       expect(subs, lessThan(50));
     });
+
+    test('net revenue deducts 30% store fee', () {
+      final gross = UnitEconomicsService.instance.proRevenueUsd();
+      final net = UnitEconomicsService.instance.proNetRevenueUsd();
+      expect(net, closeTo(gross * 0.7, 0.001));
+    });
+
+    test('estimate reports net cost ratio after store fee', () async {
+      final estimate = await UnitEconomicsService.instance.estimateHeavyProUser(
+        policy: policy,
+        roomCount: 5,
+        deviceCount: 15,
+      );
+      expect(estimate.proNetRevenueUsd, lessThan(estimate.proRevenueUsd));
+      expect(estimate.netCostRatio, greaterThan(estimate.costRatio));
+      expect(
+        UnitEconomicsService.instance.breakEvenProSubscribers(
+          totalMonthlyAiCostUsd: 12.5,
+          afterStoreFee: true,
+        ),
+        greaterThan(
+          UnitEconomicsService.instance.breakEvenProSubscribers(
+            totalMonthlyAiCostUsd: 12.5,
+          ),
+        ),
+      );
+    });
   });
 }

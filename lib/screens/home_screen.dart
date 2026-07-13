@@ -33,6 +33,7 @@ import '../widgets/onboarding/setup_progress_banner.dart';
 import '../widgets/ads/free_plan_ad_body.dart';
 import '../widgets/ads/pro_upgrade_dialog.dart';
 import '../services/config_service.dart';
+import '../services/room_fair_use_service.dart';
 import '../models/ai_usage_policy.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -222,6 +223,160 @@ class _HomeScreenState extends State<HomeScreen> {
     if (next == null || next.isEmpty || !mounted) return;
     await RoomNameService.instance.setDisplayName(roomId, next);
     setState(() {});
+  }
+
+  List<String> get _availableCatalogRoomIds {
+    return OnboardingRoomCatalog.cardById.keys
+        .where((id) => !_homeRoomIds.contains(id))
+        .toList(growable: false);
+  }
+
+  Future<void> _openAddRoom() async {
+    final config = Provider.of<ConfigService>(context, listen: false);
+    final fair = RoomFairUseService.instance;
+    final nextCount = _homeRoomIds.length + 1;
+    final tier = config.subscriptionTier;
+
+    if (!fair.canRegisterRoomCount(nextCount, tier: tier)) {
+      if (tier == SubscriptionTier.free) {
+        await showProUpgradeDialog(
+          context,
+          upsellContext: ProUpsellContext.rooms,
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(fair.rejectionMessage(tier))),
+        );
+      }
+      return;
+    }
+
+    final catalogChoices = _availableCatalogRoomIds;
+    final nameController = TextEditingController();
+    String? selectedCatalogId =
+        catalogChoices.isNotEmpty ? catalogChoices.first : null;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: const Text('部屋を追加'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fair.limitMessage(tier),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
+                  ),
+                  const SizedBox(height: 12),
+                  if (catalogChoices.isNotEmpty) ...[
+                    const Text('テンプレートから選ぶ', style: TextStyle(fontSize: 13)),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedCatalogId,
+                      items: [
+                        for (final id in catalogChoices)
+                          DropdownMenuItem(
+                            value: id,
+                            child: Text(OnboardingRoomCatalog.fallbackTitleFor(id)),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        setLocal(() => selectedCatalogId = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('または名前を入力して追加', style: TextStyle(fontSize: 13)),
+                    const SizedBox(height: 8),
+                  ] else ...[
+                    const Text(
+                      'カスタムの部屋名を入力してください',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      hintText: '例: 子ども部屋、寝室2',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('キャンセル'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('追加'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    final customName = nameController.text.trim();
+    nameController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    late final String newId;
+    late final String displayName;
+    if (customName.isNotEmpty) {
+      newId = 'custom-${DateTime.now().millisecondsSinceEpoch}';
+      displayName = customName;
+    } else if (selectedCatalogId != null) {
+      newId = selectedCatalogId!;
+      displayName = OnboardingRoomCatalog.fallbackTitleFor(newId);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('部屋名を入力してください')),
+      );
+      return;
+    }
+
+    if (_homeRoomIds.contains(newId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('同じ部屋はすでに追加されています')),
+      );
+      return;
+    }
+
+    final updated = [..._homeRoomIds, newId];
+    if (!fair.canRegisterRoomCount(updated.length, tier: tier)) {
+      if (tier == SubscriptionTier.free) {
+        await showProUpgradeDialog(
+          context,
+          upsellContext: ProUpsellContext.rooms,
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(fair.rejectionMessage(tier))),
+        );
+      }
+      return;
+    }
+
+    await OnboardingPrefs.setSelectedRoomIds(updated);
+    await RoomNameService.instance.setDisplayName(newId, displayName);
+    if (!mounted) return;
+    setState(() {
+      _homeRoomIds = updated;
+      _selectedRoomId = newId;
+    });
+    await _reloadRoomImagePaths();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('「$displayName」を追加しました')),
+    );
   }
 
   Future<void> _maybeShowProIntro() async {
@@ -466,9 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final roomIds = _homeRoomIds
-        .where((id) => OnboardingRoomCatalog.cardById.containsKey(id))
-        .toList();
+    final roomIds = _homeRoomIds.where((id) => id.trim().isNotEmpty).toList();
     final effectiveIds = roomIds.isNotEmpty
         ? roomIds
         : OnboardingRoomCatalog.defaultHomeRoomIds;
@@ -479,7 +632,8 @@ class _HomeScreenState extends State<HomeScreen> {
           id: id,
           title: OnboardingRoomCatalog.displayTitleFor(id),
           imagePath: _roomImagePaths[id] ??
-              OnboardingRoomCatalog.cardById[id]!.imagePath,
+              OnboardingRoomCatalog.cardById[id]?.imagePath ??
+              'assets/images/Living_sample.jpg',
         ),
     ];
   }
@@ -918,13 +1072,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 'My Rooms',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w300),
               ),
-              // Updated Button Name and Icon
-              TextButton.icon(
-                onPressed: _openAddAppliance,
-                icon: const Icon(Icons.add, size: 20),
-                label: const Text('家電を追加'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF3b82f6),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _openAddRoom,
+                      icon: const Icon(Icons.meeting_room_outlined, size: 18),
+                      label: const Text('部屋を追加'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF0f766e),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _openAddAppliance,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('家電を追加'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF3b82f6),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
