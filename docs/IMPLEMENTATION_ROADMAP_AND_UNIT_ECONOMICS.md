@@ -157,6 +157,8 @@ Flutter App
 
 ## 7. 実装 TODO（優先度順）
 
+> **次実装の着手手順・依存関係・ギャップメモ**: [`NEXT_IMPLEMENTATION_KICKOFF.md`](./NEXT_IMPLEMENTATION_KICKOFF.md)（main `96824f2` 起点）
+
 ### 着手済み（コード反映済み）
 
 - [x] `RoomFairUseService` — 部屋数上限 Free5/Pro10
