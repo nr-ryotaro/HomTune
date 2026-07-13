@@ -1,12 +1,51 @@
-# HomTune Web UI プレビュー（静的ホスティング）
-# Netlify: リポジトリ連携時はビルドコマンドを Netlify UI 側で Flutter 対応に設定してください。
-# 手動デプロイ: scripts/build_web_preview.ps1 実行後、build/web をドラッグ＆ドロップ（Netlify Drop）
+# HomTune Web UI プレビュー — Netlify 設定
+#
+# 【推奨】手動デプロイ（Flutter SDK が Netlify 標準イメージに無いため）
+#   1. .\scripts\build_web_preview.ps1
+#   2. Netlify Drop に build/web または dist/homtune-web-deploy.zip をアップロード
+#   または: .\scripts\deploy_netlify.ps1
+#
+# 【Git 連携】リポジトリ接続時も publish = build/web の手動アップロードを推奨。
+#   ビルドコマンドに Flutter を入れる場合は Netlify カスタム Docker が必要。
 
 [build]
   publish = "build/web"
-  command = "echo \"Upload build/web from local: run scripts/build_web_preview.ps1\""
+  # Git 連携で自動ビルドしない（ローカルビルド成果物をアップロードする運用）
+  command = "echo 'Run scripts/build_web_preview.ps1 locally, then deploy build/web'"
+
+[build.environment]
+  # プレビュー用（本番 API キーは埋め込まない）
+  HOMTUNE_WEB_PREVIEW = "true"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/canvaskit/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

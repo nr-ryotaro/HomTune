@@ -5,8 +5,10 @@ import 'device_maintenance.dart';
 import 'device_manual.dart';
 import 'device_warranty.dart';
 import 'device_asset.dart';
+import 'device_remote_link.dart';
 
 export 'device_enums.dart';
+export 'device_remote_link.dart';
 export 'device_maintenance.dart';
 export 'device_manual.dart';
 export 'device_warranty.dart';
@@ -51,6 +53,7 @@ class Device {
   final String? archetypeId;
   final String? customDisplayName;
   final String? customIcon;
+  final DeviceRemoteLink? remoteLink;
 
   Device({
     required this.id,
@@ -82,6 +85,7 @@ class Device {
     this.archetypeId,
     this.customDisplayName,
     this.customIcon,
+    this.remoteLink,
   }) : maintenanceTasks = maintenanceTasks ?? [];
 
   factory Device.fromJson(Map<String, dynamic> json) {
@@ -190,6 +194,11 @@ class Device {
         archetypeId: json['archetypeId']?.toString(),
         customDisplayName: json['customDisplayName']?.toString(),
         customIcon: json['customIcon']?.toString(),
+        remoteLink: json['remoteLink'] != null
+            ? DeviceRemoteLink.fromJson(
+                json['remoteLink'] as Map<String, dynamic>,
+              )
+            : null,
       );
     } catch (e) {
       print('Error parsing Device: $e');
@@ -231,6 +240,7 @@ class Device {
         'customDisplayName': customDisplayName,
       if (customIcon != null && customIcon!.isNotEmpty)
         'customIcon': customIcon,
+      if (remoteLink != null) 'remoteLink': remoteLink!.toJson(),
     };
   }
 
@@ -264,6 +274,8 @@ class Device {
     String? archetypeId,
     String? customDisplayName,
     String? customIcon,
+    DeviceRemoteLink? remoteLink,
+    bool clearRemoteLink = false,
   }) {
     return Device(
       id: id ?? this.id,
@@ -295,6 +307,7 @@ class Device {
       archetypeId: archetypeId ?? this.archetypeId,
       customDisplayName: customDisplayName ?? this.customDisplayName,
       customIcon: customIcon ?? this.customIcon,
+      remoteLink: clearRemoteLink ? null : (remoteLink ?? this.remoteLink),
     );
   }
 }

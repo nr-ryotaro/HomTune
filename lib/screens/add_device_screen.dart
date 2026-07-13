@@ -7,9 +7,13 @@ import '../models/appliance_archetype.dart';
 import '../models/device.dart';
 import '../services/appliance_template_service.dart';
 import '../services/device_service.dart';
+import '../models/remote_compatibility_assessment.dart';
 import '../services/manual_link_resolver.dart';
 import '../services/ocr_service.dart';
+import '../services/remote_control/remote_compatibility_service.dart';
+import '../utils/registration_remote_flow.dart';
 import '../widgets/device_form.dart';
+import '../widgets/registration/remote_compatibility_hint.dart';
 
 class AddDeviceScreen extends StatefulWidget {
   final String? initialRoomId;
@@ -61,6 +65,8 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   String? _selectedArchetypeId;
   List<ApplianceArchetype> _roomArchetypes = [];
   bool _loadingArchetypes = false;
+  RemoteCompatibilityAssessment? _remoteAssessment;
+  bool _loadingRemoteAssessment = false;
 
   @override
   void initState() {
@@ -76,6 +82,33 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     if (_room.isNotEmpty) {
       _loadArchetypesForRoom(_room);
     }
+    _refreshRemoteAssessment();
+  }
+
+  Future<void> _refreshRemoteAssessment() async {
+    if (_modelNumber.trim().isEmpty &&
+        _category.trim().isEmpty &&
+        (_selectedArchetypeId == null || _selectedArchetypeId!.isEmpty)) {
+      if (mounted) {
+        setState(() {
+          _remoteAssessment = null;
+          _loadingRemoteAssessment = false;
+        });
+      }
+      return;
+    }
+    setState(() => _loadingRemoteAssessment = true);
+    final assessment = await RemoteCompatibilityService.instance.assess(
+      modelNumber: _modelNumber,
+      category: _category,
+      manufacturer: _manufacturer,
+      archetypeId: _selectedArchetypeId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _remoteAssessment = assessment;
+      _loadingRemoteAssessment = false;
+    });
   }
 
   Future<void> _loadArchetypesForRoom(String roomId) async {
@@ -102,6 +135,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     if (_manufacturer.isNotEmpty && _modelNumber.isNotEmpty) {
       ManualLinkResolver.instance.prefetch(_manufacturer, _modelNumber);
     }
+    _refreshRemoteAssessment();
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -164,6 +198,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         _serialNumber = scannedData['serialNumber']!;
       }
     });
+    _refreshRemoteAssessment();
   }
 
   Future<void> _submitForm() async {
@@ -214,7 +249,6 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       );
 
       if (mounted) {
-        // 成功メッセージ
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('家が調律されました'),
@@ -223,7 +257,24 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
           ),
         );
 
-        Navigator.of(context).pop(true);
+        final assessment = _remoteAssessment ??
+            await RemoteCompatibilityService.instance.assess(
+              modelNumber: device.modelNumber,
+              category: device.category,
+              manufacturer: device.manufacturer,
+              archetypeId: device.archetypeId,
+            );
+
+        if (!context.mounted) return;
+        await maybeShowRemoteRegistrationPrompt(
+          context,
+          device: device,
+          assessment: assessment,
+        );
+
+        if (context.mounted) {
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       print('Error adding device: $e');
@@ -279,6 +330,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_room.isNotEmpty) _buildArchetypeSuggestions(),
+                    RemoteCompatibilityHint(
+                      assessment: _remoteAssessment,
+                      isLoading: _loadingRemoteAssessment,
+                    ),
                     DeviceForm(
                   modelNumber: _modelNumber,
                   name: _name,
@@ -293,10 +348,19 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
                   notes: _notes,
                   selectedImage: _selectedImage,
                   scannedData: _scannedData,
-                  onModelNumberChanged: (value) => setState(() => _modelNumber = value),
+                  onModelNumberChanged: (value) {
+                    setState(() => _modelNumber = value);
+                    _refreshRemoteAssessment();
+                  },
                   onNameChanged: (value) => setState(() => _name = value),
-                  onCategoryChanged: (value) => setState(() => _category = value),
-                  onManufacturerChanged: (value) => setState(() => _manufacturer = value),
+                  onCategoryChanged: (value) {
+                    setState(() => _category = value);
+                    _refreshRemoteAssessment();
+                  },
+                  onManufacturerChanged: (value) {
+                    setState(() => _manufacturer = value);
+                    _refreshRemoteAssessment();
+                  },
                   onPurchaseDateChanged: (value) => setState(() => _purchaseDate = value),
                   onSerialNumberChanged: (value) => setState(() => _serialNumber = value),
                   onPurchasePriceChanged: (value) => setState(() => _purchasePrice = value),

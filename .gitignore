@@ -7,6 +7,9 @@ yarn.lock
 dist/
 build/
 
+# Netlify CLI local state
+.netlify/
+
 # Environment variables
 .env
 .env.local

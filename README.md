@@ -29,15 +29,22 @@ HomTuneは、単なる家電管理を超えて、以下の機能を提供しま�
 | **プラットフォーム** | Android / iOS（Web は UI プレビューのみ） |
 | **デザイン** | ミニマルデザイン（Japandi テイスト、細い線ベースの UI） |
 
-## Web UI プレビュー（友人共有用）
+## Web UI プレビュー / Netlify 公開
 
 ブラウザで **UI・導線のみ** 確認するビルドです。スキャン / OCR / カメラは無効です。
 
 ```powershell
+# ビルド（成果物: build/web, dist/homtune-web-deploy.zip）
 .\scripts\build_web_preview.ps1
+
+# Netlify CLI で本番デプロイ（要 netlify login）
+.\scripts\deploy_netlify.ps1
 ```
 
-詳細: [docs/WEB_PREVIEW.md](docs/WEB_PREVIEW.md)
+| 手順 | ドキュメント |
+|------|----------------|
+| Netlify Drop / CLI / チェックリスト | [docs/NETLIFY_DEPLOY.md](docs/NETLIFY_DEPLOY.md) |
+| Web プレビュー概要 | [docs/WEB_PREVIEW.md](docs/WEB_PREVIEW.md) |
 
 ## ディレクトリ構造
 

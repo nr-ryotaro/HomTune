@@ -19,12 +19,17 @@ flutter run -d chrome
 
 成果物: `build/web/`
 
-## 公開（Netlify Drop が最速）
+## 公開（Netlify）
+
+**詳細手順・チェックリスト:** [NETLIFY_DEPLOY.md](NETLIFY_DEPLOY.md)
+
+### Netlify Drop（最速）
 
 1. `.\scripts\build_web_preview.ps1` を実行（`dist/homtune-web-deploy.zip` も生成されます）
 2. [Netlify Drop](https://app.netlify.com/drop) を開く
 3. **`build/web` フォルダ全体**（または `dist/homtune-web-deploy.zip`）をドラッグ＆ドロップ
 4. 表示された URL を共有
+5. `https://あなたのURL/deploy-meta.json` でバージョン確認
 
 ### 白画面になる典型原因
 

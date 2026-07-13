@@ -1,0 +1,14 @@
+{
+  "name": "homtune-api-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HomTune remote control API proxy (Remo / SwitchBot)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

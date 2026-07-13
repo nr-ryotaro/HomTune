@@ -9,6 +9,7 @@ import '../services/config_service.dart';
 import '../services/device_service.dart';
 import '../services/manual_link_resolver.dart';
 import '../services/notification_service.dart';
+import '../services/remote_control/remote_control_service.dart';
 
 /// アプリ全体の Provider 一覧。
 List<SingleChildWidget> buildAppProviders({
@@ -38,6 +39,9 @@ List<SingleChildWidget> buildAppProviders({
         manualLinkResolver: ctx.read<ManualLinkResolver>(),
         applianceTemplateService: ctx.read<ApplianceTemplateService>(),
       ),
+    ),
+    ChangeNotifierProvider<RemoteControlService>(
+      create: (_) => RemoteControlService(),
     ),
   ];
 }

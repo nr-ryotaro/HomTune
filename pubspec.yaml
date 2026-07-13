@@ -68,4 +68,6 @@ flutter:
     - assets/data/room-appliance-templates.json
     - assets/data/demo-device-catalog.json
     - assets/data/market-reference-prices.json
+    - assets/data/remote-compatibility-catalog.json
+    - assets/data/remote-ui-templates.json
     - assets/images/

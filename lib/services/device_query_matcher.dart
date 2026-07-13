@@ -42,6 +42,27 @@ class DeviceQueryMatcher {
         _matchesAnyRegisteredNameOrModel(message, devices);
   }
 
+  /// リモコン操作っぽい質問（チャットルーティング補助）
+  static bool looksLikeRemoteControlQuery(String message) {
+    final lower = message.toLowerCase();
+    const verbs = [
+      'つけて', '付けて', '消して', 'オフ', 'オン', '電源',
+      '温度', '音量', 'リモコン', '操作', '起動', '止めて',
+    ];
+    return verbs.any(lower.contains);
+  }
+
+  /// リモコン操作対象になりうるデバイス（remoteLink 済み）
+  static Device? findRemoteControllable(String message, List<Device> devices) {
+    if (!looksLikeRemoteControlQuery(message)) return null;
+    final hit = findRelevant(message, devices);
+    if (hit?.remoteLink != null) return hit;
+    for (final d in devices) {
+      if (d.remoteLink != null) return d;
+    }
+    return null;
+  }
+
   static bool _matchesAnyRegisteredNameOrModel(
     String message,
     List<Device> devices,

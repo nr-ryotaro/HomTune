@@ -9,6 +9,8 @@ import '../services/billing_control_service.dart';
 import '../services/config_service.dart';
 import '../services/onboarding_prefs.dart';
 import 'onboarding_screen.dart';
+import 'remote_account_screen.dart';
+import 'remote_control_preview_screen.dart';
 
 /// 機能確認用の開発者設定画面（kDebugMode 時のみ表示）
 /// リリース前に削除予定（RELEASE_CHECKLIST.md 参照）
@@ -210,6 +212,39 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
             label: '月間AIクレジット上限',
             value: isPro ? '120（Pro）' : '40（Free）',
             active: true,
+          ),
+          _planPreviewRow(
+            label: 'スマートリモコン（Remo/SwitchBot）',
+            value: isPro ? '連携・操作可' : 'Pro限定',
+            active: isPro,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RemoteAccountScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.sensors, size: 18),
+            label: const Text('スマートリモコン連携を開く'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RemoteControlPreviewScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.preview_outlined, size: 18),
+            label: const Text('リモコン UI プレビュー'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -605,6 +640,52 @@ class _DevSettingsScreenState extends State<DevSettingsScreen> {
                 const SizedBox(height: 24),
 
                 _buildPlanTestSection(config),
+
+                const SizedBox(height: 24),
+
+                const Text(
+                  'リモコン UI（画面設計）',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'API 連携なしで Free / Pro / 家電種別ごとの UI を確認できます。',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const RemoteControlPreviewScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.tv_outlined, size: 18),
+                        label: const Text('リモコン UI プレビューを開く'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
                 const SizedBox(height: 24),
 

@@ -8,6 +8,8 @@ import '../models/device.dart';
 import '../models/ai_usage_policy.dart';
 import '../services/ai_routing_service.dart';
 import '../services/ai_usage_service.dart';
+import '../services/remote_control/remote_command_intent_parser.dart';
+import '../services/remote_control/remote_control_service.dart';
 import '../services/chat_route_preview_builder.dart';
 import '../services/chat_service.dart';
 import '../services/config_service.dart';
@@ -133,6 +135,32 @@ class _ChatWidgetState extends State<ChatWidget> {
 
     try {
       final configService = Provider.of<ConfigService>(context, listen: false);
+
+      if (RemoteCommandIntentParser.looksLikeRemoteCommand(text)) {
+        final remoteService =
+            Provider.of<RemoteControlService>(context, listen: false);
+        final remoteReply = await remoteService.executeChatIntent(
+          configService,
+          text,
+          widget.devices,
+        );
+        if (remoteReply != null && mounted) {
+          setState(() {
+            _messages.add(ChatMessage(
+              text: remoteReply,
+              isUser: false,
+              timestamp: DateTime.now(),
+              responseMode: 'リモコン',
+              routeReason: '登録家電への操作',
+            ));
+            _responseModeLabel = 'リモコン';
+            _isLoading = false;
+          });
+          _scrollToBottom();
+          return;
+        }
+      }
+
       // APIキー/モデル/実APIトグルの変更を常に反映するため、
       // 送信直前にセッションを再初期化する。
       await _chatService!.initializeWithDevices(widget.devices);

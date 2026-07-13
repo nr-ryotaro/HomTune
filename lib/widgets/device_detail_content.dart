@@ -19,6 +19,8 @@ import '../models/appliance_presentation.dart';
 import 'asset_value_chart.dart';
 import 'device_detail/device_recall_section.dart';
 import 'device_detail/device_sell_advisor_section.dart';
+import 'device_detail/remote_control_section.dart';
+import 'registration/remote_setup_reminder_banner.dart';
 import '../screens/maintenance_detail_screen.dart';
 import '../screens/maintenance_calendar_screen.dart';
 
@@ -219,6 +221,13 @@ class _DeviceDetailContentState extends State<DeviceDetailContent> {
             DeviceRecallSection(device: device),
           ],
 
+          const SizedBox(height: 32),
+
+          RemoteSetupReminderBanner(
+            device: device,
+            placement: 'device_detail',
+          ),
+          RemoteControlSection(device: device),
           const SizedBox(height: 32),
 
           // 2. Asset Dashboard

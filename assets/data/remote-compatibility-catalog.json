@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "description": "型番・カテゴリ・アーキタイプからリモコン操作可否を判定するカタログ",
+  "categoryRules": [
+    {
+      "categories": ["エアコン", "ルームエアコン", "エアコン・クーラー"],
+      "eligible": true,
+      "profile": "aircon",
+      "label": "エアコン",
+      "providers": ["remo", "switchbot"]
+    },
+    {
+      "categories": ["テレビ", "TV", "有機ELテレビ", "液晶テレビ"],
+      "eligible": true,
+      "profile": "tv",
+      "label": "テレビ",
+      "providers": ["remo", "switchbot"]
+    },
+    {
+      "categories": ["照明", "シーリングライト", "LEDシーリング", "照明器具"],
+      "eligible": true,
+      "profile": "light",
+      "label": "照明",
+      "providers": ["remo", "switchbot"]
+    },
+    {
+      "categories": ["扇風機", "サーキュレーター"],
+      "eligible": true,
+      "profile": "genericIr",
+      "label": "扇風機",
+      "providers": ["remo", "switchbot"]
+    },
+    {
+      "categories": ["プロジェクター", "ホームシアター"],
+      "eligible": true,
+      "profile": "tv",
+      "label": "プロジェクター",
+      "providers": ["remo"]
+    },
+    {
+      "categories": ["冷蔵庫", "炊飯器", "加湿器", "除湿機", "空気清浄機", "掃除機", "オーディオ", "食洗機", "電子レンジ", "コンロ", "洗濯機", "乾燥機"],
+      "eligible": false,
+      "profile": null,
+      "label": null,
+      "providers": []
+    }
+  ],
+  "archetypeRules": [
+    { "archetypeId": "living_ac", "eligible": true, "profile": "aircon", "label": "エアコン" },
+    { "archetypeId": "bedroom_ac", "eligible": true, "profile": "aircon", "label": "エアコン" },
+    { "archetypeId": "living_tv", "eligible": true, "profile": "tv", "label": "テレビ" }
+  ],
+  "modelPatterns": [
+    {
+      "manufacturer": "Panasonic",
+      "pattern": "^(CS|CW|E|F|R|S|U|X)-",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "パナソニック エアコン"
+    },
+    {
+      "manufacturer": "DAIKIN",
+      "pattern": "^(FTX|FTK|FTN|FTZ|FTXS|FTXV|S\\d|R\\d)",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "ダイキン エアコン"
+    },
+    {
+      "manufacturer": "Mitsubishi",
+      "pattern": "^(MSZ|MUZ|MLZ|SRK|SRF)",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "三菱 エアコン"
+    },
+    {
+      "manufacturer": "HITACHI",
+      "pattern": "^(RAS|RAK|RPK)",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "日立 エアコン"
+    },
+    {
+      "manufacturer": "SHARP",
+      "pattern": "^(AY|AC|A[A-Z]\\d)",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "シャープ エアコン"
+    },
+    {
+      "manufacturer": "TOSHIBA",
+      "pattern": "^(RAS|RKS|RIS)",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "東芝 エアコン"
+    },
+    {
+      "manufacturer": "SONY",
+      "pattern": "^(XRJ|KJ|XBR|KD|KDL)",
+      "eligible": true,
+      "profile": "tv",
+      "label": "SONY テレビ"
+    },
+    {
+      "manufacturer": "SHARP",
+      "pattern": "^(4T|2T|LC)",
+      "eligible": true,
+      "profile": "tv",
+      "label": "シャープ テレビ"
+    },
+    {
+      "manufacturer": "Panasonic",
+      "pattern": "^(TH|VIERA)",
+      "eligible": true,
+      "profile": "tv",
+      "label": "パナソニック テレビ"
+    },
+    {
+      "manufacturer": "",
+      "pattern": "^(CS|CW)-\\w+",
+      "eligible": true,
+      "profile": "aircon",
+      "label": "エアコン（型番パターン）"
+    },
+    {
+      "manufacturer": "",
+      "pattern": "^(XRJ|KJ)-",
+      "eligible": true,
+      "profile": "tv",
+      "label": "テレビ（型番パターン）"
+    }
+  ]
+}

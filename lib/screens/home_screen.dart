@@ -13,10 +13,12 @@ import '../widgets/appliance_icon_chip.dart';
 import '../widgets/device_quick_preview_sheet.dart';
 import '../widgets/chat_widget.dart';
 import '../widgets/home/home_maintenance_banner.dart';
+import '../widgets/registration/remote_setup_reminder_banner.dart';
 import 'all_devices_screen.dart';
 import 'add_appliance_screen.dart';
 import '../utils/platform_support.dart';
 import 'dev_settings_screen.dart';
+import 'remote_control_preview_screen.dart';
 import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
 import 'maintenance_calendar_screen.dart';
@@ -447,6 +449,18 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'すべての家電を見る',
           ),
+          if (PlatformSupport.isWebUiPreview)
+            IconButton(
+              icon: const Icon(Icons.settings_remote, color: Color(0xFF333333)),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const RemoteControlPreviewScreen(),
+                  ),
+                );
+              },
+              tooltip: 'リモコン UI',
+            ),
           if (kDebugMode && !PlatformSupport.isWebUiPreview)
             IconButton(
               icon: const Icon(Icons.settings, color: Color(0xFF333333)),
@@ -489,6 +503,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       children: [
                         _buildMaintenanceBanner(deviceService),
+                        if (PlatformSupport.isWebUiPreview)
+                          _buildRemotePreviewBanner(context),
+                        RemoteSetupReminderBanner(
+                          allDevices: deviceService.devices,
+                          placement: 'home',
+                        ),
                         if (_applianceSetupDone && !_roomPhotosConfigured) ...[
                           _buildRoomPhotoPromptBanner(context),
                           const SizedBox(height: 16),
@@ -533,6 +553,56 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('再試行'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRemotePreviewBanner(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const RemoteControlPreviewScreen(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                const Icon(Icons.settings_remote, color: Color(0xFF15803D)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'リモコン UI をプレビュー',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF166534),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'エアコン・テレビのメーカー別ボタン配置を確認できます',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF4B5563)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

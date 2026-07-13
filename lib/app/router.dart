@@ -6,6 +6,7 @@ import '../screens/add_device_screen.dart';
 import '../screens/dev_settings_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/onboarding_screen.dart';
+import '../screens/remote_control_preview_screen.dart';
 import '../screens/scan_screen.dart';
 import '../screens/web_unsupported_feature_screen.dart';
 import '../utils/platform_support.dart';
@@ -49,6 +50,11 @@ GoRouter createAppRouter({required bool showOnboarding}) {
         GoRoute(
           path: '/dev-settings',
           builder: (context, state) => const DevSettingsScreen(),
+        ),
+      if (kDebugMode || PlatformSupport.isWebUiPreview)
+        GoRoute(
+          path: '/remote-control-preview',
+          builder: (context, state) => const RemoteControlPreviewScreen(),
         ),
     ],
   );

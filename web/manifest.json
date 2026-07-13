@@ -1,11 +1,11 @@
 {
-    "name": "homtune",
-    "short_name": "homtune",
+    "name": "HomTune — Web UI Preview",
+    "short_name": "HomTune",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FAFAFA",
+    "theme_color": "#1a1a1a",
+    "description": "HomTune Web UI preview — onboarding, home, device management.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

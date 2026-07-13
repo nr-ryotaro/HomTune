@@ -9,6 +9,7 @@ import '../services/device_service.dart';
 import '../services/manual_link_resolver.dart';
 import '../services/scanner_service.dart';
 import '../utils/platform_support.dart';
+import '../utils/registration_remote_flow.dart';
 import 'add_device_screen.dart';
 import 'web_unsupported_feature_screen.dart';
 
@@ -285,9 +286,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
     try {
       await deviceService.addDevice(device);
-      if (!mounted) return;
+      if (!context.mounted) return;
 
-      Navigator.of(context).pop(true);
+      await maybeShowRemoteRegistrationPrompt(context, device: device);
+
+      if (context.mounted) {
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);

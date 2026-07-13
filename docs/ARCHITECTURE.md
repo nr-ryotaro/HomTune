@@ -46,6 +46,8 @@ flowchart TB
 
 資産価値（帳簿・市場・表示）の更新方針は [ASSET_VALUATION.md](ASSET_VALUATION.md) を参照。
 
+スマートリモコン（Remo / SwitchBot）は [REMOTE_CONTROL.md](REMOTE_CONTROL.md) と `backend/` プロキシを参照。
+
 ## ナビゲーション
 
 `go_router`（[`lib/app/router.dart`](../lib/app/router.dart)）:
