@@ -73,6 +73,8 @@ class MarketPriceGeminiService {
         consumedCredits: result.usage.creditsCharged > 0
             ? result.usage.creditsCharged
             : creditCost,
+        proxyRemainingCredits: result.usage.remainingCredits,
+        proxyCreditLimit: result.usage.creditLimit,
       );
       return yen;
     } on AiApiException catch (e) {

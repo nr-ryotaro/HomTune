@@ -86,14 +86,16 @@ class ScannerService {
     );
   }
 
-  /// 生テキストを Gemini に投げ、メーカー・型番・カテゴリを構造化 JSON で取得
-  /// ダミーモード時は簡易パース or 固定サンプルを返す
+  /// 生テキストを構造化。Free はローカル抽出のみ（クラウド課金なし）。
+  /// ダミーモード時も簡易パース or 固定サンプルを返す
   Future<ExtractedProductInfo> extractProductInfo(String rawText) async {
     if (rawText.trim().isEmpty) {
       throw ScannerException('読み取れたテキストがありません。プレートがはっきり写っているか確認してください。');
     }
 
-    if (!_configService.isCloudAiEnabled) {
+    // Free: OCRベースのローカル抽出のみ（プロキシ既定でも課金しない）
+    if (_configService.subscriptionTier == SubscriptionTier.free ||
+        !_configService.isCloudAiEnabled) {
       return _extractProductInfoDummy(rawText);
     }
     final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
@@ -165,6 +167,8 @@ class ScannerService {
             ? result.usage.creditsCharged
             : requestedCredits,
         route: 'scanner_extract',
+        proxyRemainingCredits: result.usage.remainingCredits,
+        proxyCreditLimit: result.usage.creditLimit,
       );
       return ExtractedProductInfo(
         manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',
@@ -216,7 +220,9 @@ class ScannerService {
 
   /// 検索結果テキスト(HTML/Snippet)を解析して製品情報を抽出
   Future<ExtractedProductInfo> _parseSearchResultWithGemini(String rawText, {required String query, String? janCode}) async {
-      if (!_configService.isCloudAiEnabled) {
+      // Free / クラウドOFF: ローカルのみ（サンプルJANは互換用）
+      if (_configService.subscriptionTier == SubscriptionTier.free ||
+          !_configService.isCloudAiEnabled) {
         if (janCode == '4901234567890') {
            return ExtractedProductInfo(manufacturer: 'サンプルメーカー', modelNumber: 'SMP-001', category: 'その他');
         }
@@ -290,6 +296,8 @@ $rawText
               ? result.usage.creditsCharged
               : requestedCredits,
           route: 'scanner_search_refine',
+          proxyRemainingCredits: result.usage.remainingCredits,
+          proxyCreditLimit: result.usage.creditLimit,
         );
         return ExtractedProductInfo(
           manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',

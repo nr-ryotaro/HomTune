@@ -94,7 +94,15 @@ class ConfigService extends ChangeNotifier {
         : '';
     _geminiModel =
         prefs.getString(_keyGeminiModel) ?? 'gemini-2.5-flash-lite';
-    _preferAiProxy = prefs.getBool(_keyPreferAiProxy) ?? true;
+    // リリースビルドではプロキシ固定（クライアント直呼びを塞ぐ）
+    if (kReleaseMode) {
+      _preferAiProxy = true;
+      if (prefs.getBool(_keyPreferAiProxy) != true) {
+        await prefs.setBool(_keyPreferAiProxy, true);
+      }
+    } else {
+      _preferAiProxy = prefs.getBool(_keyPreferAiProxy) ?? true;
+    }
     if (canUseClientSideGemini && _geminiApiKey.isEmpty) {
       const envKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
       if (envKey.isNotEmpty) {
@@ -158,10 +166,12 @@ class ConfigService extends ChangeNotifier {
   }
 
   Future<void> setPreferAiProxy(bool value) async {
-    if (_preferAiProxy == value) return;
+    // リリースでは OFF 不可
+    final normalized = kReleaseMode ? true : value;
+    if (_preferAiProxy == normalized) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyPreferAiProxy, value);
-    _preferAiProxy = value;
+    await prefs.setBool(_keyPreferAiProxy, normalized);
+    _preferAiProxy = normalized;
     notifyListeners();
   }
 

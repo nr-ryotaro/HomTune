@@ -9,7 +9,6 @@ import '../services/room_photo_service.dart';
 import 'room_photo_setup_screen.dart';
 import 'plan_screen.dart';
 import 'manufacturer_bundle_picker_screen.dart';
-import '../services/maintenance_calendar_service.dart';
 import '../models/device.dart';
 import '../services/appliance_template_service.dart';
 import '../models/appliance_presentation.dart';
@@ -25,7 +24,6 @@ import 'dev_settings_screen.dart';
 import 'remote_control_preview_screen.dart';
 import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
-import 'maintenance_calendar_screen.dart';
 import 'room_devices_screen.dart';
 import '../widgets/onboarding/first_launch_welcome_sheet.dart';
 import '../widgets/onboarding/home_usage_coach_overlay.dart';
@@ -269,6 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await showProUpgradeDialog(
       context,
       upsellContext: ProUpsellContext.roomImage,
+      source: 'home_room_card_replace',
     );
   }
 

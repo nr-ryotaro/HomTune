@@ -39,6 +39,22 @@ HomTune は **Pro サブスクを主収益**、Free 広告は **原価の一部�
 
 → 広告だけでは Free の AI 原価を賄えないため、**ローカル応答優先・クレジット上限・Pro CTA** が正しい王道です。
 
+## 本番バナー ID の差し込み（クライアント）
+
+`lib/config/admob_config.dart` は `--dart-define` で上書きする。
+
+```bash
+flutter run --dart-define=ADMOB_ANDROID_BANNER_ID=ca-app-pub-xxxx/yyyy \
+  --dart-define=ADMOB_IOS_BANNER_ID=ca-app-pub-xxxx/zzzz
+```
+
+| ビルド | define 無し |
+|--------|-------------|
+| debug | Google 公式テスト ID |
+| release | **バナー非表示**（テスト ID 誤配信防止） |
+
+AdMob アカウント／アプリ登録と本番 ID 発行自体は帰宅後の作業でよい。
+
 ## リリース後の計測（P1）
 
 - AdMob Mediation ダッシュボードで実 eCPM を週次確認

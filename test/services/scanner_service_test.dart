@@ -63,5 +63,14 @@ void main() {
       
       expect(mockWebSearch.searchCallArg, isEmpty);
     });
+
+    test('Free tier extractProductInfo uses local OCR parse only', () async {
+      final info = await scannerService.extractProductInfo(
+        'メーカー ダイキン\nModel No. CS-ZX2811',
+      );
+      expect(info.manufacturer, 'ダイキン');
+      expect(info.modelNumber, 'CS-ZX2811');
+      expect(info.category, 'エアコン');
+    });
   });
 }

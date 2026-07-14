@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'onboarding_prefs.dart';
 
-/// 部屋カード画像（デフォルト → ユーザー写真）の管理
+/// 部屋カード画像（デフォルト asset → AI生成パス）の管理
 class RoomPhotoService {
   RoomPhotoService._();
 

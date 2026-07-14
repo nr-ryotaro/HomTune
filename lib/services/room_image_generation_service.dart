@@ -39,20 +39,24 @@ class RoomImageGenerationService {
       );
     }
 
-    final style = await _buildStyleSpec(
+    final styleResult = await _buildStyleSpec(
       config: configService,
       roomName: roomName,
       stylePrompt: stylePrompt,
     );
     final outputPath = await _renderImageLocally(
       roomName: roomName,
-      styleSpec: style,
+      styleSpec: styleResult.spec,
     );
 
     await AiUsageService.instance.recordRoomImageUsage(
       configService,
       roomId: roomId,
-      consumedCredits: credits,
+      consumedCredits: styleResult.creditsCharged > 0
+          ? styleResult.creditsCharged
+          : credits,
+      proxyRemainingCredits: styleResult.remainingCredits,
+      proxyCreditLimit: styleResult.creditLimit,
     );
     await AnalyticsService.logEvent(
       event: 'room_image_generated',
@@ -64,7 +68,7 @@ class RoomImageGenerationService {
     return outputPath;
   }
 
-  Future<Map<String, dynamic>> _buildStyleSpec({
+  Future<_RoomStyleBuildResult> _buildStyleSpec({
     required ConfigService config,
     required String roomName,
     required String stylePrompt,
@@ -92,7 +96,12 @@ class RoomImageGenerationService {
       );
       final text = result.text.trim();
       if (text.isEmpty) {
-        return _fallbackStyle(roomName);
+        return _RoomStyleBuildResult(
+          spec: _fallbackStyle(roomName),
+          creditsCharged: result.usage.creditsCharged,
+          remainingCredits: result.usage.remainingCredits,
+          creditLimit: result.usage.creditLimit,
+        );
       }
       var jsonText = text;
       final codeBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
@@ -100,9 +109,14 @@ class RoomImageGenerationService {
       if (match != null) {
         jsonText = match.group(1)?.trim() ?? text;
       }
-      return jsonDecode(jsonText) as Map<String, dynamic>;
+      return _RoomStyleBuildResult(
+        spec: jsonDecode(jsonText) as Map<String, dynamic>,
+        creditsCharged: result.usage.creditsCharged,
+        remainingCredits: result.usage.remainingCredits,
+        creditLimit: result.usage.creditLimit,
+      );
     } catch (_) {
-      return _fallbackStyle(roomName);
+      return _RoomStyleBuildResult(spec: _fallbackStyle(roomName));
     }
   }
 
@@ -220,4 +234,18 @@ class RoomImageGenerationException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class _RoomStyleBuildResult {
+  final Map<String, dynamic> spec;
+  final int creditsCharged;
+  final int? remainingCredits;
+  final int? creditLimit;
+
+  const _RoomStyleBuildResult({
+    required this.spec,
+    this.creditsCharged = 0,
+    this.remainingCredits,
+    this.creditLimit,
+  });
 }

@@ -184,7 +184,10 @@ class MaintenanceCalendarService {
 
     try {
       String result;
-      if (configService.isCloudAiEnabled) {
+      final isFree =
+          configService.subscriptionTier == SubscriptionTier.free;
+      // Free はテンプレ／ダミーのみ（クラウドメンテ文は課金しない）
+      if (!isFree && configService.isCloudAiEnabled) {
         final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
           AiFeature.maintenance,
         );
@@ -199,12 +202,6 @@ class MaintenanceCalendarService {
           return result;
         }
         result = await _generateWithGemini(task, device, configService);
-        await AiUsageService.instance.recordUsage(
-          configService,
-          feature: AiFeature.maintenance,
-          consumedCredits: requestedCredits,
-          route: 'maintenance_method',
-        );
       } else {
         result = _generateDummyMethod(task, device);
       }
@@ -304,10 +301,28 @@ class MaintenanceCalendarService {
         final result = await client.generate(
           config: configService,
           feature: AiFeature.maintenance,
+          requestedCredits: AiUsageService.instance.defaultFeatureCredits(
+            AiFeature.maintenance,
+          ),
           contents: [AiContentMessage(role: 'user', text: prompt)],
         );
         final text = result.text.trim();
-        if (text.isNotEmpty) return text;
+        if (text.isNotEmpty) {
+          final credits = result.usage.creditsCharged > 0
+              ? result.usage.creditsCharged
+              : AiUsageService.instance.defaultFeatureCredits(
+                  AiFeature.maintenance,
+                );
+          await AiUsageService.instance.recordUsage(
+            configService,
+            feature: AiFeature.maintenance,
+            consumedCredits: credits,
+            route: 'maintenance_method',
+            proxyRemainingCredits: result.usage.remainingCredits,
+            proxyCreditLimit: result.usage.creditLimit,
+          );
+          return text;
+        }
       } finally {
         client.dispose();
       }

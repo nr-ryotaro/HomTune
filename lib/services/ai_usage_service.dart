@@ -290,17 +290,40 @@ class AiUsageService {
     required AiFeature feature,
     required int consumedCredits,
     String? route,
+    int? proxyRemainingCredits,
+    int? proxyCreditLimit,
   }) async {
     await _ensureLoaded();
-    if (consumedCredits <= 0) return;
+    if (consumedCredits <= 0 &&
+        proxyRemainingCredits == null &&
+        proxyCreditLimit == null) {
+      return;
+    }
     final monthKey = _monthKey(DateTime.now());
-    final costDelta = _effectivePolicy().creditCost(feature) * consumedCredits;
+    final costDelta = consumedCredits > 0
+        ? _effectivePolicy().creditCost(feature) * consumedCredits
+        : 0.0;
     final record = (_usage[monthKey] as Map?)?.cast<String, dynamic>() ??
         <String, dynamic>{'usedCredits': 0, 'estimatedCostUsd': 0.0};
-    final nextUsed = (record['usedCredits'] as num?)?.toInt() ?? 0;
-    final nextCost = (record['estimatedCostUsd'] as num?)?.toDouble() ?? 0.0;
-    record['usedCredits'] = nextUsed + consumedCredits;
-    record['estimatedCostUsd'] = nextCost + costDelta;
+
+    // プロキシ経由かつ残量返却あり → サーバー値を正として同期（二重減算回避）
+    if (configService.preferAiProxy &&
+        proxyRemainingCredits != null &&
+        proxyCreditLimit != null &&
+        proxyCreditLimit >= 0) {
+      final syncedUsed =
+          (proxyCreditLimit - proxyRemainingCredits).clamp(0, proxyCreditLimit);
+      record['usedCredits'] = syncedUsed;
+      final prevCost = (record['estimatedCostUsd'] as num?)?.toDouble() ?? 0.0;
+      if (costDelta > 0) {
+        record['estimatedCostUsd'] = prevCost + costDelta;
+      }
+    } else if (consumedCredits > 0) {
+      final nextUsed = (record['usedCredits'] as num?)?.toInt() ?? 0;
+      final nextCost = (record['estimatedCostUsd'] as num?)?.toDouble() ?? 0.0;
+      record['usedCredits'] = nextUsed + consumedCredits;
+      record['estimatedCostUsd'] = nextCost + costDelta;
+    }
     _usage[monthKey] = record;
 
     final featureKey = feature.name;
@@ -317,6 +340,9 @@ class AiUsageService {
         'route': route ?? '',
         'monthKey': monthKey,
         'estimatedCostDeltaUsd': costDelta,
+        'syncedFromProxy': configService.preferAiProxy &&
+            proxyRemainingCredits != null &&
+            proxyCreditLimit != null,
       },
     );
   }
@@ -325,12 +351,16 @@ class AiUsageService {
     ConfigService configService, {
     required String roomId,
     required int consumedCredits,
+    int? proxyRemainingCredits,
+    int? proxyCreditLimit,
   }) async {
     await recordUsage(
       configService,
       feature: AiFeature.roomImage,
       consumedCredits: consumedCredits,
       route: 'room_image_generation',
+      proxyRemainingCredits: proxyRemainingCredits,
+      proxyCreditLimit: proxyCreditLimit,
     );
     final tier = _tierFromConfig(configService);
     final monthKey = _monthKey(DateTime.now());

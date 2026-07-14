@@ -121,7 +121,7 @@ class PlanScreen extends StatelessWidget {
       (feature: '資産価値（端末内推定）', free: '○', pro: '○'),
       (feature: '相場DB（月10回）・AI相場', free: '—', pro: '○'),
       (feature: 'スマートリモコン', free: '—', pro: '月300回'),
-      (feature: '部屋画像（AI）', free: '1部屋・1回のみ', pro: '月2回/部屋'),
+      (feature: '部屋画像（AI）', free: 'アカウント生涯1回', pro: '月2回/部屋'),
       (feature: '登録部屋数', free: '最大5', pro: '最大10'),
       (feature: '追加AIクレジット', free: '—（Proへ）', pro: '50cr/350円〜'),
       (feature: '広告', free: 'あり', pro: 'なし'),

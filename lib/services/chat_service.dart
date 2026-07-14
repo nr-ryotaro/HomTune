@@ -38,8 +38,12 @@ class ChatService {
     }
   }
 
+  /// 直近のプロキシ利用量（sendMessage 成功後）
+  AiGenerateUsage? lastUsage;
+
   /// メッセージを送信し、AI 応答を取得
   Future<String> sendMessage(String userMessage) async {
+    lastUsage = null;
     if (!_configService.canUseCloudInference || _systemPrompt == null) {
       return _generateLocalResponse(userMessage);
     }
@@ -59,6 +63,7 @@ class ChatService {
       if (text.isEmpty) {
         return 'すみません、回答を生成できませんでした。もう一度お試しください。';
       }
+      lastUsage = result.usage;
       _history.add(AiContentMessage(role: 'user', text: userMessage));
       _history.add(AiContentMessage(role: 'model', text: text));
       return text;

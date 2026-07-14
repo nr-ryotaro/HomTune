@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../screens/plan_screen.dart';
 import 'package:go_router/go_router.dart';
+import '../../screens/plan_screen.dart';
+import '../../services/analytics_service.dart';
 
 enum ProUpsellContext { general, remoteControl, valuation, roomImage }
 
@@ -11,10 +12,12 @@ Future<void> showProUpgradeDialog(
   ProUpsellContext upsellContext = ProUpsellContext.general,
   String? deviceName,
   String? deviceCategoryLabel,
+  String? source,
 }) async {
   final isRemote = upsellContext == ProUpsellContext.remoteControl;
   final isValuation = upsellContext == ProUpsellContext.valuation;
   final isRoomImage = upsellContext == ProUpsellContext.roomImage;
+  final resolvedSource = source ?? upsellContext.name;
   final headline = isRemote && deviceName != null && deviceName.isNotEmpty
       ? '$deviceName をスマホから操作'
       : isValuation
@@ -23,6 +26,15 @@ Future<void> showProUpgradeDialog(
               ? '部屋画像をもっと自由に'
               : 'HomTune Pro';
 
+  await AnalyticsService.logEvent(
+    event: isRoomImage ? 'room_image_upsell_shown' : 'pro_upgrade_shown',
+    properties: {
+      'context': upsellContext.name,
+      'source': resolvedSource,
+    },
+  );
+
+  if (!context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -114,7 +126,16 @@ Future<void> showProUpgradeDialog(
           child: const Text('閉じる'),
         ),
         TextButton(
-          onPressed: () {
+          onPressed: () async {
+            await AnalyticsService.logEvent(
+              event: 'pro_upgrade_tapped',
+              properties: {
+                'context': upsellContext.name,
+                'source': resolvedSource,
+                'action': 'plan_compare',
+              },
+            );
+            if (!ctx.mounted) return;
             Navigator.of(ctx).pop();
             Navigator.of(ctx).push(
               MaterialPageRoute(builder: (_) => const PlanScreen()),
@@ -124,7 +145,16 @@ Future<void> showProUpgradeDialog(
         ),
         if (kDebugMode)
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              await AnalyticsService.logEvent(
+                event: 'pro_upgrade_tapped',
+                properties: {
+                  'context': upsellContext.name,
+                  'source': resolvedSource,
+                  'action': 'dev_settings',
+                },
+              );
+              if (!ctx.mounted) return;
               Navigator.of(ctx).pop();
               ctx.push('/dev-settings');
             },
