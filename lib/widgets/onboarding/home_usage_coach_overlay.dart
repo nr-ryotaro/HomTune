@@ -53,7 +53,7 @@ class HomeUsageCoachOverlay extends StatelessWidget {
                       const Text(
                         '• 部屋カードをスワイプして部屋を切り替え\n'
                         '• 家電を登録するとメンテと資産価値を管理\n'
-                        '• 部屋の写真でホームを自分の住まいに',
+                        '• 部屋イメージはデフォルト or AI生成（実写なし）',
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.55,
@@ -62,7 +62,7 @@ class HomeUsageCoachOverlay extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       const Text(
-                        'まずは部屋の写真を1部屋作成しませんか？',
+                        '部屋イメージはデフォルトのままでOK。FreeはAIを1回お試しできます。',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -72,8 +72,8 @@ class HomeUsageCoachOverlay extends StatelessWidget {
                       const SizedBox(height: 14),
                       FilledButton.icon(
                         onPressed: onStartRoomPhoto,
-                        icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                        label: const Text('写真を設定する'),
+                        icon: const Icon(Icons.auto_awesome, size: 18),
+                        label: const Text('部屋イメージを見る'),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF1a1a1a),
                           padding: const EdgeInsets.symmetric(vertical: 12),

@@ -125,23 +125,26 @@ class RoomCardWidget extends StatelessWidget {
                       right: 8,
                       child: Material(
                         color: Colors.transparent,
-                        child: InkWell(
-                          onTap: onCustomizePhoto,
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 4,
-                                ),
-                              ],
+                        child: Tooltip(
+                          message: '画像を差し替え',
+                          child: InkWell(
+                            onTap: onCustomizePhoto,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.auto_awesome,
+                                  size: 18, color: Color(0xFF333333)),
                             ),
-                            child: const Icon(Icons.photo_camera_outlined,
-                                size: 18, color: Color(0xFF333333)),
                           ),
                         ),
                       ),

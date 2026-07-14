@@ -185,13 +185,12 @@ class _ChatWidgetState extends State<ChatWidget> {
           ? 0
           : decision.estimatedCredits;
 
-      final canUseRealAi =
-          configService.isUsingRealApi && configService.hasGeminiApiKey;
+      final canUseRealAi = configService.canUseCloudInference;
       final shouldTryAi =
           decision.shouldUseAi && canUseRealAi && requestedCredits > 0;
       if (decision.shouldUseAi &&
-          configService.isUsingRealApi &&
-          !configService.hasGeminiApiKey &&
+          configService.isCloudAiEnabled &&
+          !configService.canUseCloudInference &&
           mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('接続情報が未設定のためローカル回答に切替しました。')),
@@ -228,11 +227,16 @@ class _ChatWidgetState extends State<ChatWidget> {
         );
         if (budgetCheck.allowed) {
           response = await _chatService!.sendMessage(text);
+          final usage = _chatService!.lastUsage;
           await AiUsageService.instance.recordUsage(
             configService,
             feature: AiFeature.chat,
-            consumedCredits: requestedCredits,
+            consumedCredits: usage != null && usage.creditsCharged > 0
+                ? usage.creditsCharged
+                : requestedCredits,
             route: decision.routeType.name,
+            proxyRemainingCredits: usage?.remainingCredits,
+            proxyCreditLimit: usage?.creditLimit,
           );
           _usageSnapshot = await AiUsageService.instance.getSnapshot(configService);
           _responseModeLabel = 'AI';

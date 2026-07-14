@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'package:google_generative_ai/google_generative_ai.dart';
 
 import '../models/ai_usage_policy.dart';
 import '../models/device.dart';
+import 'ai_api_client.dart';
 import 'ai_usage_service.dart';
 import 'asset_valuation_service.dart';
 import 'config_service.dart';
@@ -15,17 +15,20 @@ class MarketPriceEstimateException implements Exception {
   String toString() => message;
 }
 
-/// Pro L2: Gemini による中古相場推定
+/// Pro L2: AI による中古相場推定（Gemini プロキシ経由）
 class MarketPriceGeminiService {
   MarketPriceGeminiService({
     ReferenceMarketCatalogService? referenceCatalog,
     AssetValuationService? valuation,
+    AiApiClient? aiApiClient,
   })  : _referenceCatalog =
             referenceCatalog ?? ReferenceMarketCatalogService.instance,
-        _valuation = valuation ?? AssetValuationService();
+        _valuation = valuation ?? AssetValuationService(),
+        _aiApi = aiApiClient ?? AiApiClient();
 
   final ReferenceMarketCatalogService _referenceCatalog;
   final AssetValuationService _valuation;
+  final AiApiClient _aiApi;
 
   static const int creditCost = 2;
 
@@ -37,7 +40,7 @@ class MarketPriceGeminiService {
       throw const MarketPriceEstimateException('Proプランが必要です');
     }
 
-    if (!config.isUsingRealApi) {
+    if (!config.isCloudAiEnabled) {
       return _mockEstimate(device);
     }
 
@@ -50,24 +53,16 @@ class MarketPriceGeminiService {
       throw MarketPriceEstimateException(budget.reason);
     }
 
-    final apiKey = config.geminiApiKey;
-    if (apiKey.isEmpty) {
-      throw const MarketPriceEstimateException(
-        'Gemini API キーが設定されていません',
-      );
-    }
-
     final prompt = _buildPrompt(device);
     try {
-      final model = GenerativeModel(
-        model: config.geminiModelFor(AiFeature.marketValuation),
-        apiKey: apiKey,
+      final result = await _aiApi.generate(
+        config: config,
+        feature: AiFeature.marketValuation,
+        responseFormat: 'json',
+        requestedCredits: creditCost,
+        contents: [AiContentMessage(role: 'user', text: prompt)],
       );
-      final response = await model.generateContent([
-        Content.text(prompt),
-      ]);
-      final text = response.text?.trim() ?? '';
-      final yen = _parseYenFromResponse(text);
+      final yen = _parseYenFromResponse(result.text.trim());
       if (yen == null || yen <= 0) {
         throw const MarketPriceEstimateException('相場金額を解析できませんでした');
       }
@@ -75,11 +70,24 @@ class MarketPriceGeminiService {
       await AiUsageService.instance.recordUsage(
         config,
         feature: AiFeature.marketValuation,
-        consumedCredits: creditCost,
+        consumedCredits: result.usage.creditsCharged > 0
+            ? result.usage.creditsCharged
+            : creditCost,
+        proxyRemainingCredits: result.usage.remainingCredits,
+        proxyCreditLimit: result.usage.creditLimit,
       );
       return yen;
+    } on AiApiException catch (e) {
+      // プロキシ未起動・テスト環境ではローカル推定へフォールバック
+      if (!config.isUsingRealApi) {
+        return _mockEstimate(device);
+      }
+      throw MarketPriceEstimateException(e.message);
     } catch (e) {
       if (e is MarketPriceEstimateException) rethrow;
+      if (!config.isUsingRealApi) {
+        return _mockEstimate(device);
+      }
       throw MarketPriceEstimateException('AI相場推定に失敗しました: $e');
     }
   }

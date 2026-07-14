@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/ai_usage_policy.dart';
+import '../services/config_service.dart';
+import '../services/room_fair_use_service.dart';
+import '../widgets/ads/pro_upgrade_dialog.dart';
 import 'onboarding_screen.dart';
 
 /// Step 2: 部屋確認・選択
@@ -60,8 +65,53 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
     setState(() => room.name = next);
   }
 
+  Future<void> _onToggleRoom(RoomOption room) async {
+    if (room.selected) {
+      setState(() => room.selected = false);
+      return;
+    }
+    final config = Provider.of<ConfigService>(context, listen: false);
+    final fair = RoomFairUseService.instance;
+    final nextCount = widget.rooms.where((r) => r.selected).length + 1;
+    if (!fair.canRegisterRoomCount(
+      nextCount,
+      tier: config.subscriptionTier,
+    )) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(fair.rejectionMessage(config.subscriptionTier))),
+      );
+      if (config.subscriptionTier == SubscriptionTier.free) {
+        await showProUpgradeDialog(context);
+      }
+      return;
+    }
+    setState(() => room.selected = true);
+  }
+
+  Future<void> _onConfirm() async {
+    final config = Provider.of<ConfigService>(context, listen: false);
+    final fair = RoomFairUseService.instance;
+    final count = widget.rooms.where((r) => r.selected).length;
+    if (!fair.canRegisterRoomCount(count, tier: config.subscriptionTier)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(fair.rejectionMessage(config.subscriptionTier))),
+      );
+      if (config.subscriptionTier == SubscriptionTier.free) {
+        await showProUpgradeDialog(context);
+      }
+      return;
+    }
+    widget.onConfirmed(widget.rooms);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final config = context.watch<ConfigService>();
+    final maxRooms =
+        RoomFairUseService.instance.absoluteMaxRooms(config.subscriptionTier);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -78,11 +128,12 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '部屋名は「部屋1」のように仮の名前です。タップして変更できます。\n'
             'あとからホーム画面でも名称変更できます。\n'
-            '使わない部屋はチェックを外してください。',
-            style: TextStyle(
+            '使わない部屋はチェックを外してください。\n'
+            '${config.subscriptionTier == SubscriptionTier.free ? "Freeプランは最大$maxRooms部屋までです。" : "Proプランは最大$maxRooms部屋までです。"}',
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w300,
               color: Color(0xFF999999),
@@ -98,11 +149,7 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
                 final room = widget.rooms[index];
                 return _RoomToggleCard(
                   room: room,
-                  onToggle: () {
-                    setState(() {
-                      room.selected = !room.selected;
-                    });
-                  },
+                  onToggle: () => _onToggleRoom(room),
                   onRename: () => _renameRoom(room),
                 );
               },
@@ -112,9 +159,7 @@ class _OnboardingStep2ScreenState extends State<OnboardingStep2Screen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: widget.rooms.any((r) => r.selected)
-                  ? () => widget.onConfirmed(widget.rooms)
-                  : null,
+              onPressed: widget.rooms.any((r) => r.selected) ? _onConfirm : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF333333),
                 foregroundColor: Colors.white,

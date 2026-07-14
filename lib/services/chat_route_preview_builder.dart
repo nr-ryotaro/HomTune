@@ -24,8 +24,7 @@ class ChatRoutePreviewBuilder {
       subscriptionTier: config.subscriptionTier,
     );
 
-    final canUseRealAi =
-        config.isUsingRealApi && config.hasGeminiApiKey;
+    final canUseRealAi = config.canUseCloudInference;
     final willUseAi = decision.shouldUseAi &&
         canUseRealAi &&
         decision.estimatedCredits > 0;

@@ -1,70 +1,74 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/ai_usage_policy.dart';
 import '../models/device.dart';
 import '../models/local_response_plan.dart';
+import 'ai_api_client.dart';
 import 'config_service.dart';
 import 'device_query_matcher.dart';
 import 'local_response_planner.dart';
 
-/// AI チャットサービス — Gemini API によるデバイストラブルシューティング
+/// AI チャットサービス — HomTune AI プロキシによるデバイストラブルシューティング
 ///
 /// 機能:
 /// - デバイスコンテキスト（型番・カテゴリ・安全情報）をプロンプトに注入
-/// - 会話履歴の保持（セッション内）
-/// - ダミーモードとリアルAPI モードの切り替え
+/// - 会話履歴の保持（セッション内・クライアント管理）
+/// - プロキシ不可時はローカルテンプレートへフォールバック
 class ChatService {
   final ConfigService _configService;
+  final AiApiClient _aiApi;
 
-  /// Gemini セッション（会話履歴を保持）
-  ChatSession? _chatSession;
+  /// プロキシ向け会話履歴（user/model）
+  final List<AiContentMessage> _history = [];
+
+  String? _systemPrompt;
 
   /// 現在コンテキストに設定されているデバイスリスト
   List<Device> _contextDevices = [];
 
-  ChatService(this._configService);
+  ChatService(this._configService, {AiApiClient? aiApiClient})
+      : _aiApi = aiApiClient ?? AiApiClient();
 
   /// デバイスコンテキストを設定してセッションを初期化
   Future<void> initializeWithDevices(List<Device> devices) async {
     _contextDevices = devices;
-    _chatSession = null; // 新しいコンテキストでリセット
+    _history.clear();
+    _systemPrompt = null;
 
-    if (_configService.isUsingRealApi) {
-      await _openChatSession(devices);
+    if (_configService.canUseCloudInference) {
+      _systemPrompt = await _buildSystemPrompt(devices);
     }
   }
 
+  /// 直近のプロキシ利用量（sendMessage 成功後）
+  AiGenerateUsage? lastUsage;
+
   /// メッセージを送信し、AI 応答を取得
-  ///
-  /// [userMessage] ユーザーの質問テキスト
-  /// 戻り値: AI の応答テキスト
   Future<String> sendMessage(String userMessage) async {
-    if (!_configService.isUsingRealApi || _chatSession == null) {
+    lastUsage = null;
+    if (!_configService.canUseCloudInference || _systemPrompt == null) {
       return _generateLocalResponse(userMessage);
     }
 
     try {
-      final response = await _chatSession!.sendMessage(
-        Content.text(userMessage),
+      final contents = [
+        ..._history,
+        AiContentMessage(role: 'user', text: userMessage),
+      ];
+      final result = await _aiApi.generate(
+        config: _configService,
+        feature: AiFeature.chat,
+        systemInstruction: _systemPrompt,
+        contents: contents,
       );
-      final text = response.text?.trim() ?? '';
+      final text = result.text.trim();
       if (text.isEmpty) {
         return 'すみません、回答を生成できませんでした。もう一度お試しください。';
       }
+      lastUsage = result.usage;
+      _history.add(AiContentMessage(role: 'user', text: userMessage));
+      _history.add(AiContentMessage(role: 'model', text: text));
       return text;
     } catch (e) {
       print('ChatService Error: $e');
-      await _openChatSession(_contextDevices);
-      if (_chatSession != null) {
-        try {
-          final retry = await _chatSession!.sendMessage(
-            Content.text(userMessage),
-          );
-          final retryText = retry.text?.trim() ?? '';
-          if (retryText.isNotEmpty) return retryText;
-        } catch (retryError) {
-          print('ChatService retry error: $retryError');
-        }
-      }
       return _generateLocalResponse(userMessage);
     }
   }
@@ -84,62 +88,6 @@ class ChatService {
     List<Device> devices,
   ) {
     return LocalResponsePlanner.plan(userMessage, devices);
-  }
-
-  Future<void> _openChatSession(List<Device> devices) async {
-    final apiKey = _configService.geminiApiKey;
-    if (apiKey.isEmpty) {
-      _chatSession = null;
-      return;
-    }
-
-    final systemPrompt = await _buildSystemPrompt(devices);
-    final primaryModel = _configService.geminiModelFor(AiFeature.chat);
-
-    try {
-      _chatSession = _createChatSession(
-        apiKey: apiKey,
-        modelId: primaryModel,
-        systemPrompt: systemPrompt,
-      );
-      return;
-    } catch (e) {
-      print('ChatService initialize error ($primaryModel): $e');
-    }
-
-    final probe = await _configService.testCloudConnection();
-    if (!probe.success) {
-      _chatSession = null;
-      return;
-    }
-
-    if (probe.modelId != primaryModel) {
-      await _configService.setGeminiModel(probe.modelId);
-    }
-
-    try {
-      _chatSession = _createChatSession(
-        apiKey: apiKey,
-        modelId: probe.modelId,
-        systemPrompt: systemPrompt,
-      );
-    } catch (e) {
-      _chatSession = null;
-      print('ChatService initialize error (${probe.modelId}): $e');
-    }
-  }
-
-  ChatSession _createChatSession({
-    required String apiKey,
-    required String modelId,
-    required String systemPrompt,
-  }) {
-    final model = GenerativeModel(
-      model: modelId,
-      apiKey: apiKey,
-      systemInstruction: Content.text(systemPrompt),
-    );
-    return model.startChat();
   }
 
   /// システムプロンプトを構築（デバイスコンテキスト注入）
@@ -442,12 +390,15 @@ ${acDevice.manual?.url != null ? '\n詳細はマニュアルをご確認くだ�
 
   /// セッションをリセット
   void resetSession() {
-    _chatSession = null;
+    _history.clear();
+    _systemPrompt = null;
   }
 
   /// リソースを解放
   void dispose() {
-    _chatSession = null;
+    _history.clear();
+    _systemPrompt = null;
     _contextDevices = [];
+    _aiApi.dispose();
   }
 }

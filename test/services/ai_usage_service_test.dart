@@ -36,7 +36,8 @@ void main() {
       expect(snapshot.estimatedCostUsd, greaterThan(0));
     });
 
-    test('実APIオフ時は利用不可', () async {
+    test('クラウドAIオフ時は利用不可', () async {
+      await configService.setPreferAiProxy(false);
       await configService.setUseRealApi(false);
       final check = await AiUsageService.instance.canRunFeature(
         configService,
@@ -44,7 +45,7 @@ void main() {
         requestedCredits: 1,
       );
       expect(check.allowed, false);
-      expect(check.reason, contains('実APIモード'));
+      expect(check.reason, contains('クラウドAI'));
     });
 
     test('pro tier は free より上限が大きい', () async {
@@ -54,7 +55,7 @@ void main() {
       expect(proSnapshot.creditLimit, greaterThan(freeSnapshot.creditLimit));
     });
 
-    test('Free は部屋画像が部屋ごと初回1回まで', () async {
+    test('Free は AI 部屋画像がアカウント全体で1回まで', () async {
       final first = await AiUsageService.instance.canRunRoomImage(
         configService,
         roomId: 'living-room',
@@ -66,14 +67,22 @@ void main() {
         roomId: 'living-room',
         consumedCredits: 2,
       );
-      final second = await AiUsageService.instance.canRunRoomImage(
+      final sameRoom = await AiUsageService.instance.canRunRoomImage(
         configService,
         roomId: 'living-room',
         requestedCredits: 2,
       );
-      expect(second.allowed, false);
-      expect(second.reason, contains('初回1回'));
-      expect(second.exhaustionReason, AiExhaustionReason.roomQuotaFree);
+      expect(sameRoom.allowed, false);
+      expect(sameRoom.reason, contains('アカウント全体で1回'));
+      expect(sameRoom.exhaustionReason, AiExhaustionReason.roomQuotaFree);
+
+      final otherRoom = await AiUsageService.instance.canRunRoomImage(
+        configService,
+        roomId: 'kitchen-01',
+        requestedCredits: 2,
+      );
+      expect(otherRoom.allowed, false);
+      expect(otherRoom.exhaustionReason, AiExhaustionReason.roomQuotaFree);
     });
 
     test('Pro は部屋画像が月2回まで', () async {

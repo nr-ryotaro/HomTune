@@ -37,7 +37,8 @@ class CreditAddonPack {
 class AiUsagePolicy {
   final int freeMonthlyCredits;
   final int proMonthlyCredits;
-  final int freeRoomImageLifetimePerRoom;
+  /// Free: アカウント全体で使える AI 部屋画像の生涯回数（一部屋体験用）
+  final int freeRoomImageLifetimeAccount;
   final int proRoomImagePerRoomMonthly;
   final double softMonthlyCostWarnUsd;
   final double hardMonthlyCostCapUsd;
@@ -65,7 +66,7 @@ class AiUsagePolicy {
   const AiUsagePolicy({
     this.freeMonthlyCredits = 40,
     this.proMonthlyCredits = 120,
-    this.freeRoomImageLifetimePerRoom = 1,
+    this.freeRoomImageLifetimeAccount = 1,
     this.proRoomImagePerRoomMonthly = 2,
     this.softMonthlyCostWarnUsd = 0.95,
     this.hardMonthlyCostCapUsd = 1.25,
@@ -100,7 +101,7 @@ class AiUsagePolicy {
   int roomImageLimitForTier(SubscriptionTier tier) {
     switch (tier) {
       case SubscriptionTier.free:
-        return freeRoomImageLifetimePerRoom;
+        return freeRoomImageLifetimeAccount;
       case SubscriptionTier.pro:
         return proRoomImagePerRoomMonthly;
     }
@@ -124,7 +125,7 @@ class AiUsagePolicy {
   AiUsagePolicy copyWith({
     int? freeMonthlyCredits,
     int? proMonthlyCredits,
-    int? freeRoomImageLifetimePerRoom,
+    int? freeRoomImageLifetimeAccount,
     int? proRoomImagePerRoomMonthly,
     double? softMonthlyCostWarnUsd,
     double? hardMonthlyCostCapUsd,
@@ -136,8 +137,8 @@ class AiUsagePolicy {
     return AiUsagePolicy(
       freeMonthlyCredits: freeMonthlyCredits ?? this.freeMonthlyCredits,
       proMonthlyCredits: proMonthlyCredits ?? this.proMonthlyCredits,
-      freeRoomImageLifetimePerRoom:
-          freeRoomImageLifetimePerRoom ?? this.freeRoomImageLifetimePerRoom,
+      freeRoomImageLifetimeAccount:
+          freeRoomImageLifetimeAccount ?? this.freeRoomImageLifetimeAccount,
       proRoomImagePerRoomMonthly:
           proRoomImagePerRoomMonthly ?? this.proRoomImagePerRoomMonthly,
       softMonthlyCostWarnUsd:

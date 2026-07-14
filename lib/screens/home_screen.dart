@@ -9,7 +9,6 @@ import '../services/room_photo_service.dart';
 import 'room_photo_setup_screen.dart';
 import 'plan_screen.dart';
 import 'manufacturer_bundle_picker_screen.dart';
-import '../services/maintenance_calendar_service.dart';
 import '../models/device.dart';
 import '../services/appliance_template_service.dart';
 import '../models/appliance_presentation.dart';
@@ -25,7 +24,6 @@ import 'dev_settings_screen.dart';
 import 'remote_control_preview_screen.dart';
 import '../models/room_card_model.dart';
 import '../widgets/room_card_widget.dart';
-import 'maintenance_calendar_screen.dart';
 import 'room_devices_screen.dart';
 import '../widgets/onboarding/first_launch_welcome_sheet.dart';
 import '../widgets/onboarding/home_usage_coach_overlay.dart';
@@ -256,6 +254,21 @@ class _HomeScreenState extends State<HomeScreen> {
       final deviceService = Provider.of<DeviceService>(context, listen: false);
       await _refreshSetupProgress(deviceService);
     }
+  }
+
+  /// 部屋カードの画像差し替え。Free は Pro 訴求、Pro は生成フローへ。
+  Future<void> _onCustomizeRoomImage() async {
+    final config = Provider.of<ConfigService>(context, listen: false);
+    if (config.subscriptionTier == SubscriptionTier.pro) {
+      await _openRoomPhotoSetup();
+      return;
+    }
+    if (!mounted) return;
+    await showProUpgradeDialog(
+      context,
+      upsellContext: ProUpsellContext.roomImage,
+      source: 'home_room_card_replace',
+    );
   }
 
   Future<void> _loadOnboardingRoomPrefs() async {
@@ -767,14 +780,14 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.photo_camera_outlined, color: Color(0xFF1D4ED8)),
+              const Icon(Icons.auto_awesome, color: Color(0xFF1D4ED8)),
               const SizedBox(width: 12),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '部屋の写真を設定しましょう',
+                      '部屋イメージを整えましょう',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -783,7 +796,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'いまはサンプル画像です。撮影やアルバムから選べます。',
+                      'デフォルト画像でOK。FreeはAI生成を1回お試しできます。',
                       style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6)),
                     ),
                   ],
@@ -951,9 +964,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           rooms[index].id,
                           rooms[index].title,
                         ),
-                        onCustomizePhoto: !_roomPhotosConfigured
-                            ? () => _openRoomPhotoSetup(isFirstLaunch: true)
-                            : null,
+                        onCustomizePhoto: _onCustomizeRoomImage,
                         onRename: () => _renameRoom(rooms[index].id),
                       ),
                       )
@@ -992,12 +1003,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.photo_camera_outlined,
+              child: const Icon(Icons.auto_awesome,
                   size: 32, color: Color(0xFF333333)),
             ),
             const SizedBox(height: 24),
             const Text(
-              '部屋の写真を\n設定する',
+              '部屋イメージを\n整える',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -1008,7 +1019,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              '撮影やアルバムから\nお部屋の写真を登録',
+              'デフォルトのまま、または\nAIで1枚お試し生成',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,

@@ -1,16 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import '../models/ai_usage_policy.dart';
+import 'ai_api_client.dart';
 import 'ai_routing_service.dart';
 import 'ai_usage_service.dart';
 import 'analytics_service.dart';
 import 'config_service.dart';
 
 class RoomImageGenerationService {
+  RoomImageGenerationService({AiApiClient? aiApiClient})
+      : _aiApi = aiApiClient ?? AiApiClient();
+
+  final AiApiClient _aiApi;
+
   Future<String> generateRoomImage({
     required ConfigService configService,
     required String roomId,
@@ -28,28 +33,30 @@ class RoomImageGenerationService {
     if (!budget.allowed) {
       throw RoomImageGenerationException(budget.reason, budget: budget);
     }
-    final apiKey = configService.geminiApiKey;
-    if (apiKey.isEmpty) {
+    if (!configService.canUseCloudInference) {
       throw RoomImageGenerationException(
-        '接続情報が未設定のため、AI画像生成を利用できません。',
+        'クラウドAIが利用できないため、AI画像生成を実行できません。',
       );
     }
 
-    final style = await _buildStyleSpec(
-      apiKey: apiKey,
-      modelId: configService.geminiModelFor(AiFeature.roomImage),
+    final styleResult = await _buildStyleSpec(
+      config: configService,
       roomName: roomName,
       stylePrompt: stylePrompt,
     );
     final outputPath = await _renderImageLocally(
       roomName: roomName,
-      styleSpec: style,
+      styleSpec: styleResult.spec,
     );
 
     await AiUsageService.instance.recordRoomImageUsage(
       configService,
       roomId: roomId,
-      consumedCredits: credits,
+      consumedCredits: styleResult.creditsCharged > 0
+          ? styleResult.creditsCharged
+          : credits,
+      proxyRemainingCredits: styleResult.remainingCredits,
+      proxyCreditLimit: styleResult.creditLimit,
     );
     await AnalyticsService.logEvent(
       event: 'room_image_generated',
@@ -61,13 +68,11 @@ class RoomImageGenerationService {
     return outputPath;
   }
 
-  Future<Map<String, dynamic>> _buildStyleSpec({
-    required String apiKey,
-    required String modelId,
+  Future<_RoomStyleBuildResult> _buildStyleSpec({
+    required ConfigService config,
     required String roomName,
     required String stylePrompt,
   }) async {
-    final model = GenerativeModel(model: modelId, apiKey: apiKey);
     final prompt = '''
 あなたはインテリアコンセプトを作るデザイナーです。
 部屋カード向けに、次の条件でJSONだけ返してください。
@@ -82,21 +87,36 @@ class RoomImageGenerationService {
   "motifs": ["家具/家電モチーフ1", "モチーフ2", "モチーフ3"]
 }
 ''';
-    final response = await model.generateContent([Content.text(prompt)]);
-    final text = response.text?.trim() ?? '';
-    if (text.isEmpty) {
-      return _fallbackStyle(roomName);
-    }
     try {
+      final result = await _aiApi.generate(
+        config: config,
+        feature: AiFeature.roomImage,
+        responseFormat: 'json',
+        contents: [AiContentMessage(role: 'user', text: prompt)],
+      );
+      final text = result.text.trim();
+      if (text.isEmpty) {
+        return _RoomStyleBuildResult(
+          spec: _fallbackStyle(roomName),
+          creditsCharged: result.usage.creditsCharged,
+          remainingCredits: result.usage.remainingCredits,
+          creditLimit: result.usage.creditLimit,
+        );
+      }
       var jsonText = text;
       final codeBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
       final match = codeBlock.firstMatch(text);
       if (match != null) {
         jsonText = match.group(1)?.trim() ?? text;
       }
-      return jsonDecode(jsonText) as Map<String, dynamic>;
+      return _RoomStyleBuildResult(
+        spec: jsonDecode(jsonText) as Map<String, dynamic>,
+        creditsCharged: result.usage.creditsCharged,
+        remainingCredits: result.usage.remainingCredits,
+        creditLimit: result.usage.creditLimit,
+      );
     } catch (_) {
-      return _fallbackStyle(roomName);
+      return _RoomStyleBuildResult(spec: _fallbackStyle(roomName));
     }
   }
 
@@ -214,4 +234,18 @@ class RoomImageGenerationException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class _RoomStyleBuildResult {
+  final Map<String, dynamic> spec;
+  final int creditsCharged;
+  final int? remainingCredits;
+  final int? creditLimit;
+
+  const _RoomStyleBuildResult({
+    required this.spec,
+    this.creditsCharged = 0,
+    this.remainingCredits,
+    this.creditLimit,
+  });
 }

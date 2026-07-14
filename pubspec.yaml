@@ -39,8 +39,6 @@ dependencies:
   mobile_scanner: ^6.0.2
   # Smart Ingester: OCR（ML Kit）
   google_mlkit_text_recognition: ^0.13.0
-  # Smart Ingester: Gemini 構造化抽出
-  google_generative_ai: ^0.4.6
   # 説明書検索キャッシュ
   sqflite: ^2.3.2
   # 画像キャッシュ

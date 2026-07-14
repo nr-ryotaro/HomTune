@@ -38,13 +38,27 @@ void main() {
       expect(config.resolveCloudSecretInput('new-key'), 'new-key');
     });
 
-    test('testCloudConnection returns error when secret is empty', () async {
+    test('testCloudConnection via proxy reports failure without backend', () async {
       final config = ConfigService();
       await config.load();
+      expect(config.preferAiProxy, isTrue);
 
       final result = await config.testCloudConnection(secret: '');
       expect(result.success, isFalse);
-      expect(result.message, contains('空'));
+      expect(result.message, contains('プロキシ'));
+    });
+
+    test('testCloudConnection without proxy requires secret', () async {
+      final config = ConfigService();
+      await config.load();
+      await config.setPreferAiProxy(false);
+
+      final result = await config.testCloudConnection(secret: '');
+      expect(result.success, isFalse);
+      expect(
+        result.message,
+        anyOf(contains('空'), contains('preferAiProxy'), contains('プロキシ')),
+      );
     });
   });
 }

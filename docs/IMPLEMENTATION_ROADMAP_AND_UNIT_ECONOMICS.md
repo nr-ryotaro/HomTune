@@ -1,7 +1,7 @@
 # 実装ロードマップ・黒字運用設計
 
 最終更新: 2026-07-13  
-関連: `AI_PRICING_AND_BILLING.md`, `FREE_PRO_COMPARISON_AND_ROADMAP.md`, `ASSET_VALUATION.md`, `REMOTE_CONTROL.md`
+関連: `AI_PRICING_AND_BILLING.md`, `FREE_PRO_COMPARISON_AND_ROADMAP.md`, `ASSET_VALUATION.md`, `REMOTE_CONTROL.md`, **`RELEASE_PREP_AND_ECONOMICS.md`（損益試算・リリース TODO）**
 
 ---
 
@@ -59,7 +59,7 @@
 | 資産価値 L0（端末内推定） | ○ 無制限 | ○ 無制限 |
 | 相場DB L1 | — | 月10回（ローカルJSON・原価$0） |
 | AI相場 L2（Gemini） | — | 2 credits/回 |
-| 部屋画像 | 1回/部屋（生涯） | 2回/部屋/月 |
+| 部屋画像 | 1部屋・1回（生涯） | 2回/部屋/月 |
 | AIクレジット合計 | 月40 | 月120 |
 | スマートリモコン | — | 月300操作 |
 | 登録部屋数 | 最大5 | 最大10 |
@@ -152,6 +152,7 @@ Flutter App
 | 5 | Gemini モデル | **リリース: `gemini-2.5-flash-lite` デフォルト** — `ConfigService.geminiModelFor` |
 | 6 | L1 相場 | **同梱 JSON + サーバー API** — スクレイピング非採用。詳細 `MARKET_L1_AND_INFRA.md` |
 | 7 | ホスティング | **Cloud Run + Storage（MVP $5〜15/月）** — AI プロキシと統合 |
+| 8 | P0 着手順 | **Gemini プロキシ先行 → 本番 IAP** — 鍵漏洩・改ざんクォータによる原価リスクを先に塞ぐ（`GEMINI_PROXY_SPEC.md`） |
 
 ---
 
@@ -168,9 +169,9 @@ Flutter App
 
 ### P0（本番前）
 
-- [ ] **Store Billing** — Pro サブスク + 追加クレジット IAP + レシート検証
-- [ ] **Gemini サーバープロキシ** — API キー秘匿、`/v1/ai/*`
-- [ ] **サーバー側 AI クォータ DB** — 改ざん対策
+- [ ] **Store Billing** — Pro サブスク + 追加クレジット IAP + レシート検証（**プロキシ後推奨**）
+- [x] **Gemini サーバープロキシ（Phase 0–1）** — `/v1/ai/generate` + 全 AI サービス移行 + `google_generative_ai` 削除（仕様: `GEMINI_PROXY_SPEC.md`）
+- [ ] **サーバー側 AI クォータ DB** — 永続化・Hard Cap（現状はプロセス内メモリ）
 - [ ] **Pro 検証サーバー化** — リモコン・AI 共通
 
 ### P1（黒字安定化）

@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/ai_usage_policy.dart';
+import 'ai_api_client.dart';
 import 'ai_usage_service.dart';
 import 'config_service.dart';
 import 'web_search_service.dart';
@@ -11,9 +11,14 @@ import 'web_search_service.dart';
 class ScannerService {
   final ConfigService _configService;
   late final WebSearchService _webSearchService;
+  final AiApiClient _aiApi;
   final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.japanese);
 
-  ScannerService(this._configService, {WebSearchService? webSearchService}) {
+  ScannerService(
+    this._configService, {
+    WebSearchService? webSearchService,
+    AiApiClient? aiApiClient,
+  }) : _aiApi = aiApiClient ?? AiApiClient() {
     _webSearchService = webSearchService ?? WebSearchService(_configService);
   }
 
@@ -81,14 +86,16 @@ class ScannerService {
     );
   }
 
-  /// 生テキストを Gemini に投げ、メーカー・型番・カテゴリを構造化 JSON で取得
-  /// ダミーモード時は簡易パース or 固定サンプルを返す
+  /// 生テキストを構造化。Free はローカル抽出のみ（クラウド課金なし）。
+  /// ダミーモード時も簡易パース or 固定サンプルを返す
   Future<ExtractedProductInfo> extractProductInfo(String rawText) async {
     if (rawText.trim().isEmpty) {
       throw ScannerException('読み取れたテキストがありません。プレートがはっきり写っているか確認してください。');
     }
 
-    if (!_configService.isUsingRealApi) {
+    // Free: OCRベースのローカル抽出のみ（プロキシ既定でも課金しない）
+    if (_configService.subscriptionTier == SubscriptionTier.free ||
+        !_configService.isCloudAiEnabled) {
       return _extractProductInfoDummy(rawText);
     }
     final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
@@ -101,11 +108,6 @@ class ScannerService {
     );
     if (!budget.allowed) {
       throw ScannerException('${budget.reason}（ローカル判定に切替してください）');
-    }
-
-    final apiKey = _configService.geminiApiKey;
-    if (apiKey.isEmpty) {
-      throw ScannerException('Gemini API キーが設定されていません。--dart-define=GEMINI_API_KEY=xxx で指定してください。');
     }
 
     const systemPrompt = '''
@@ -138,19 +140,22 @@ class ScannerService {
 ''';
 
     try {
-      final model = GenerativeModel(
-        model: _configService.geminiModelFor(AiFeature.scanner),
-        apiKey: apiKey,
-      );
       final fullPrompt = '$systemPrompt\n\n$userPromptPrefix$rawText$userPromptSuffix';
-      final response = await model.generateContent([Content.text(fullPrompt)]);
+      final result = await _aiApi.generate(
+        config: _configService,
+        feature: AiFeature.scanner,
+        responseFormat: 'json',
+        requestedCredits: requestedCredits,
+        contents: [AiContentMessage(role: 'user', text: fullPrompt)],
+      );
 
-      final text = response.text?.trim() ?? '';
-      if (text.isEmpty) throw ScannerException('Gemini から有効な応答が得られませんでした。');
+      final text = result.text.trim();
+      if (text.isEmpty) {
+        throw ScannerException('AIプロキシから有効な応答が得られませんでした。');
+      }
 
-      // JSON ブロックのみ抽出（```json ... ``` の可能性あり）
       String jsonStr = text;
-      final codeBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
+      final codeBlock = RegExp(r'`{3}(?:json)?\s*([\s\S]*?)`{3}');
       final m = codeBlock.firstMatch(text);
       if (m != null) jsonStr = m.group(1)?.trim() ?? text;
 
@@ -158,8 +163,12 @@ class ScannerService {
       await AiUsageService.instance.recordUsage(
         _configService,
         feature: AiFeature.scanner,
-        consumedCredits: requestedCredits,
+        consumedCredits: result.usage.creditsCharged > 0
+            ? result.usage.creditsCharged
+            : requestedCredits,
         route: 'scanner_extract',
+        proxyRemainingCredits: result.usage.remainingCredits,
+        proxyCreditLimit: result.usage.creditLimit,
       );
       return ExtractedProductInfo(
         manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',
@@ -168,9 +177,11 @@ class ScannerService {
       );
     } on FormatException catch (e) {
       throw ScannerException('解析結果の形式が不正です: $e');
+    } on AiApiException catch (e) {
+      throw ScannerException(e.message);
     } catch (e) {
       if (e is ScannerException) rethrow;
-      throw ScannerException('Gemini API の呼び出しに失敗しました: $e');
+      throw ScannerException('AIプロキシの呼び出しに失敗しました: $e');
     }
   }
 
@@ -209,17 +220,15 @@ class ScannerService {
 
   /// 検索結果テキスト(HTML/Snippet)を解析して製品情報を抽出
   Future<ExtractedProductInfo> _parseSearchResultWithGemini(String rawText, {required String query, String? janCode}) async {
-      if (!_configService.isUsingRealApi) {
+      // Free / クラウドOFF: ローカルのみ（サンプルJANは互換用）
+      if (_configService.subscriptionTier == SubscriptionTier.free ||
+          !_configService.isCloudAiEnabled) {
         if (janCode == '4901234567890') {
            return ExtractedProductInfo(manufacturer: 'サンプルメーカー', modelNumber: 'SMP-001', category: 'その他');
         }
         return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
       }
 
-      final apiKey = _configService.geminiApiKey;
-      if (apiKey.isEmpty) {
-        return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
-      }
       final requestedCredits = AiUsageService.instance.defaultFeatureCredits(
         AiFeature.scanner,
       );
@@ -260,13 +269,20 @@ $rawText
 ''';
 
       try {
-        final model =
-            GenerativeModel(
-                model: _configService.geminiModelFor(AiFeature.scanner),
-                apiKey: apiKey);
-        final response = await model.generateContent([Content.text('$systemPrompt\n\n$userPrompt')]);
-        
-        final text = response.text?.trim() ?? '';
+        final result = await _aiApi.generate(
+          config: _configService,
+          feature: AiFeature.scanner,
+          responseFormat: 'json',
+          requestedCredits: requestedCredits,
+          contents: [
+            AiContentMessage(
+              role: 'user',
+              text: '$systemPrompt\n\n$userPrompt',
+            ),
+          ],
+        );
+
+        final text = result.text.trim();
         String jsonStr = text;
         final codeBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
         final m = codeBlock.firstMatch(text);
@@ -276,8 +292,12 @@ $rawText
         await AiUsageService.instance.recordUsage(
           _configService,
           feature: AiFeature.scanner,
-          consumedCredits: requestedCredits,
+          consumedCredits: result.usage.creditsCharged > 0
+              ? result.usage.creditsCharged
+              : requestedCredits,
           route: 'scanner_search_refine',
+          proxyRemainingCredits: result.usage.remainingCredits,
+          proxyCreditLimit: result.usage.creditLimit,
         );
         return ExtractedProductInfo(
           manufacturer: (decoded['manufacturer'] as String?)?.trim() ?? '',
@@ -285,7 +305,7 @@ $rawText
           category: (decoded['category'] as String?)?.trim() ?? '',
         );
       } catch (e) {
-        print('Gemini parse failed: $e');
+        print('AI proxy parse failed: $e');
         return ExtractedProductInfo(manufacturer: '', modelNumber: '', category: '');
       }
   }
