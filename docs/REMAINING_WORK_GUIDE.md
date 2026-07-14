@@ -1,7 +1,8 @@
 # HomTune 残作業一覧と作業手順書
 
 最終更新: 2026-07-14  
-対象ブランチ目安: `cursor/room-image-ai-only-41d3` → `main`  
+対象ブランチ目安: `main`（クライアント P0 反映済）  
+**次アクションの実行順:** [`NEXT_ACTIONS_PHASE_A.md`](./NEXT_ACTIONS_PHASE_A.md)  
 政策（済）: 部屋画像＝デフォルト or AI生成のみ／Free AI＝アカウント生涯1回／差し替えボタンは Free でも Pro 訴求
 
 ---

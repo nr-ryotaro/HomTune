@@ -4,10 +4,11 @@
 政策: **部屋画像 = デフォルト or AI生成のみ（実写なし）／Free AI はアカウント生涯1回／カードの差し替えボタンは Free でも常時表示→Pro 訴求**
 
 **運用メモ:** バックエンド設定・新規追加は帰宅後。  
+**次にやること（順番つき）:** [`NEXT_ACTIONS_PHASE_A.md`](./NEXT_ACTIONS_PHASE_A.md)  
 **残作業の詳細手順:** [`REMAINING_WORK_GUIDE.md`](./REMAINING_WORK_GUIDE.md)  
 クライアント済の整理: [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md)
 
-関連: [`POLICY_IMPLEMENTATION_AUDIT.md`](./POLICY_IMPLEMENTATION_AUDIT.md), [`RELEASE_PREP_AND_ECONOMICS.md`](./RELEASE_PREP_AND_ECONOMICS.md), [`GEMINI_PROXY_SPEC.md`](./GEMINI_PROXY_SPEC.md), [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md), [`REMAINING_WORK_GUIDE.md`](./REMAINING_WORK_GUIDE.md)
+関連: [`POLICY_IMPLEMENTATION_AUDIT.md`](./POLICY_IMPLEMENTATION_AUDIT.md), [`RELEASE_PREP_AND_ECONOMICS.md`](./RELEASE_PREP_AND_ECONOMICS.md), [`GEMINI_PROXY_SPEC.md`](./GEMINI_PROXY_SPEC.md), [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md), [`REMAINING_WORK_GUIDE.md`](./REMAINING_WORK_GUIDE.md), [`NEXT_ACTIONS_PHASE_A.md`](./NEXT_ACTIONS_PHASE_A.md)
 
 ---
 
@@ -20,7 +21,7 @@
 | 実写カスタム廃止＋AI/デフォルト統一 | 済 |
 | Freeでも部屋カード「画像差し替え」→ Pro 説明ダイアログ | 済 |
 | クレジット定数 40/120 クライアント＝サーバー | 済（インメモリ） |
-| RoomFairUseService（Free5/Pro10）ロジック | サービス＋テストのみ（**UI未配線 → CLIENT C3**） |
+| RoomFairUseService（Free5/Pro10）ロジック | サービス＋**オンボーディングUI配線済** |
 
 ---
 
