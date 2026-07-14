@@ -34,14 +34,14 @@ class FirstLaunchWelcomeSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '部屋の写真と家電登録で、あなたの住まいに合わせたホームが完成します。',
+            '部屋イメージと家電登録で、あなたの住まいに合わせたホームが完成します。',
             style: TextStyle(fontSize: 14, color: Color(0xFF666666), height: 1.5),
           ),
           const SizedBox(height: 20),
           _roadmapItem(
-            Icons.photo_camera_outlined,
-            '1. 部屋の写真を設定',
-            'まず1部屋から。撮影またはアルバムから選べます',
+            Icons.auto_awesome,
+            '1. 部屋イメージを整える',
+            'デフォルト画像でOK。FreeはAI生成を1回お試し',
           ),
           _roadmapItem(
             Icons.kitchen_outlined,
@@ -59,12 +59,12 @@ class FirstLaunchWelcomeSheet extends StatelessWidget {
               Navigator.of(context).pop();
               onStartRoomPhoto();
             },
-            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+            icon: const Icon(Icons.auto_awesome, size: 18),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF1a1a1a),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            label: const Text('部屋の写真を設定する'),
+            label: const Text('部屋イメージを見る'),
           ),
           const SizedBox(height: 8),
           OutlinedButton(

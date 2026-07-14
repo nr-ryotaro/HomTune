@@ -140,7 +140,7 @@ class RoomCardWidget extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.photo_camera_outlined,
+                            child: const Icon(Icons.auto_awesome,
                                 size: 18, color: Color(0xFF333333)),
                           ),
                         ),

@@ -73,7 +73,7 @@ void main() {
         requestedCredits: 2,
       );
       expect(sameRoom.allowed, false);
-      expect(sameRoom.reason, contains('1部屋'));
+      expect(sameRoom.reason, contains('アカウント全体で1回'));
       expect(sameRoom.exhaustionReason, AiExhaustionReason.roomQuotaFree);
 
       final otherRoom = await AiUsageService.instance.canRunRoomImage(

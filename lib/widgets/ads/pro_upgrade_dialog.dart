@@ -73,7 +73,8 @@ Future<void> showProUpgradeDialog(
             const Text('• スマートリモコン連携'),
           ] else if (isRoomImage) ...[
             const Text(
-              '無料プランではAI部屋画像は1部屋・1回までです。ほかの部屋はデフォルト画像のまま使え、雰囲気を変えたい・別部屋でも生成したいときは Pro へ。',
+              '部屋カード画像はデフォルトまたはAI生成のみです（実写登録なし）。'
+              'FreeではAI生成をアカウント全体で1回までお試しでき、別部屋・再生成は Pro です。',
               style: TextStyle(fontSize: 13, height: 1.45),
             ),
             const SizedBox(height: 12),
@@ -83,7 +84,7 @@ Future<void> showProUpgradeDialog(
             ),
             const SizedBox(height: 8),
             const Text('• 最大10部屋・部屋ごとに月2回まで再生成'),
-            const Text('• スタイル変更で雰囲気を更新'),
+            const Text('• スタイル指定で雰囲気を更新'),
             const Text('• AIクレジット拡大（チャット・スキャンも）'),
             const SizedBox(height: 8),
             const Text('その他の Pro 特典:'),

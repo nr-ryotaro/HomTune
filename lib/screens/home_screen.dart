@@ -767,14 +767,14 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.photo_camera_outlined, color: Color(0xFF1D4ED8)),
+              const Icon(Icons.auto_awesome, color: Color(0xFF1D4ED8)),
               const SizedBox(width: 12),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '部屋の写真を設定しましょう',
+                      '部屋イメージを整えましょう',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -783,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'いまはサンプル画像です。撮影やアルバムから選べます。',
+                      'デフォルト画像でOK。FreeはAI生成を1回お試しできます。',
                       style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6)),
                     ),
                   ],
@@ -992,12 +992,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.photo_camera_outlined,
+              child: const Icon(Icons.auto_awesome,
                   size: 32, color: Color(0xFF333333)),
             ),
             const SizedBox(height: 24),
             const Text(
-              '部屋の写真を\n設定する',
+              '部屋イメージを\n整える',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -1008,7 +1008,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              '撮影やアルバムから\nお部屋の写真を登録',
+              'デフォルトのまま、または\nAIで1枚お試し生成',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,

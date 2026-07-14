@@ -263,7 +263,7 @@ class AiUsageService {
         return AiBudgetCheck(
           allowed: false,
           reason:
-              'FreeプランではAI部屋画像は1部屋・1回までです。ほかの部屋や再生成は Pro で利用できます。',
+              'FreeプランではAI部屋画像はアカウント全体で1回までです。実写登録はなく、ほかの部屋や再生成は Pro で利用できます。',
           snapshot: base.snapshot,
           exhaustionReason: AiExhaustionReason.roomQuotaFree,
         );

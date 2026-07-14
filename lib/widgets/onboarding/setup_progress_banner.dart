@@ -52,15 +52,15 @@ class SetupProgressBanner extends StatelessWidget {
                   ? (progress.hasApplianceGoal
                       ? '家電 ${progress.applianceProgressCurrent}/${progress.applianceProgressTarget} 台登録済み'
                       : '家電を登録して管理を始めましょう')
-                  : 'まずは部屋の写真を1部屋設定しましょう',
+                  : 'まずは部屋イメージを確認しましょう（デフォルトでOK）',
               style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
             ),
             const SizedBox(height: 12),
             _StepRow(
               index: 1,
-              label: '部屋の写真を設定',
+              label: '部屋イメージを確認',
               done: photoDone,
-              actionLabel: '写真を設定',
+              actionLabel: '確認する',
               onTap: onSetupRoomPhotos,
             ),
             const SizedBox(height: 8),
