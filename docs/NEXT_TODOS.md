@@ -3,9 +3,11 @@
 最終更新: 2026-07-14  
 政策: **部屋画像 = デフォルト or AI生成のみ（実写なし）／Free AI はアカウント生涯1回／カードの差し替えボタンは Free でも常時表示→Pro 訴求**
 
-**運用メモ:** バックエンド設定・新規追加は帰宅後。それ以外は [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md) を正とする。
+**運用メモ:** バックエンド設定・新規追加は帰宅後。  
+**残作業の詳細手順:** [`REMAINING_WORK_GUIDE.md`](./REMAINING_WORK_GUIDE.md)  
+クライアント済の整理: [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md)
 
-関連: [`POLICY_IMPLEMENTATION_AUDIT.md`](./POLICY_IMPLEMENTATION_AUDIT.md), [`RELEASE_PREP_AND_ECONOMICS.md`](./RELEASE_PREP_AND_ECONOMICS.md), [`GEMINI_PROXY_SPEC.md`](./GEMINI_PROXY_SPEC.md), [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md)
+関連: [`POLICY_IMPLEMENTATION_AUDIT.md`](./POLICY_IMPLEMENTATION_AUDIT.md), [`RELEASE_PREP_AND_ECONOMICS.md`](./RELEASE_PREP_AND_ECONOMICS.md), [`GEMINI_PROXY_SPEC.md`](./GEMINI_PROXY_SPEC.md), [`CLIENT_SIDE_TODOS.md`](./CLIENT_SIDE_TODOS.md), [`REMAINING_WORK_GUIDE.md`](./REMAINING_WORK_GUIDE.md)
 
 ---
 
