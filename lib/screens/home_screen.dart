@@ -258,6 +258,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// 部屋カードの画像差し替え。Free は Pro 訴求、Pro は生成フローへ。
+  Future<void> _onCustomizeRoomImage() async {
+    final config = Provider.of<ConfigService>(context, listen: false);
+    if (config.subscriptionTier == SubscriptionTier.pro) {
+      await _openRoomPhotoSetup();
+      return;
+    }
+    if (!mounted) return;
+    await showProUpgradeDialog(
+      context,
+      upsellContext: ProUpsellContext.roomImage,
+    );
+  }
+
   Future<void> _loadOnboardingRoomPrefs() async {
     await RoomNameService.instance.load();
     final ids = await OnboardingPrefs.getSelectedRoomIds();
@@ -951,9 +965,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           rooms[index].id,
                           rooms[index].title,
                         ),
-                        onCustomizePhoto: !_roomPhotosConfigured
-                            ? () => _openRoomPhotoSetup(isFirstLaunch: true)
-                            : null,
+                        onCustomizePhoto: _onCustomizeRoomImage,
                         onRename: () => _renameRoom(rooms[index].id),
                       ),
                       )

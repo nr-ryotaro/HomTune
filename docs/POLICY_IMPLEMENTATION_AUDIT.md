@@ -39,9 +39,10 @@
 
 1. **Free AI部屋画像 = アカウント1回** — `AiUsageService.canRunRoomImage`
 2. **部屋セットアップは実写ボタンなし・AI生成＋デフォルト** — `RoomPhotoSetupScreen`
-3. **オンボーディング／ホームコピーもAI・デフォルト前提**
-4. **L1/L2・リモコンの Pro ゲート、広告 Free のみ**
-5. **月次クレジット 40 / 120**、チャット local-first
+3. **Freeでも画像差し替えボタン常時表示→Pro説明** — `HomeScreen._onCustomizeRoomImage`
+4. **オンボーディング／ホームコピーもAI・デフォルト前提**
+5. **L1/L2・リモコンの Pro ゲート、広告 Free のみ**
+6. **月次クレジット 40 / 120**、チャット local-first
 
 ---
 
@@ -68,7 +69,7 @@
 
 | ID | 問題 | あるべき姿 |
 |----|------|------------|
-| M1 | 使用後も同じ「再生成」入口 | Free枯渇時はラベルを「Proで再生成」に |
+| M1 | 使用後も同じ「再生成」入口 | **部屋カード差し替えは Free 常時表示→Pro訴求（対応済）**。セットアップ枯渇時も「差し替え（Pro）」 |
 | M3 | Hard Cap がクライアント寄り | サーバー Hard Cap |
 | M4 | AdMob 本番ID・eCPM未計測 | 実測ARPUへ |
 | M5 | `freeRoomImageLifetimePerRoom` レガシー残 | deprecate / 削除 |
@@ -88,9 +89,4 @@
 
 ---
 
-## 推奨修正順（政策決定後）
-
-1. ~~政策 A/B~~ **済（B＋実写なし）**
-2. **B1–B3** サーバー真実化
-3. **H3 / H4 / M1** Free クラウド抑制・FairUse・使用後CTA
-4. **B4 / M4** IAP・AdMob
+本監査の詳細TODOは [`NEXT_TODOS.md`](./NEXT_TODOS.md)。次の実装主戦場はサーバー lifetime / tier / 単一計上（B1–B4）。

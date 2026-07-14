@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/ai_usage_policy.dart';
+import '../services/ai_usage_service.dart';
 import '../services/config_service.dart';
 import '../services/onboarding_prefs.dart';
 import '../services/room_image_generation_service.dart';
@@ -29,6 +30,8 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
   bool _loading = true;
   bool _isGenerating = false;
   bool _didGenerateOnceThisSession = false;
+  bool _canGenerateRoomImage = true;
+  bool _isPro = false;
 
   @override
   void initState() {
@@ -48,9 +51,36 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
     for (final id in _roomIds) {
       _displayPaths[id] = await RoomPhotoService.imagePathForRoom(id);
     }
+    await _refreshGenerationGate();
     if (mounted) {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _refreshGenerationGate() async {
+    if (!mounted) return;
+    final config = Provider.of<ConfigService>(context, listen: false);
+    final isPro = config.subscriptionTier == SubscriptionTier.pro;
+    if (isPro) {
+      setState(() {
+        _isPro = true;
+        _canGenerateRoomImage = true;
+      });
+      return;
+    }
+    final roomId = _roomIds.isEmpty
+        ? 'living-room'
+        : _roomIds[_index.clamp(0, _roomIds.length - 1)];
+    final check = await AiUsageService.instance.canRunRoomImage(
+      config,
+      roomId: roomId,
+      requestedCredits: AiUsagePolicy.roomImageCreditsPerGeneration,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isPro = false;
+      _canGenerateRoomImage = check.allowed;
+    });
   }
 
   String get _currentRoomId => _roomIds[_index];
@@ -63,9 +93,22 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
     return path.isNotEmpty && !RoomPhotoService.isAssetPath(path);
   }
 
+  /// Free 枯渇時は Pro 訴求。枠あり / Pro は生成。
+  Future<void> _onPrimaryImageAction() async {
+    if (!_isPro && !_canGenerateRoomImage) {
+      await showProUpgradeDialog(
+        context,
+        upsellContext: ProUpsellContext.roomImage,
+      );
+      return;
+    }
+    await _generateWithAi();
+  }
+
   void _skipRoom() {
     if (_index < _roomIds.length - 1) {
       setState(() => _index++);
+      _refreshGenerationGate();
     } else {
       _finish();
     }
@@ -142,13 +185,15 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
         _displayPaths[_currentRoomId] = generatedPath;
         _didGenerateOnceThisSession = true;
       });
+      await _refreshGenerationGate();
+      if (!mounted) return;
       final isPro = configService.subscriptionTier == SubscriptionTier.pro;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             isPro
                 ? 'AI画像を生成して適用しました。'
-                : 'お試し生成が完了しました。ほかの部屋はデフォルト画像のまま使えます。',
+                : 'お試し生成が完了しました。ほかの部屋や差し替えは Pro で利用できます。',
           ),
         ),
       );
@@ -162,6 +207,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
           check: e.budget!,
           upsellContext: ProUpsellContext.roomImage,
         );
+        await _refreshGenerationGate();
         return;
       }
       final message = e is RoomImageGenerationException ? e.message : '$e';
@@ -173,6 +219,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
           context,
           upsellContext: ProUpsellContext.roomImage,
         );
+        await _refreshGenerationGate();
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -195,6 +242,15 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
     return Image.file(File(path), fit: BoxFit.cover);
   }
 
+  String get _primaryLabel {
+    if (_isGenerating) return '生成中...';
+    if (!_isPro && !_canGenerateRoomImage) {
+      return '画像を差し替え（Pro）';
+    }
+    if (_hasGeneratedImage) return 'AIで再生成する';
+    return 'AIで部屋画像を作る';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -204,9 +260,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
     }
 
     final path = _displayPaths[_currentRoomId] ?? '';
-    final generateLabel = _isGenerating
-        ? '生成中...'
-        : (_hasGeneratedImage ? 'AIで再生成する' : 'AIで部屋画像を作る');
+    final showProReplace = !_isPro && !_canGenerateRoomImage;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAF8),
@@ -242,9 +296,11 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _didGenerateOnceThisSession
-                  ? 'デフォルト画像のままでも使えます。FreeのAI生成はアカウント全体で1回までです。'
-                  : '各部屋はデフォルト画像で使えます。雰囲気を変えたいときだけ AI で1枚作れます（Freeはアカウント生涯1回）。',
+              showProReplace
+                  ? 'お試し生成は使用済みです。画像を差し替える場合は Pro プランをご確認ください。'
+                  : (_didGenerateOnceThisSession
+                      ? 'デフォルト画像のままでも使えます。FreeのAI生成はアカウント全体で1回までです。'
+                      : '各部屋はデフォルト画像で使えます。雰囲気を変えたいときだけ AI で1枚作れます（Freeはアカウント生涯1回）。'),
               style: const TextStyle(
                 fontSize: 14,
                 height: 1.6,
@@ -273,7 +329,7 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _isGenerating ? null : _generateWithAi,
+                onPressed: _isGenerating ? null : _onPrimaryImageAction,
                 icon: _isGenerating
                     ? const SizedBox(
                         width: 18,
@@ -283,8 +339,12 @@ class _RoomPhotoSetupScreenState extends State<RoomPhotoSetupScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(generateLabel),
+                    : Icon(
+                        showProReplace
+                            ? Icons.workspace_premium_outlined
+                            : Icons.auto_awesome,
+                      ),
+                label: Text(_primaryLabel),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF333333),
                   foregroundColor: Colors.white,
